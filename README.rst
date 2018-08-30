@@ -1,0 +1,84 @@
+Dual-Tree Complex Wavelet Transform in Pytorch
+==============================================
+
+This package provides support for computing the 2D dual-tree complex wavelet
+transforms, their inverses, and passing gradients through both using pytorch.
+
+The implementation is designed to be used with batches of multichannel images.
+We use the standard pytorch implementation of having 'NCHW' data format.
+
+Installation
+````````````
+The easiest way to install ``dtcwt_pytorch`` is to clone the repo and pip install
+it. Later versions will be released on PyPi but the docs need to updated first::
+
+    $ git clone https://github.com/fbcotter/dtcwt_pytorch
+    $ cd dtcwt_pytorch
+    $ python setup.py install # (or pip install .)
+
+(Although the `develop` command may be more useful if you intend to perform any
+significant modification to the library.) A test suite is provided so that you
+may verify the code works on your system::
+
+    $ pip install -r tests/requirements.txt
+    $ pytest tests/
+
+Example Use
+```````````
+.. code python
+
+    import torch
+    from dtcwt_pytorch import DTCWTForward, DTCWTInverse
+    xfm = DTCWTForward(C=5, J=3, biort='near_sym_b', qshift='qshift_b')
+    X = torch.randn(10,5,64,64)
+    Yl, Yh = xfm(X) 
+    print(Yl.shape)
+    >>> torch.Size([10, 5, 16, 16])
+    print(Yh[0].shape) 
+    >>> torch.Size([10, 5, 6, 32, 32, 2])
+    print(Yh[1].shape)
+    >>> torch.Size([10, 5, 6, 16, 16, 2])
+    print(Yh[2].shape)
+    >>> torch.Size([10, 5, 6, 8, 8, 2])
+    ifm = DTCWTInverse(C=5, J=3, biort='near_sym_b', qshift='qshift_b')
+    Y = ifm(Yl, Yh)
+
+Some initial notes:
+
+- You need to specify the number of channels and the number of scales for both
+  the forward and inverse transform. Make sure they are the same! The same goes
+  for the filter types used.
+- Yh returned is a tuple. There are 2 extra dimensions - the first comes between
+  the channel dimension of the input and the row dimension. This is the
+  6 orientations of the DTCWT. The second is the final dimension, which is the
+  real an imaginary parts (complex numbers are not native to pytorch)
+
+Running on the GPU
+~~~~~~~~~~~~~~~~~~
+This should come as no surprise to pytorch users. The DTCWT transforms support
+cuda calling:
+
+.. code python
+
+    import torch
+    from dtcwt_pytorch import DTCWTForward, DTCWTInverse
+    xfm = DTCWTForward(C=5, J=3, biort='near_sym_b', qshift='qshift_b').cuda()
+    X = torch.randn(10,5,64,64).cuda()
+    Yl, Yh = xfm(X) 
+    ifm = DTCWTInverse(C=5, J=3, biort='near_sym_b', qshift='qshift_b').cuda()
+    Y = ifm(Yl, Yh)
+
+Backpropagation
+~~~~~~~~~~~~~~~
+It is possible to pass gradients through the forward and backward transforms.
+All you need to do is ensure that the input to each has the required_grad
+attribute set to true.
+
+Provenance
+``````````
+Based on the Dual-Tree Complex Wavelet Transform Pack for MATLAB by Nick
+Kingsbury, Cambridge University. The original README can be found in
+ORIGINAL_README.txt.  This file outlines the conditions of use of the original
+MATLAB toolbox.
+
+.. vim:sw=4:sts=4:et

@@ -1,0 +1,6 @@
+exclude tests/
+exclude docs/
+exclude .*
+include README.rst
+include dtcwt_slim/data/*.npz
+
