@@ -1,0 +1,5 @@
+numpy
+torch
+pytest
+coverage
+pytest-cov
