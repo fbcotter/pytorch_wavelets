@@ -1,0 +1,15 @@
+language: python
+# Run in a container
+dist: trusty
+sudo: false
+python:
+    - "3.4"
+    - "3.5"
+    - "3.6"
+#Command to install dependencies
+git:
+    depth: 1
+install: 
+    - pip install -r requirements.txt
+    - pip install .
+script: pytest 

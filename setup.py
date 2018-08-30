@@ -21,8 +21,8 @@ setup(
     version=metadata['version'],
     author="Fergal Cotter",
     author_email="fbc23@cam.ac.uk",
-    description=("A slim port of the DTCWT toolbox to run on pytorch"),
-    license="Free To Use But Restricted",
+    description=("A port of the DTCWT toolbox to run on pytorch"),
+    license="Free To Use",
     keywords="numpy, wavelet, complex wavelet, DT-CWT",
     url="https://github.com/fbcotter/dtcwt_slim",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
@@ -33,14 +33,13 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     include_package_data=True,
-    install_requires=['numpy', 'six', 'dtcwt'],
+    install_requires=['numpy', 'six', 'torch'],
 
     extras_require={
         'docs': ['sphinx', 'docutils', 'matplotlib', 'ipython', ],
-        'opencl': ['pyopencl', ],
     },
 
-    tests_require=['coverage', 'py3nvml', 'dtcwt'],
+    tests_require=['coverage', 'py3nvml', 'dtcwt', 'dtcwt_slim'],
 )
 
 # vim:sw=4:sts=4:et
