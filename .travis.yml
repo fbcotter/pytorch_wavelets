@@ -1,7 +1,7 @@
 language: python
 # Run in a container
 dist: trusty
-sudo: required
+sudo: false
 python:
     - "3.5"
     - "3.6"
