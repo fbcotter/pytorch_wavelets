@@ -3,6 +3,11 @@ from __future__ import absolute_import
 try:
     import cupy
     _HAVE_CUPY = True
+    @cupy.util.memoize(for_each_device=True)
+    def load_kernel(kernel_name, code, **kwargs):
+        code = Template(code).substitute(**kwargs)
+        kernel_code = cupy.cuda.compile_with_cache(code)
+        return kernel_code.get_function(kernel_name)
 except ImportError:
     _HAVE_CUPY = False
 
@@ -165,16 +170,10 @@ def rowfilter(X, h):
     return F.conv2d(X[:,:,:,xe], h, groups=ch)
 
 
-@cupy.util.memoize(for_each_device=True)
-def load_kernel(kernel_name, code, **kwargs):
-    code = Template(code).substitute(**kwargs)
-    kernel_code = cupy.cuda.compile_with_cache(code)
-    return kernel_code.get_function(kernel_name)
-
-
 class RowFilter(Function):
-
     def __init__(self, weight, klow=None, khigh=None):
+        if not _HAVE_CUPY:
+            raise ValueError("Need cupy installed to use this function")
         super(RowFilter, self).__init__()
         self.weight = weight
         if klow is None:
@@ -226,6 +225,8 @@ class RowFilter(Function):
 
 class ColFilter(Function):
     def __init__(self, weight, klow=None, khigh=None):
+        if not _HAVE_CUPY:
+            raise ValueError("Need cupy installed to use this function")
         super(ColFilter, self).__init__()
         self.weight = weight
         if klow is None:
