@@ -1,7 +1,7 @@
 import pytest
 
 import numpy as np
-from dtcwt_slim.numpy import Transform2d as Transform2d_np
+from Transform2d_np import Transform2d as Transform2d_np
 from dtcwt_pytorch import DTCWTForward, DTCWTInverse
 import datasets
 import torch

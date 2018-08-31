@@ -1,7 +1,7 @@
 import pytest
 
 import numpy as np
-from dtcwt_slim.numpy import Transform2d as Transform2d_np
+from Transform2d_np import Transform2d as Transform2d_np
 from dtcwt_pytorch import DTCWTForward, DTCWTInverse
 import datasets
 import torch
@@ -10,6 +10,7 @@ PRECISION_DECIMAL = 3
 
 HAVE_GPU = torch.cuda.is_available()
 pytestmark = pytest.mark.skipif(HAVE_GPU == False, reason='Need a gpu to test cuda')
+
 
 def setup():
     global barbara, barbara_t
