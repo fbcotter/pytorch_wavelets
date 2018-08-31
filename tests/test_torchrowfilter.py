@@ -64,7 +64,7 @@ def test_even_size_batch():
     h = [-1, 1]
     y = rowfilter(zero_t, prep_filt(h, 3))
     assert list(y.shape)[1:] == bshape_extracol
-    assert not np.any(y[:] != 0.0)
+    np.testing.assert_array_almost_equal(y, np.zeros_like(y), decimal=5)
 
 
 def test_equal_small_in():
