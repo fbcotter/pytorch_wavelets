@@ -44,10 +44,10 @@ class Transform2d(object):
     ----------
     biort: str or np.array
         The biorthogonal wavelet family to use. If a string, will use this to
-        call dtcwt_slim.coeffs.biort. If an array, will use these as the values.
+        call dtcwt_pytorch.coeffs.biort. If an array, will use these as the values.
     qshift: str or np.array
         The quarter shift wavelet family to use. If a string, will use this to
-        call dtcwt_slim.coeffs.biort. If an array, will use these as the values.
+        call dtcwt_pytorch.coeffs.biort. If an array, will use these as the values.
 
     .. note::
 

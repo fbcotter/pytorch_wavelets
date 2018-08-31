@@ -5,9 +5,9 @@ try:
 except ImportError:
     _HAVE_TORCH = False
 
-from dtcwt_slim.coeffs import biort as _biort, qshift as _qshift
-from dtcwt_slim.torch.lowlevel import prep_filt
-from dtcwt_slim.torch import transform_funcs as tf
+from dtcwt_pytorch.coeffs import biort as _biort, qshift as _qshift
+from dtcwt_pytorch.backend.lowlevel import prep_filt
+from dtcwt_pytorch.backend import transform_funcs as tf
 
 
 class DTCWTForward(nn.Module):

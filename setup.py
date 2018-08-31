@@ -24,7 +24,7 @@ setup(
     description=("A port of the DTCWT toolbox to run on pytorch"),
     license="Free To Use",
     keywords="numpy, wavelet, complex wavelet, DT-CWT",
-    url="https://github.com/fbcotter/dtcwt_slim",
+    url="https://github.com/fbcotter/dtcwt_pytorch",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     long_description=read('README.rst'),
     classifiers=[
@@ -39,7 +39,7 @@ setup(
         'docs': ['sphinx', 'docutils', 'matplotlib', 'ipython', ],
     },
 
-    tests_require=['coverage', 'py3nvml', 'dtcwt', 'dtcwt_slim'],
+    tests_require=['coverage', 'py3nvml', 'dtcwt'],
 )
 
 # vim:sw=4:sts=4:et

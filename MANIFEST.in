@@ -2,5 +2,5 @@ exclude tests/
 exclude docs/
 exclude .*
 include README.rst
-include dtcwt_slim/data/*.npz
+include dtcwt_pytorch/data/*.npz
 

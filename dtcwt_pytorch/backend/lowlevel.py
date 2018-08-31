@@ -8,7 +8,7 @@ except ImportError:
     _HAVE_TORCH = False
 
 import numpy as np
-from dtcwt_slim.utils import reflect
+from dtcwt_pytorch.utils import reflect
 from string import Template
 from torch.autograd import Function
 import cupy
