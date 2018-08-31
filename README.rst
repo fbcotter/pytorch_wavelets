@@ -1,7 +1,10 @@
 Dual-Tree Complex Wavelet Transform in Pytorch
 ==============================================
 
-[![Build Status](https://travis-ci.org/fbcotter/dtcwt_pytorch.png?branch=master)](https://travis-ci.org/fbcotter/dtcwt_pytorch)
+|Build Status|
+
+.. |Build Status| image:: https://travis-ci.org/fbcotter/dtcwt_pytorch.png?branch=master
+    :target: https://travis-ci.org/fbcotter/dtcwt_pytorch
 
 This package provides support for computing the 2D dual-tree complex wavelet
 transforms, their inverses, and passing gradients through both using pytorch.
