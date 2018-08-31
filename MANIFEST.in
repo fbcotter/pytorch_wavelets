@@ -4,4 +4,5 @@ exclude .*
 include README.rst
 include dtcwt_pytorch/data/*.npz
 include dtcwt_pytorch/backend/filters.cu
+include tests/*.npz
 
