@@ -30,7 +30,7 @@ may verify the code works on your system::
 
 Example Use
 ```````````
-.. code python
+.. code:: python
 
     import torch
     from dtcwt_pytorch import DTCWTForward, DTCWTInverse
@@ -63,7 +63,7 @@ Running on the GPU
 This should come as no surprise to pytorch users. The DTCWT transforms support
 cuda calling:
 
-.. code python
+.. code:: python
 
     import torch
     from dtcwt_pytorch import DTCWTForward, DTCWTInverse
@@ -72,6 +72,18 @@ cuda calling:
     Yl, Yh = xfm(X) 
     ifm = DTCWTInverse(C=5, J=3, biort='near_sym_b', qshift='qshift_b').cuda()
     Y = ifm(Yl, Yh)
+
+The automated tests cannot test the gpu functionality, but do check cpu running.
+To test whether the repo is working on your gpu, you can download the repo,
+ensure you have pytorch with cuda enabled (the tests will check to see if
+:code:`torch.cuda.is_available()` returns true), and run:
+
+.. code:: 
+
+    pip install -r tests/requirements.txt
+    pytest tests/
+
+From the base of the repo.
 
 Backpropagation
 ~~~~~~~~~~~~~~~
