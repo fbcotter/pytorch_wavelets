@@ -3,7 +3,6 @@ from dtcwt_pytorch.coeffs import qshift
 from dtcwt.numpy.lowlevel import coldfilt as np_coldfilt
 from dtcwt_pytorch.backend.lowlevel import rowdfilt, prep_filt
 import torch
-import py3nvml
 import pytest
 from pytest import raises
 import datasets
@@ -13,7 +12,6 @@ def setup():
     global barbara, barbara_t
     global bshape, bshape_half
     global ref_rowdfilt, ch
-    py3nvml.grab_gpus(1, gpu_fraction=0.5)
     barbara = datasets.barbara()
     barbara = (barbara/barbara.max()).astype('float32')
     barbara = barbara.transpose([2, 0, 1])

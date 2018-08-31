@@ -6,14 +6,12 @@ import pytest
 import datasets
 from dtcwt_pytorch.backend.lowlevel import colfilter, prep_filt
 import torch
-import py3nvml
 
 
 def setup():
     global barbara, barbara_t
     global bshape, bshape_extrarow
     global ref_colfilter, ch
-    py3nvml.grab_gpus(1, gpu_fraction=0.5)
     barbara = datasets.barbara()
     barbara = (barbara/barbara.max()).astype('float32')
     barbara = barbara.transpose([2, 0, 1])

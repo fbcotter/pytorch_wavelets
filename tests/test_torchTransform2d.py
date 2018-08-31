@@ -5,7 +5,6 @@ from Transform2d_np import Transform2d as Transform2d_np
 from dtcwt_pytorch import DTCWTForward, DTCWTInverse
 import datasets
 import torch
-import py3nvml
 PRECISION_DECIMAL = 3
 
 
@@ -13,7 +12,6 @@ def setup():
     global barbara, barbara_t
     global bshape, bshape_half
     global ch
-    py3nvml.grab_gpus(1, gpu_fraction=0.5)
     barbara = datasets.barbara()
     barbara = (barbara/barbara.max()).astype('float32')
     barbara = barbara.transpose([2, 0, 1])
