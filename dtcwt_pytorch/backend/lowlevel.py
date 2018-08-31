@@ -1,17 +1,17 @@
 from __future__ import absolute_import
 
 try:
-    import torch
-    import torch.nn.functional as F
-    _HAVE_TORCH = True
+    import cupy
+    _HAVE_CUPY = True
 except ImportError:
-    _HAVE_TORCH = False
+    _HAVE_CUPY = False
 
+import torch
+import torch.nn.functional as F
+from torch.autograd import Function
 import numpy as np
 from dtcwt_pytorch.utils import reflect
 from string import Template
-from torch.autograd import Function
-import cupy
 from collections import namedtuple
 import pkg_resources
 Stream = namedtuple('Stream', ['ptr'])
