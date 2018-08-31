@@ -9,6 +9,6 @@ python:
 git:
     depth: 1
 install: 
-    - pip install --quiet -r requirements.txt
+    - pip install --quiet -r tests/requirements.txt
     - pip install .
 script: pytest 
