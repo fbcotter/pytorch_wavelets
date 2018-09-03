@@ -116,7 +116,7 @@ def test_fwd_nol1(J):
     f1 = Transform2d_np()
     yl, yh = f1.forward(X, nlevels=J)
 
-    assert Yh[0] is None
+    assert Yh[0].shape == torch.Size([0])
 
     np.testing.assert_array_almost_equal(
         Yl, yl, decimal=PRECISION_DECIMAL)
@@ -156,7 +156,7 @@ def test_inv_nol1(J):
     Yh2 = [torch.tensor(np.stack((yhr, yhi), axis=-1), dtype=torch.float32)
            for yhr, yhi in zip(Yhr, Yhi)]
     # Set the torch l1 coeffs to None
-    Yh2[0] = None
+    Yh2[0] = torch.tensor([])
 
     ifm = DTCWTInverse(C=5, J=J, skip_hps=True)
     X = ifm(torch.tensor(Yl, dtype=torch.float32), Yh2)

@@ -61,7 +61,8 @@ class xfm1(Function):
 
     @staticmethod
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(input.shape, h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.in_shape = input.shape
         ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
@@ -90,7 +91,8 @@ class xfm1(Function):
 
     @staticmethod
     def backward(ctx, grad_LoLo, grad_Yh1):
-        in_shape, h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        in_shape = ctx.in_shape
         grad_input = None
         # Use the special properties of the filters to get the time reverse
         h0o_t = h0o
@@ -156,7 +158,8 @@ class xfm1no_l1(Function):
 
     @staticmethod
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(input.shape, h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.in_shape = input.shape
         ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
@@ -177,7 +180,8 @@ class xfm1no_l1(Function):
 
     @staticmethod
     def backward(ctx, grad_LoLo, grad_Yh1):
-        in_shape, h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        in_shape = ctx.in_shape
         grad_input = None
         # Use the special properties of the filters to get the time reverse
         h0o_t = h0o
@@ -285,7 +289,8 @@ class xfm2(Function):
 
     @staticmethod
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(input.shape, h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.in_shape = input.shape
         ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
@@ -334,7 +339,8 @@ class xfm2(Function):
 
     @staticmethod
     def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2):
-        in_shape, h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        in_shape = ctx.in_shape
         grad_input = None
         # Use the special properties of the filters to get the time reverse
         h0o_t = h0o
@@ -386,7 +392,7 @@ class ifm2no_l1(Function):
         Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
         Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
         ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-
+        
         # Level 1 inverse - no highpasses so only use the
         # Low-low band with biorthogonal synthesis filters
         y = rowfilter(colfilter(ll, g0o), g0o)
@@ -442,7 +448,8 @@ class xfm2no_l1(Function):
 
     @staticmethod
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(input.shape, h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.in_shape = input.shape
         ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
@@ -483,7 +490,8 @@ class xfm2no_l1(Function):
 
     @staticmethod
     def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2):
-        in_shape, h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        in_shape = ctx.in_shape
         grad_input = None
         # Use the special properties of the filters to get the time reverse
         h0o_t = h0o
@@ -639,7 +647,8 @@ class xfm3(Function):
 
     @staticmethod
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(input.shape, h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.in_shape = input.shape
         ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
@@ -708,7 +717,8 @@ class xfm3(Function):
 
     @staticmethod
     def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2, grad_Yh3):
-        in_shape, h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        in_shape = ctx.in_shape
         grad_input = None
         # Use the special properties of the filters to get the time reverse
         h0o_t = h0o
@@ -788,7 +798,7 @@ class ifm3no_l1(Function):
         Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
         Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
         ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-
+        
         # Level 1 inverse - no highpasses so only use the
         # Low-low band with biorthogonal synthesis filters
         y = rowfilter(colfilter(ll, g0o), g0o)
@@ -864,7 +874,8 @@ class xfm3no_l1(Function):
 
     @staticmethod
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(input.shape, h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.in_shape = input.shape
         ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
@@ -925,7 +936,8 @@ class xfm3no_l1(Function):
 
     @staticmethod
     def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2, grad_Yh3):
-        in_shape, h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        in_shape = ctx.in_shape
         grad_input = None
         # Use the special properties of the filters to get the time reverse
         h0o_t = h0o
@@ -1129,7 +1141,8 @@ class xfm4(Function):
 
     @staticmethod
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(input.shape, h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.in_shape = input.shape
         ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
@@ -1218,7 +1231,8 @@ class xfm4(Function):
 
     @staticmethod
     def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2, grad_Yh3, grad_Yh4):
-        in_shape, h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        in_shape = ctx.in_shape
         grad_input = None
         # Use the special properties of the filters to get the time reverse
         h0o_t = h0o
@@ -1326,7 +1340,7 @@ class ifm4no_l1(Function):
         Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
         Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
         ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-
+        
         # Level 1 inverse - no highpasses so only use the
         # Low-low band with biorthogonal synthesis filters
         y = rowfilter(colfilter(ll, g0o), g0o)
@@ -1422,7 +1436,8 @@ class xfm4no_l1(Function):
 
     @staticmethod
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(input.shape, h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.in_shape = input.shape
         ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
@@ -1503,7 +1518,8 @@ class xfm4no_l1(Function):
 
     @staticmethod
     def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2, grad_Yh3, grad_Yh4):
-        in_shape, h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        in_shape = ctx.in_shape
         grad_input = None
         # Use the special properties of the filters to get the time reverse
         h0o_t = h0o
@@ -1755,7 +1771,8 @@ class xfm5(Function):
 
     @staticmethod
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(input.shape, h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.in_shape = input.shape
         ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
@@ -1864,7 +1881,8 @@ class xfm5(Function):
 
     @staticmethod
     def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2, grad_Yh3, grad_Yh4, grad_Yh5):
-        in_shape, h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        in_shape = ctx.in_shape
         grad_input = None
         # Use the special properties of the filters to get the time reverse
         h0o_t = h0o
@@ -2000,7 +2018,7 @@ class ifm5no_l1(Function):
         Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
         Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
         ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-
+        
         # Level 1 inverse - no highpasses so only use the
         # Low-low band with biorthogonal synthesis filters
         y = rowfilter(colfilter(ll, g0o), g0o)
@@ -2116,7 +2134,8 @@ class xfm5no_l1(Function):
 
     @staticmethod
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(input.shape, h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.in_shape = input.shape
         ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
@@ -2217,7 +2236,8 @@ class xfm5no_l1(Function):
 
     @staticmethod
     def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2, grad_Yh3, grad_Yh4, grad_Yh5):
-        in_shape, h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        in_shape = ctx.in_shape
         grad_input = None
         # Use the special properties of the filters to get the time reverse
         h0o_t = h0o
@@ -2517,7 +2537,8 @@ class xfm6(Function):
 
     @staticmethod
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(input.shape, h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.in_shape = input.shape
         ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
@@ -2646,7 +2667,8 @@ class xfm6(Function):
 
     @staticmethod
     def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2, grad_Yh3, grad_Yh4, grad_Yh5, grad_Yh6):
-        in_shape, h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        in_shape = ctx.in_shape
         grad_input = None
         # Use the special properties of the filters to get the time reverse
         h0o_t = h0o
@@ -2810,7 +2832,7 @@ class ifm6no_l1(Function):
         Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
         Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
         ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-
+        
         # Level 1 inverse - no highpasses so only use the
         # Low-low band with biorthogonal synthesis filters
         y = rowfilter(colfilter(ll, g0o), g0o)
@@ -2946,7 +2968,8 @@ class xfm6no_l1(Function):
 
     @staticmethod
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(input.shape, h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.in_shape = input.shape
         ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
@@ -3067,7 +3090,8 @@ class xfm6no_l1(Function):
 
     @staticmethod
     def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2, grad_Yh3, grad_Yh4, grad_Yh5, grad_Yh6):
-        in_shape, h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        in_shape = ctx.in_shape
         grad_input = None
         # Use the special properties of the filters to get the time reverse
         h0o_t = h0o
@@ -3415,7 +3439,8 @@ class xfm7(Function):
 
     @staticmethod
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(input.shape, h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.in_shape = input.shape
         ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
@@ -3564,7 +3589,8 @@ class xfm7(Function):
 
     @staticmethod
     def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2, grad_Yh3, grad_Yh4, grad_Yh5, grad_Yh6, grad_Yh7):
-        in_shape, h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        in_shape = ctx.in_shape
         grad_input = None
         # Use the special properties of the filters to get the time reverse
         h0o_t = h0o
@@ -3756,7 +3782,7 @@ class ifm7no_l1(Function):
         Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
         Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
         ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-
+        
         # Level 1 inverse - no highpasses so only use the
         # Low-low band with biorthogonal synthesis filters
         y = rowfilter(colfilter(ll, g0o), g0o)
@@ -3912,7 +3938,8 @@ class xfm7no_l1(Function):
 
     @staticmethod
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(input.shape, h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.in_shape = input.shape
         ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
@@ -4053,7 +4080,8 @@ class xfm7no_l1(Function):
 
     @staticmethod
     def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2, grad_Yh3, grad_Yh4, grad_Yh5, grad_Yh6, grad_Yh7):
-        in_shape, h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        in_shape = ctx.in_shape
         grad_input = None
         # Use the special properties of the filters to get the time reverse
         h0o_t = h0o

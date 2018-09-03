@@ -67,11 +67,6 @@ class DTCWTForward(nn.Module):
         coeffs = self.dtcwt_func.apply(input, self.h0o, self.h1o, self.h0a,
                                        self.h0b, self.h1a, self.h1b)
         # Return in the format: (yl, yh)
-        if self.skip_hps:
-            try:
-                return coeffs[0], (None, ) + coeffs[2:]
-            except IndexError:
-                return coeffs[0], (None,)
         return coeffs[0], coeffs[1:]
 
 
@@ -129,7 +124,7 @@ class DTCWTInverse(nn.Module):
         assert self.C == yl.shape[1], "Input channels ({}) don't match " \
             "Initialization channels ({})".format(yl.shape[1], self.C)
         for s in yh:
-            if s is not None:
+            if s.shape != torch.Size([0]):
                 assert s.shape[2] == 6, "Inverse transform must have input " \
                     "with 6 orientations"
                 assert s.shape[-1] == 2, "Inputs must be complex with real " \
@@ -137,8 +132,5 @@ class DTCWTInverse(nn.Module):
                 assert len(s.shape) == 6, "Bandpass inputs must have shape " \
                     "(n, c, 6, h, w, 2)"
 
-        if self.skip_hps:
-            yh = list(yh)
-            yh[0] = torch.tensor([])
         return self.dtcwt_func.apply(yl, *yh, self.g0o, self.g1o, self.g0a,
                                      self.g0b, self.g1a, self.g1b)

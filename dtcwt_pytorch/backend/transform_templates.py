@@ -77,7 +77,8 @@ class xfm{J}{skip_hps}(Function):
 
     @staticmethod
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(input.shape, h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
+        ctx.in_shape = input.shape
         ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
@@ -94,7 +95,8 @@ class xfm{J}{skip_hps}(Function):
 
     @staticmethod
     def backward(ctx, grad_LoLo, {bwd_in}):
-        in_shape, h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
+        in_shape = ctx.in_shape
         grad_input = None
         # Use the special properties of the filters to get the time reverse
         h0o_t = h0o
