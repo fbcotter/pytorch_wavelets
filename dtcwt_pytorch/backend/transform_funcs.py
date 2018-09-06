@@ -10,7 +10,6 @@ class ifm1(Function):
     @staticmethod
     def forward(ctx, yl, yh1, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        ctx.calc_gradients = yl.requires_grad
         batch, ch, r, c = yl.shape
         ll = yl
         # Level 1 inverse with biorthogonal synthesis filters
@@ -37,7 +36,7 @@ class ifm1(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -63,7 +62,6 @@ class xfm1(Function):
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
-        ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -102,7 +100,7 @@ class xfm1(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             ll = grad_LoLo
             # Level 1 backward (time reversed biorthogonal analysis filters)
             lh = c2q(grad_Yh1[:,:,0:6:5])
@@ -120,7 +118,6 @@ class ifm1no_l1(Function):
     @staticmethod
     def forward(ctx, yl, yh1, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        ctx.calc_gradients = yl.requires_grad
         batch, ch, r, c = yl.shape
         ll = yl
         # Level 1 inverse - no highpasses so only use the
@@ -143,7 +140,7 @@ class ifm1no_l1(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -160,7 +157,6 @@ class xfm1no_l1(Function):
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
-        ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -191,7 +187,7 @@ class xfm1no_l1(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             ll = grad_LoLo
             # Level 1 backward (time reversed biorthogonal analysis filters). No
             # Highpasses so only need to use the low-low
@@ -205,7 +201,6 @@ class ifm2(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        ctx.calc_gradients = yl.requires_grad
         batch, ch, r, c = yl.shape
         ll = yl
         # Level 2 inverse transform with quater shift synthesis filters
@@ -246,7 +241,7 @@ class ifm2(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -291,7 +286,6 @@ class xfm2(Function):
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
-        ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -350,7 +344,7 @@ class xfm2(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             ll = grad_LoLo
             # Level 2 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh2[:,:,0:6:5])
@@ -382,7 +376,6 @@ class ifm2no_l1(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        ctx.calc_gradients = yl.requires_grad
         batch, ch, r, c = yl.shape
         ll = yl
         # Level 2 inverse transform with quater shift synthesis filters
@@ -414,7 +407,7 @@ class ifm2no_l1(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -450,7 +443,6 @@ class xfm2no_l1(Function):
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
-        ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -501,7 +493,7 @@ class xfm2no_l1(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             ll = grad_LoLo
             # Level 2 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh2[:,:,0:6:5])
@@ -529,7 +521,6 @@ class ifm3(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, yh3, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        ctx.calc_gradients = yl.requires_grad
         batch, ch, r, c = yl.shape
         ll = yl
         # Level 3 inverse transform with quater shift synthesis filters
@@ -585,7 +576,7 @@ class ifm3(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -649,7 +640,6 @@ class xfm3(Function):
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
-        ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -728,7 +718,7 @@ class xfm3(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             ll = grad_LoLo
             # Level 3 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh3[:,:,0:6:5])
@@ -774,7 +764,6 @@ class ifm3no_l1(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, yh3, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        ctx.calc_gradients = yl.requires_grad
         batch, ch, r, c = yl.shape
         ll = yl
         # Level 3 inverse transform with quater shift synthesis filters
@@ -821,7 +810,7 @@ class ifm3no_l1(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -876,7 +865,6 @@ class xfm3no_l1(Function):
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
-        ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -947,7 +935,7 @@ class xfm3no_l1(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             ll = grad_LoLo
             # Level 3 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh3[:,:,0:6:5])
@@ -989,7 +977,6 @@ class ifm4(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, yh3, yh4, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        ctx.calc_gradients = yl.requires_grad
         batch, ch, r, c = yl.shape
         ll = yl
         # Level 4 inverse transform with quater shift synthesis filters
@@ -1060,7 +1047,7 @@ class ifm4(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -1143,7 +1130,6 @@ class xfm4(Function):
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
-        ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -1242,7 +1228,7 @@ class xfm4(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             ll = grad_LoLo
             # Level 4 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh4[:,:,0:6:5])
@@ -1302,7 +1288,6 @@ class ifm4no_l1(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, yh3, yh4, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        ctx.calc_gradients = yl.requires_grad
         batch, ch, r, c = yl.shape
         ll = yl
         # Level 4 inverse transform with quater shift synthesis filters
@@ -1364,7 +1349,7 @@ class ifm4no_l1(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -1438,7 +1423,6 @@ class xfm4no_l1(Function):
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
-        ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -1529,7 +1513,7 @@ class xfm4no_l1(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             ll = grad_LoLo
             # Level 4 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh4[:,:,0:6:5])
@@ -1585,7 +1569,6 @@ class ifm5(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, yh3, yh4, yh5, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        ctx.calc_gradients = yl.requires_grad
         batch, ch, r, c = yl.shape
         ll = yl
         # Level 5 inverse transform with quater shift synthesis filters
@@ -1671,7 +1654,7 @@ class ifm5(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -1773,7 +1756,6 @@ class xfm5(Function):
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
-        ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -1892,7 +1874,7 @@ class xfm5(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             ll = grad_LoLo
             # Level 5 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh5[:,:,0:6:5])
@@ -1966,7 +1948,6 @@ class ifm5no_l1(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, yh3, yh4, yh5, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        ctx.calc_gradients = yl.requires_grad
         batch, ch, r, c = yl.shape
         ll = yl
         # Level 5 inverse transform with quater shift synthesis filters
@@ -2043,7 +2024,7 @@ class ifm5no_l1(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -2136,7 +2117,6 @@ class xfm5no_l1(Function):
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
-        ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -2247,7 +2227,7 @@ class xfm5no_l1(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             ll = grad_LoLo
             # Level 5 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh5[:,:,0:6:5])
@@ -2317,7 +2297,6 @@ class ifm6(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, yh3, yh4, yh5, yh6, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        ctx.calc_gradients = yl.requires_grad
         batch, ch, r, c = yl.shape
         ll = yl
         # Level 6 inverse transform with quater shift synthesis filters
@@ -2418,7 +2397,7 @@ class ifm6(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -2539,7 +2518,6 @@ class xfm6(Function):
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
-        ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -2678,7 +2656,7 @@ class xfm6(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             ll = grad_LoLo
             # Level 6 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh6[:,:,0:6:5])
@@ -2766,7 +2744,6 @@ class ifm6no_l1(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, yh3, yh4, yh5, yh6, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        ctx.calc_gradients = yl.requires_grad
         batch, ch, r, c = yl.shape
         ll = yl
         # Level 6 inverse transform with quater shift synthesis filters
@@ -2858,7 +2835,7 @@ class ifm6no_l1(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -2970,7 +2947,6 @@ class xfm6no_l1(Function):
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
-        ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -3101,7 +3077,7 @@ class xfm6no_l1(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             ll = grad_LoLo
             # Level 6 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh6[:,:,0:6:5])
@@ -3185,7 +3161,6 @@ class ifm7(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, yh3, yh4, yh5, yh6, yh7, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        ctx.calc_gradients = yl.requires_grad
         batch, ch, r, c = yl.shape
         ll = yl
         # Level 7 inverse transform with quater shift synthesis filters
@@ -3301,7 +3276,7 @@ class ifm7(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -3441,7 +3416,6 @@ class xfm7(Function):
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
-        ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -3600,7 +3574,7 @@ class xfm7(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             ll = grad_LoLo
             # Level 7 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh7[:,:,0:6:5])
@@ -3702,7 +3676,6 @@ class ifm7no_l1(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, yh3, yh4, yh5, yh6, yh7, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        ctx.calc_gradients = yl.requires_grad
         batch, ch, r, c = yl.shape
         ll = yl
         # Level 7 inverse transform with quater shift synthesis filters
@@ -3809,7 +3782,7 @@ class ifm7no_l1(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -3940,7 +3913,6 @@ class xfm7no_l1(Function):
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
-        ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -4091,7 +4063,7 @@ class xfm7no_l1(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             ll = grad_LoLo
             # Level 7 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh7[:,:,0:6:5])

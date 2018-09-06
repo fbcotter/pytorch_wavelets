@@ -79,7 +79,6 @@ class xfm{J}{skip_hps}(Function):
     def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
-        ctx.calc_gradients = input.requires_grad
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -106,7 +105,7 @@ class xfm{J}{skip_hps}(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             ll = grad_LoLo{level2plusbwd}
             {level1bwd}
 
@@ -185,7 +184,6 @@ class ifm{J}{skip_hps}(Function):
     @staticmethod
     def forward(ctx, yl, {yh_in}, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        ctx.calc_gradients = yl.requires_grad
         batch, ch, r, c = yl.shape
         ll = yl
         {level2plus}{level1}
@@ -206,7 +204,7 @@ class ifm{J}{skip_hps}(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.calc_gradients:
+        if ctx.needs_input_grad[0]:
             {level1bwd}
             {level2plusbwd}grad_yl = LoLo
 
