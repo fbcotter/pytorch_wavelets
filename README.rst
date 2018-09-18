@@ -89,7 +89,7 @@ Some initial notes:
 
 Running on the GPU
 ~~~~~~~~~~~~~~~~~~
-This should come as no surprise to pytorch users. The DTCWT transforms support
+This should come as no surprise to pytorch users. The DWT and DTCWT transforms support
 cuda calling:
 
 .. code:: python
@@ -100,7 +100,7 @@ cuda calling:
     X = torch.randn(10,5,64,64).cuda()
     Yl, Yh = xfm(X) 
     ifm = DTCWTInverse(C=5, J=3, biort='near_sym_b', qshift='qshift_b').cuda()
-    Y = ifm(Yl, Yh)
+    Y = ifm((Yl, Yh))
 
 The automated tests cannot test the gpu functionality, but do check cpu running.
 To test whether the repo is working on your gpu, you can download the repo,
