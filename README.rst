@@ -1,16 +1,24 @@
-Dual-Tree Complex Wavelet Transform in Pytorch
-==============================================
+2D Wavelet Transforms in Pytorch
+================================
 
 |Build Status|
 
 .. |Build Status| image:: https://travis-ci.org/fbcotter/pytorch_wavelets.png?branch=master
     :target: https://travis-ci.org/fbcotter/pytorch_wavelets
 
-This package provides support for computing the 2D dual-tree complex wavelet
-transforms, their inverses, and passing gradients through both using pytorch.
+This package provides support for computing the 2D discrete wavelet and 
+the 2d dual-tree complex wavelet transforms, their inverses, and passing 
+gradients through both using pytorch.
 
 The implementation is designed to be used with batches of multichannel images.
 We use the standard pytorch implementation of having 'NCHW' data format.
+
+This repo originally was only for the use of the DTCWT, but I have added some DWT support. This is still in development,
+and has the following known issues:
+
+- Uses reflection padding instead of symmetric padding for the DWT
+- Doesn't compute the DWT separably, instead uses the full `N x N` kernel.
+- The input should be divisible by 2^J, where J is the number of levels.
 
 Installation
 ````````````

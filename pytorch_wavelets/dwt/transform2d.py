@@ -10,11 +10,8 @@ class DWTForward(nn.Module):
 
     Args:
         C (int): Number of channels in input
-        w (str or pywt.Wavelet): Which wavelet to use
         J (int): Number of levels of decomposition
-        skip_hps (bool): True if the decomposition should not calculate the
-            first scale's highpass coefficients (these are often noise). Will
-            speed up computation significantly.
+        w (str or pywt.Wavelet): Which wavelet to use
 
     Shape:
         - Input x: :math:`(N, C_{in}, H_{in}, W_{in})`
@@ -37,15 +34,25 @@ class DWTForward(nn.Module):
         filts = np.concatenate([filts]*C, axis=0).astype('float32')
         self.weight = nn.Parameter(torch.tensor(filts))
         self.C = C
-        s = 2*(len(w.dec_lo) // 2 - 1)
-        self.pad = lambda x: F.pad(x, (s,s,s,s), mode='reflect')
+        self.sz = 2*(len(w.dec_lo) // 2 - 1)
         self.J = J
 
     def forward(self, x):
         yh = []
         yl = x
+        sz = self.sz
         for j in range(self.J):
-            y = F.conv2d(self.pad(yl), self.weight, groups=self.C, stride=2)
+            # Pad odd length images
+            if yl.shape[-2] % 2 == 1 and yl.shape[-1] % 2 == 1:
+                yl = F.pad(yl, (sz, sz+1, sz, sz+1), mode='reflect')
+            elif yl.shape[-2] % 2 == 1:
+                yl = F.pad(yl, (sz, sz+1, sz, sz), mode='reflect')
+            elif yl.shape[-1] % 2 == 1:
+                yl = F.pad(yl, (sz, sz, sz, sz+1), mode='reflect')
+            else:
+                yl = F.pad(yl, (sz, sz, sz, sz), mode='reflect')
+
+            y = F.conv2d(yl, self.weight, groups=self.C, stride=2)
             y = y.reshape((y.shape[0], self.C, 4, y.shape[-2], y.shape[-1]))
             yl = y[:,:,0]
             yh.append(y[:,:,1:])
@@ -54,18 +61,11 @@ class DWTForward(nn.Module):
 
 
 class DWTInverse(nn.Module):
-    """ 2d DTCWT Inverse
+    """ 2d DWT Inverse
 
     Args:
         C (int): Number of channels in input
-        biort (str): One of 'antonini', 'legall', 'near_sym_a', 'near_sym_b'.
-            Specifies the first level biorthogonal wavelet filters.
-        qshift (str): One of 'qshift_06', 'qshift_a', 'qshift_b', 'qshift_c',
-            'qshift_d'.  Specifies the second level quarter shift filters.
-        J (int): Number of levels of decomposition
-        skip_hps (bool): True if the inverse method should not look at the first
-            scale's highpass coefficients (these are often noise). Will speed up
-            computation significantly.
+        wave (str): Which wavelet to use
 
     Shape:
         - Input yl: :math:`(N, C_{in}, H_{in}', W_{in}')`
@@ -78,12 +78,12 @@ class DWTInverse(nn.Module):
         super().__init__()
         self.wave = wave
         w = pywt.Wavelet(wave)
-        ll = np.outer(w.dec_lo, w.dec_lo)
-        lh = np.outer(w.dec_hi, w.dec_lo)
-        hl = np.outer(w.dec_lo, w.dec_hi)
-        hh = np.outer(w.dec_hi, w.dec_hi)
-        filts = np.stack([ll[None,::-1,::-1], lh[None,::-1,::-1],
-                          hl[None,::-1,::-1], hh[None,::-1,::-1]],
+        ll = np.outer(w.rec_lo, w.rec_lo)
+        lh = np.outer(w.rec_hi, w.rec_lo)
+        hl = np.outer(w.rec_lo, w.rec_hi)
+        hh = np.outer(w.rec_hi, w.rec_hi)
+        filts = np.stack([ll[None,], lh[None,],
+                          hl[None,], hh[None,]],
                          axis=0)
         filts = np.concatenate([filts]*C, axis=0).astype('float32')
         self.weight = nn.Parameter(torch.tensor(filts))
@@ -95,6 +95,12 @@ class DWTInverse(nn.Module):
         ll = yl
         s = self.s
         for h in yh[::-1]:
+            # 'Unpad' added dimensions
+            if ll.shape[-2] > h.shape[-2]:
+                ll = ll[...,:-1,:]
+            if ll.shape[-1] > h.shape[-1]:
+                ll = ll[...,:-1]
+
             y = torch.cat((ll[:,:,None], h), dim=2).reshape(
                 ll.shape[0], 4*ll.shape[1], ll.shape[-2], ll.shape[-1])
             ll = F.conv_transpose2d(y, self.weight, groups=self.C, stride=2)
