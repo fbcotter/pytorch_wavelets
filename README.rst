@@ -18,7 +18,6 @@ and has the following known issues:
 
 - Uses reflection padding instead of symmetric padding for the DWT
 - Doesn't compute the DWT separably, instead uses the full `N x N` kernel.
-- The input should be divisible by 2^J, where J is the number of levels.
 
 Installation
 ````````````
@@ -38,6 +37,28 @@ may verify the code works on your system::
 
 Example Use
 ```````````
+For the DWT - note that the highpass output has an extra dimension, in which we stack the (lh, hl, hh) coefficients:
+
+.. code:: python
+
+    import torch
+    from pytorch_wavelets import DWTForward, DWTInverse
+    xfm = DWTForward(C=5, J=3, wave='db3')
+    X = torch.randn(10,5,64,64)
+    Yl, Yh = xfm(X) 
+    print(Yl.shape)
+    >>> torch.Size([10, 5, 12, 12])
+    print(Yh[0].shape) 
+    >>> torch.Size([10, 5, 3, 34, 34])
+    print(Yh[1].shape)
+    >>> torch.Size([10, 5, 3, 19, 19])
+    print(Yh[2].shape)
+    >>> torch.Size([10, 5, 3, 12, 12])
+    ifm = DWTInverse(C=5, J=3, wave='db3')
+    Y = ifm((Yl, Yh))
+
+For the DTCWT:
+
 .. code:: python
 
     import torch
@@ -54,7 +75,7 @@ Example Use
     print(Yh[2].shape)
     >>> torch.Size([10, 5, 6, 8, 8, 2])
     ifm = DTCWTInverse(C=5, J=3, biort='near_sym_b', qshift='qshift_b')
-    Y = ifm(Yl, Yh)
+    Y = ifm((Yl, Yh))
 
 Some initial notes:
 
