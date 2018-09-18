@@ -24,3 +24,32 @@ def test_equal(wave, J):
         for b in range(3):
             np.testing.assert_array_almost_equal(
                 coeffs[J-j][b], yh[j][:,:,b].detach(), decimal=4)
+
+
+@pytest.mark.parametrize("wave, J, j", [
+    ('db1', 1, 0), ('db1', 2, 1), ('db2', 2, 0), ('db3', 3, 2)
+])
+def test_commutativity(wave, J, j):
+    C = 3
+    Y = torch.randn(4, C, 128, 128, requires_grad=True)
+    dwt = DWTForward(C=C,J=J, wave=wave)
+    iwt = DWTInverse(C=C, wave=wave)
+    coeffs = dwt(Y)
+    coeffs_zero = dwt(torch.zeros_like(Y))
+    # Set level j LH to be nonzero
+    coeffs_zero[1][j][:,:,0] = coeffs[1][j][:,:,0]
+    ya = iwt(coeffs_zero)
+    # Set level j HL to also be nonzero
+    coeffs_zero[1][j][:,:,1] = coeffs[1][j][:,:,1]
+    yab = iwt(coeffs_zero)
+    # Set level j LH to be nonzero
+    coeffs_zero[1][j][:,:,0] = torch.zeros_like(coeffs[1][j][:,:,0])
+    yb = iwt(coeffs_zero)
+    # Set level j HH to also be nonzero
+    coeffs_zero[1][j][:,:,2] = coeffs[1][j][:,:,2]
+    ybc = iwt(coeffs_zero)
+    # Set level j HL to be nonzero
+    coeffs_zero[1][j][:,:,1] = torch.zeros_like(coeffs[1][j][:,:,1])
+    yc = iwt(coeffs_zero)
+    np.testing.assert_array_almost_equal((ya+yb).detach(), yab.detach(), decimal=4)
+    np.testing.assert_array_almost_equal((yc+yb).detach(), ybc.detach(), decimal=4)

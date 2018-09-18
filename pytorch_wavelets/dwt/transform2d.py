@@ -57,7 +57,7 @@ class DWTForward(nn.Module):
             yl = y[:,:,0]
             yh.append(y[:,:,1:])
 
-        return yl, yh
+        return [yl, yh]
 
 
 class DWTInverse(nn.Module):
