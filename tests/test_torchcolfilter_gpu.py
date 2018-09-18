@@ -1,10 +1,10 @@
 import numpy as np
-from dtcwt_pytorch.coeffs import biort, qshift
+from pytorch_wavelets.dtcwt.coeffs import biort, qshift
 from dtcwt.numpy.lowlevel import colfilter as np_colfilter
 
 import pytest
 import datasets
-from dtcwt_pytorch.backend.lowlevel import colfilter, prep_filt
+from pytorch_wavelets.dtcwt.lowlevel import colfilter, prep_filt
 import torch
 import py3nvml
 

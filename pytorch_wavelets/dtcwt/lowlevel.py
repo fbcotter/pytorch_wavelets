@@ -15,7 +15,7 @@ import torch
 import torch.nn.functional as F
 from torch.autograd import Function
 import numpy as np
-from dtcwt_pytorch.utils import reflect
+from pytorch_wavelets.utils import symm_pad
 from string import Template
 from collections import namedtuple
 import pkg_resources
@@ -90,14 +90,14 @@ def prep_filt(h, c, transpose=False):
 def colfilter(X, h):
     ch, r = X.shape[1:3]
     m = h.shape[2] // 2
-    xe = reflect(np.arange(-m, r+m, dtype='int32'), -0.5, r-0.5)
+    xe = symm_pad(r, m)
     return F.conv2d(X[:,:,xe], h, groups=ch)
 
 
 def rowfilter(X, h):
     ch, _, c = X.shape[1:]
     m = h.shape[2] // 2
-    xe = reflect(np.arange(-m, c+m, dtype='int32'), -0.5, c-0.5)
+    xe = symm_pad(c, m)
     h = h.transpose(2,3).contiguous()
     return F.conv2d(X[:,:,:,xe], h, groups=ch)
 
@@ -214,7 +214,7 @@ def coldfilt(X, ha, hb, highpass=False):
         raise ValueError('No. of rows in X must be a multiple of 4\n' +
                          'X was {}'.format(X.shape))
     m = ha.shape[2]
-    xe = reflect(np.arange(-m, r+m, dtype='int32'), -0.5, r-0.5)
+    xe = symm_pad(r, m)
     t1 = xe[2:r + 2 * m - 2:2]
     t2 = xe[3:r + 2 * m - 1:2]
     if highpass:
@@ -241,7 +241,7 @@ def rowdfilt(X, ha, hb, highpass=False):
         raise ValueError('No. of cols in X must be a multiple of 4\n' +
                          'X was {}'.format(X.shape))
     m = ha.shape[2]
-    xe = reflect(np.arange(-m, c+m, dtype='int32'), -0.5, c-0.5)
+    xe = symm_pad(c, m)
     t1 = xe[2:c + 2 * m - 2:2]
     t2 = xe[3:c + 2 * m - 1:2]
     if highpass:
@@ -275,7 +275,7 @@ def colifilt(X, ha, hb, highpass=False):
         if r % 2 != 0:
             raise ValueError('No. of rows in X must be a multiple of 2.\n' +
                              'X was {}'.format(X.shape))
-        xe = reflect(np.arange(-m2, r+m2, dtype=np.int), -0.5, r-0.5)
+        xe = symm_pad(r, m2)
         if m2 % 2 == 0:
             h1 = hae
             h2 = hbe
@@ -326,7 +326,7 @@ def rowifilt(X, ha, hb, highpass=False):
         if c % 2 != 0:
             raise ValueError('No. of cols in X must be a multiple of 2.\n' +
                              'X was {}'.format(X.shape))
-        xe = reflect(np.arange(-m2, c+m2, dtype=np.int), -0.5, c-0.5)
+        xe = symm_pad(c, m2)
         if m2 % 2 == 0:
             h1 = hae
             h2 = hbe

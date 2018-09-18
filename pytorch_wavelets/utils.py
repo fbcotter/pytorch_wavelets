@@ -163,6 +163,17 @@ def reflect(x, minx, maxx):
     return np.array(out, dtype=x.dtype)
 
 
+def symm_pad(l, m):
+    """ Creates indices for symmetric padding. Works for 1-D.
+
+    Inptus:
+        l (int): size of input
+        m (int): size of filter
+    """
+    xe = reflect(np.arange(-m, l+m, dtype='int32'), -0.5, l-0.5)
+    return xe
+
+
 # note that this decorator ignores **kwargs
 # From https://wiki.python.org/moin/PythonDecoratorLibrary#Alternate_memoize_as_nested_functions  # noqa
 def memoize(obj):

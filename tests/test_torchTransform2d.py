@@ -2,7 +2,7 @@ import pytest
 
 import numpy as np
 from Transform2d_np import Transform2d as Transform2d_np
-from dtcwt_pytorch import DTCWTForward, DTCWTInverse
+from pytorch_wavelets import DTCWTForward, DTCWTInverse
 import datasets
 import torch
 PRECISION_DECIMAL = 3
@@ -137,7 +137,7 @@ def test_inv(J):
            for yhr, yhi in zip(Yhr, Yhi)]
 
     ifm = DTCWTInverse(C=5, J=J)
-    X = ifm(torch.tensor(Yl, dtype=torch.float32), Yh2)
+    X = ifm((torch.tensor(Yl, dtype=torch.float32), Yh2))
     f1 = Transform2d_np()
     x = f1.inverse(Yl, Yh1)
 
@@ -159,7 +159,7 @@ def test_inv_nol1(J):
     Yh2[0] = torch.tensor([])
 
     ifm = DTCWTInverse(C=5, J=J, skip_hps=True)
-    X = ifm(torch.tensor(Yl, dtype=torch.float32), Yh2)
+    X = ifm((torch.tensor(Yl, dtype=torch.float32), Yh2))
     f1 = Transform2d_np()
     x = f1.inverse(Yl, Yh1)
 
@@ -180,7 +180,7 @@ def test_end2end(biort, qshift, size, J):
     xfm = DTCWTForward(C=6, J=J)
     Yl, Yh = xfm(torch.tensor(im, dtype=torch.float32))
     ifm = DTCWTInverse(C=6, J=J)
-    y = ifm(Yl, Yh)
+    y = ifm((Yl, Yh))
 
     # Compare with numpy results
     f_np = Transform2d_np(biort=biort,qshift=qshift)

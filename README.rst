@@ -3,8 +3,8 @@ Dual-Tree Complex Wavelet Transform in Pytorch
 
 |Build Status|
 
-.. |Build Status| image:: https://travis-ci.org/fbcotter/dtcwt_pytorch.png?branch=master
-    :target: https://travis-ci.org/fbcotter/dtcwt_pytorch
+.. |Build Status| image:: https://travis-ci.org/fbcotter/pytorch_wavelets.png?branch=master
+    :target: https://travis-ci.org/fbcotter/pytorch_wavelets
 
 This package provides support for computing the 2D dual-tree complex wavelet
 transforms, their inverses, and passing gradients through both using pytorch.
@@ -14,11 +14,11 @@ We use the standard pytorch implementation of having 'NCHW' data format.
 
 Installation
 ````````````
-The easiest way to install ``dtcwt_pytorch`` is to clone the repo and pip install
+The easiest way to install ``pytorch_wavelets`` is to clone the repo and pip install
 it. Later versions will be released on PyPi but the docs need to updated first::
 
-    $ git clone https://github.com/fbcotter/dtcwt_pytorch
-    $ cd dtcwt_pytorch
+    $ git clone https://github.com/fbcotter/pytorch_wavelets
+    $ cd pytorch_wavelets
     $ python setup.py install # (or pip install .)
 
 (Although the `develop` command may be more useful if you intend to perform any
@@ -33,7 +33,7 @@ Example Use
 .. code:: python
 
     import torch
-    from dtcwt_pytorch import DTCWTForward, DTCWTInverse
+    from pytorch_wavelets import DTCWTForward, DTCWTInverse
     xfm = DTCWTForward(C=5, J=3, biort='near_sym_b', qshift='qshift_b')
     X = torch.randn(10,5,64,64)
     Yl, Yh = xfm(X) 
@@ -66,7 +66,7 @@ cuda calling:
 .. code:: python
 
     import torch
-    from dtcwt_pytorch import DTCWTForward, DTCWTInverse
+    from pytorch_wavelets import DTCWTForward, DTCWTInverse
     xfm = DTCWTForward(C=5, J=3, biort='near_sym_b', qshift='qshift_b').cuda()
     X = torch.randn(10,5,64,64).cuda()
     Yl, Yh = xfm(X) 

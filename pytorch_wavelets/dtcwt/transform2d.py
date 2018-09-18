@@ -1,13 +1,9 @@
-try:
-    import torch
-    import torch.nn as nn
-    _HAVE_TORCH = True
-except ImportError:
-    _HAVE_TORCH = False
+import torch
+import torch.nn as nn
 
-from dtcwt_pytorch.coeffs import biort as _biort, qshift as _qshift
-from dtcwt_pytorch.backend.lowlevel import prep_filt
-from dtcwt_pytorch.backend import transform_funcs as tf
+from pytorch_wavelets.dtcwt.coeffs import biort as _biort, qshift as _qshift
+from pytorch_wavelets.dtcwt.lowlevel import prep_filt
+from pytorch_wavelets.dtcwt import transform_funcs as tf
 
 
 class DTCWTForward(nn.Module):
@@ -120,7 +116,8 @@ class DTCWTInverse(nn.Module):
         self.dtcwt_func = getattr(tf, 'ifm{J}{suff}'.format(
             J=J, suff='no_l1' if skip_hps else ''))
 
-    def forward(self, yl, yh):
+    def forward(self, x):
+        yl, yh = x
         assert self.C == yl.shape[1], "Input channels ({}) don't match " \
             "Initialization channels ({})".format(yl.shape[1], self.C)
         for s in yh:

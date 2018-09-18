@@ -5,6 +5,11 @@ from __future__ import absolute_import
 
 from numpy import load
 from pkg_resources import resource_stream
+try:
+    import pywt
+    _HAVE_PYWT = True
+except ImportError:
+    _HAVE_PYWT = False
 
 COEFF_CACHE = {}
 
@@ -14,7 +19,7 @@ def _load_from_file(basename, varnames):
     try:
         mat = COEFF_CACHE[basename]
     except KeyError:
-        with resource_stream('dtcwt_pytorch.data', basename + '.npz') as f:
+        with resource_stream('pytorch_wavelets.dtcwt.data', basename + '.npz') as f:
             mat = dict(load(f))
         COEFF_CACHE[basename] = mat
 
@@ -50,8 +55,8 @@ def biort(name):
 
     :raises IOError: if name does not correspond to a set of wavelets known to
         the library.
-    :raises ValueError: if name specifies a :py:func:`dtcwt.coeffs.qshift`
-        wavelet.
+    :raises ValueError: if name doesn't specify
+        :py:func:`pytorch_wavelets.dtcwt.coeffs.qshift` wavelet.
 
     """
     if name == 'near_sym_b_bp':
@@ -87,8 +92,8 @@ def qshift(name):
 
     :raises IOError: if name does not correspond to a set of wavelets known to
         the library.
-    :raises ValueError: if name specifies a :py:func:`dtcwt.coeffs.biort`
-        wavelet.
+    :raises ValueError: if name doesn't specify a
+        :py:func:`pytorch_wavelets.dtcwt.coeffs.biort` wavelet.
 
     """
     if name == 'qshift_b_bp':
@@ -97,5 +102,12 @@ def qshift(name):
     else:
         return _load_from_file(name, ('h0a', 'h0b', 'g0a', 'g0b', 'h1a', 'h1b',
                                       'g1a', 'g1b'))
+
+
+def pywt_coeffs(name):
+    """ Wraps pywt Wavelet function. """
+    if not _HAVE_PYWT:
+        raise ImportError("Could not find PyWavelets module")
+    return pywt.Wavelet(name)
 
 # vim:sw=4:sts=4:et

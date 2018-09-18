@@ -1,7 +1,7 @@
 import numpy as np
-from dtcwt_pytorch.coeffs import biort as _biort, qshift as _qshift
+from pytorch_wavelets.dtcwt.coeffs import biort as _biort, qshift as _qshift
 from dtcwt.numpy.lowlevel import colfilter as np_colfilter
-from dtcwt_pytorch.backend.lowlevel import rowfilter, prep_filt
+from pytorch_wavelets.dtcwt.lowlevel import rowfilter, prep_filt
 import torch
 import py3nvml
 import pytest

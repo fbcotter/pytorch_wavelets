@@ -1,7 +1,7 @@
 import numpy as np
-from dtcwt_pytorch.coeffs import qshift
+from pytorch_wavelets.dtcwt.coeffs import qshift
 from dtcwt.numpy.lowlevel import coldfilt as np_coldfilt
-from dtcwt_pytorch.backend.lowlevel import rowdfilt, prep_filt
+from pytorch_wavelets.dtcwt.lowlevel import rowdfilt, prep_filt
 import torch
 import py3nvml
 import pytest
