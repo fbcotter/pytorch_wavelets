@@ -2,6 +2,5 @@ include tests/*.py
 include README.rst
 include pytorch_wavelets/dtcwt/filters.cu
 include pytorch_wavelets/dtcwt/data/*.npz
-include pytorch_wavelets/data/*.npz
 include tests/*.npz
 
