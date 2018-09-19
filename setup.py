@@ -34,11 +34,9 @@ setup(
     ],
     include_package_data=True,
     install_requires=['numpy', 'six', 'torch'],
-
     extras_require={
         'docs': ['sphinx', 'docutils', 'matplotlib', 'ipython', ],
     },
-
     tests_require=['coverage', 'py3nvml', 'dtcwt', 'PyWavelets'],
 )
 

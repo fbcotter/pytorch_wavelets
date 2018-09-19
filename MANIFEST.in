@@ -1,8 +1,8 @@
-exclude tests/
+include pytorch_wavelets/dtcwt/data/*.npz
+include tests/*.py
 exclude docs/
 exclude .*
 include README.rst
-include pytorch_wavelets/dtcwt/data/*.npz
 include pytorch_wavelets/dtcwt/filters.cu
 include tests/*.npz
 
