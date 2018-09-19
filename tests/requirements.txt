@@ -5,4 +5,4 @@ pytest
 py3nvml
 coverage
 pytest-cov
-pywt
+PyWavelets

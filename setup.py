@@ -23,7 +23,7 @@ setup(
     author_email="fbc23@cam.ac.uk",
     description=("A port of the DTCWT toolbox to run on pytorch"),
     license="Free To Use",
-    keywords="numpy, wavelet, complex wavelet, DT-CWT",
+    keywords="pytorch, DWT, DTCWT, wavelet, complex wavelet",
     url="https://github.com/fbcotter/pytorch_wavelets",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     long_description=read('README.rst'),
@@ -39,7 +39,7 @@ setup(
         'docs': ['sphinx', 'docutils', 'matplotlib', 'ipython', ],
     },
 
-    tests_require=['coverage', 'py3nvml', 'dtcwt', 'pywt'],
+    tests_require=['coverage', 'py3nvml', 'dtcwt', 'PyWavelets'],
 )
 
 # vim:sw=4:sts=4:et
