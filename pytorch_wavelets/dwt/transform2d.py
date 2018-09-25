@@ -32,7 +32,7 @@ class DWTForward(nn.Module):
                           hl[None,::-1,::-1], hh[None,::-1,::-1]],
                          axis=0)
         filts = np.concatenate([filts]*C, axis=0).astype('float32')
-        self.weight = nn.Parameter(torch.tensor(filts))
+        self.weight = nn.Parameter(torch.tensor(filts), requires_grad=False)
         self.C = C
         self.sz = 2*(len(w.dec_lo) // 2 - 1)
         self.J = J
@@ -86,7 +86,7 @@ class DWTInverse(nn.Module):
                           hl[None,], hh[None,]],
                          axis=0)
         filts = np.concatenate([filts]*C, axis=0).astype('float32')
-        self.weight = nn.Parameter(torch.tensor(filts))
+        self.weight = nn.Parameter(torch.tensor(filts), requires_grad=False)
         self.C = C
         self.s = 2*(len(w.dec_lo) // 2 - 1)
 
