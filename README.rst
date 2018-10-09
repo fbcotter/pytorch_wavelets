@@ -54,7 +54,7 @@ For the DWT - note that the highpass output has an extra dimension, in which we 
     >>> torch.Size([10, 5, 3, 19, 19])
     print(Yh[2].shape)
     >>> torch.Size([10, 5, 3, 12, 12])
-    ifm = DWTInverse(C=5, J=3, wave='db3')
+    ifm = DWTInverse(C=5, wave='db3')
     Y = ifm((Yl, Yh))
 
 For the DTCWT:

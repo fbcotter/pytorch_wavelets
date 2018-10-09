@@ -32,6 +32,8 @@ class DWTForward(nn.Module):
                           hl[None,::-1,::-1], hh[None,::-1,::-1]],
                          axis=0)
         filts = np.concatenate([filts]*C, axis=0).astype('float32')
+        # Make the data contiguous
+        filts = np.copy(filts)
         self.weight = nn.Parameter(torch.tensor(filts), requires_grad=False)
         self.C = C
         self.sz = 2*(len(w.dec_lo) // 2 - 1)
@@ -54,8 +56,8 @@ class DWTForward(nn.Module):
 
             y = F.conv2d(yl, self.weight, groups=self.C, stride=2)
             y = y.reshape((y.shape[0], self.C, 4, y.shape[-2], y.shape[-1]))
-            yl = y[:,:,0]
-            yh.append(y[:,:,1:])
+            yl = y[:,:,0].contiguous()
+            yh.append(y[:,:,1:].contiguous())
 
         return [yl, yh]
 
@@ -105,4 +107,4 @@ class DWTInverse(nn.Module):
                 ll.shape[0], 4*ll.shape[1], ll.shape[-2], ll.shape[-1])
             ll = F.conv_transpose2d(y, self.weight, groups=self.C, stride=2)
             ll = ll[:,:,s:ll.shape[-2]-s,s:ll.shape[-1]-s]
-        return ll
+        return ll.contiguous()
