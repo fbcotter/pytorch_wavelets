@@ -215,6 +215,29 @@ def coldfilt(X, ha, hb, highpass=False):
                          'X was {}'.format(X.shape))
     m = ha.shape[2]
     xe = symm_pad(r, m)
+    ha = torch.stack((ha, torch.zeros_like(ha)), dim=-2).reshape(ch, 1, 2*m, 1)
+    hb = torch.stack((torch.zeros_like(hb), hb), dim=-2).reshape(ch, 1, 2*m, 1)
+    h = torch.cat((ha, hb), dim=0)
+    Y = F.conv2d(X[:,:,xe[2:]], h, stride=(4,1), groups=ch)
+
+    # Reshape result to be shape [Batch, ch, r/2, c]. This reshaping
+    # interleaves the columns
+    if highpass:
+        Y = torch.stack((Y[:,1::2], Y[:,::2]), dim=-2).view(batch, ch, r2, c)
+    else:
+        Y = torch.stack((Y[:,::2], Y[:,1::2]), dim=-2).view(batch, ch, r2, c)
+
+    return Y
+
+
+def coldfilt_old(X, ha, hb, highpass=False):
+    batch, ch, r, c = X.shape
+    r2 = r // 2
+    if r % 4 != 0:
+        raise ValueError('No. of rows in X must be a multiple of 4\n' +
+                         'X was {}'.format(X.shape))
+    m = ha.shape[2]
+    xe = symm_pad(r, m)
     t1 = xe[2:r + 2 * m - 2:2]
     t2 = xe[3:r + 2 * m - 1:2]
     if highpass:
@@ -235,6 +258,29 @@ def coldfilt(X, ha, hb, highpass=False):
 
 
 def rowdfilt(X, ha, hb, highpass=False):
+    batch, ch, r, c = X.shape
+    c2 = c // 2
+    if c % 4 != 0:
+        raise ValueError('No. of cols in X must be a multiple of 4\n' +
+                         'X was {}'.format(X.shape))
+    m = ha.shape[2]
+    xe = symm_pad(c, m)
+    ha = torch.stack((ha, torch.zeros_like(ha)), dim=-2).reshape(ch, 1, 1, 2*m)
+    hb = torch.stack((torch.zeros_like(hb), hb), dim=-2).reshape(ch, 1, 1, 2*m)
+    h = torch.cat((ha, hb), dim=0)
+    Y = F.conv2d(X[:,:,:,xe[2:]], h, stride=(1,4), groups=ch)
+
+    # Reshape result to be shape [Batch, ch, r/2, c]. This reshaping
+    # interleaves the columns
+    if highpass:
+        Y = torch.stack((Y[:,1::2], Y[:,::2]), dim=-1).view(batch, ch, r, c2)
+    else:
+        Y = torch.stack((Y[:,::2], Y[:,1::2]), dim=-1).view(batch, ch, r, c2)
+
+    return Y
+
+
+def rowdfilt_old(X, ha, hb, highpass=False):
     batch, ch, r, c = X.shape
     c2 = c // 2
     if c % 4 != 0:
