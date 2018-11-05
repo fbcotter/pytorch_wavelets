@@ -105,7 +105,7 @@ class xfm{J}{skip_hps}(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             ll = grad_LoLo{level2plusbwd}
             {level1bwd}
 
@@ -204,7 +204,7 @@ class ifm{J}{skip_hps}(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             {level1bwd}
             {level2plusbwd}grad_yl = LoLo
 

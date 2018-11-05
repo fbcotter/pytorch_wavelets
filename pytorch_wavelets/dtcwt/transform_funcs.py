@@ -36,7 +36,7 @@ class ifm1(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -100,7 +100,7 @@ class xfm1(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 1 backward (time reversed biorthogonal analysis filters)
             lh = c2q(grad_Yh1[:,:,0:6:5])
@@ -140,7 +140,7 @@ class ifm1no_l1(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -187,7 +187,7 @@ class xfm1no_l1(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 1 backward (time reversed biorthogonal analysis filters). No
             # Highpasses so only need to use the low-low
@@ -241,7 +241,7 @@ class ifm2(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -344,7 +344,7 @@ class xfm2(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 2 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh2[:,:,0:6:5])
@@ -407,7 +407,7 @@ class ifm2no_l1(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -493,7 +493,7 @@ class xfm2no_l1(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 2 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh2[:,:,0:6:5])
@@ -576,7 +576,7 @@ class ifm3(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -718,7 +718,7 @@ class xfm3(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 3 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh3[:,:,0:6:5])
@@ -810,7 +810,7 @@ class ifm3no_l1(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -935,7 +935,7 @@ class xfm3no_l1(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 3 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh3[:,:,0:6:5])
@@ -1047,7 +1047,7 @@ class ifm4(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -1228,7 +1228,7 @@ class xfm4(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 4 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh4[:,:,0:6:5])
@@ -1349,7 +1349,7 @@ class ifm4no_l1(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -1513,7 +1513,7 @@ class xfm4no_l1(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 4 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh4[:,:,0:6:5])
@@ -1654,7 +1654,7 @@ class ifm5(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -1874,7 +1874,7 @@ class xfm5(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 5 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh5[:,:,0:6:5])
@@ -2024,7 +2024,7 @@ class ifm5no_l1(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -2227,7 +2227,7 @@ class xfm5no_l1(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 5 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh5[:,:,0:6:5])
@@ -2397,7 +2397,7 @@ class ifm6(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -2656,7 +2656,7 @@ class xfm6(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 6 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh6[:,:,0:6:5])
@@ -2835,7 +2835,7 @@ class ifm6no_l1(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -3077,7 +3077,7 @@ class xfm6no_l1(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 6 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh6[:,:,0:6:5])
@@ -3276,7 +3276,7 @@ class ifm7(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -3574,7 +3574,7 @@ class xfm7(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 7 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh7[:,:,0:6:5])
@@ -3782,7 +3782,7 @@ class ifm7no_l1(Function):
         g1a_t = g1b
         g1b_t = g1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             # Level 1 inverse gradient - same as fwd transform
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
@@ -4063,7 +4063,7 @@ class xfm7no_l1(Function):
         h1a_t = h1b
         h1b_t = h1a
 
-        if ctx.needs_input_grad[0]:
+        if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 7 backward (time reversed quater shift analysis filters)
             lh = c2q(grad_Yh7[:,:,0:6:5])
