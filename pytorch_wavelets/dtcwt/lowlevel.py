@@ -102,111 +102,6 @@ def rowfilter(X, h):
     return F.conv2d(X[:,:,:,xe], h, groups=ch)
 
 
-class RowFilter(Function):
-    def __init__(self, weight, klow=None, khigh=None):
-        if not _HAVE_CUPY:
-            raise ValueError("Need cupy installed to use this function")
-        super(RowFilter, self).__init__()
-        self.weight = weight
-        if klow is None:
-            klow = -np.floor((weight.shape[0] - 1) / 2)
-            khigh = np.ceil((weight.shape[0] - 1) / 2)
-        assert abs(klow) == khigh, "can only do odd filters for the moment"
-        self.klow = klow
-        self.khigh = khigh
-        assert abs(klow) == khigh
-        self.f = load_kernel('rowfilter', cuda_source)
-        self.fbwd = load_kernel('rowfilter_bwd', cuda_source)
-
-    #  @staticmethod
-    def forward(ctx, input):
-        assert input.dim() == 4 and input.is_cuda and ctx.weight.is_cuda
-        n, ch, h, w = input.shape
-        ctx.in_shape = (n, ch, h, w)
-        pad_end = 0
-        output = torch.zeros((n, ch, h, w + pad_end),
-                             dtype=torch.float32,
-                             requires_grad=input.requires_grad).cuda()
-
-        with torch.cuda.device_of(input):
-            ctx.f(block=(CUDA_NUM_THREADS,1,1),
-                  grid=(128,1,1),
-                  args=[output.data_ptr(), input.data_ptr(),
-                        ctx.weight.data_ptr(), np.int32(n), np.int32(ch),
-                        np.int32(h), np.int32(w+pad_end), np.int32(w),
-                        np.int32(ctx.klow), np.int32(ctx.khigh), np.int32(1)],
-                  stream=Stream(ptr=torch.cuda.current_stream().cuda_stream))
-        return output
-
-    #  @staticmethod
-    def backward(ctx, grad_out):
-        in_shape = ctx.in_shape
-        n, ch, h, w = grad_out.shape
-        grad_input = torch.zeros(in_shape, dtype=torch.float32).cuda()
-
-        with torch.cuda.device_of(grad_out):
-            ctx.f(block=(CUDA_NUM_THREADS,1,1),
-                  grid=(128,1,1),
-                  args=[grad_input.data_ptr(), grad_out.data_ptr(),
-                        ctx.weight.data_ptr(), np.int32(n), np.int32(ch),
-                        np.int32(h), np.int32(w), np.int32(w),
-                        np.int32(ctx.klow), np.int32(ctx.khigh), np.int32(1)],
-                  stream=Stream(ptr=torch.cuda.current_stream().cuda_stream))
-        return grad_input
-
-
-class ColFilter(Function):
-    def __init__(self, weight, klow=None, khigh=None):
-        if not _HAVE_CUPY:
-            raise ValueError("Need cupy installed to use this function")
-        super(ColFilter, self).__init__()
-        self.weight = weight
-        if klow is None:
-            klow = -np.floor((weight.shape[0] - 1) / 2)
-            khigh = np.ceil((weight.shape[0] - 1) / 2)
-        assert abs(klow) == khigh, "can only do odd filters for the moment"
-        self.klow = klow
-        self.khigh = khigh
-        self.f = load_kernel('colfilter', cuda_source)
-        self.fbwd = load_kernel('colfilter_bwd', cuda_source)
-
-    #  @staticmethod
-    def forward(ctx, input):
-        assert input.dim() == 4 and input.is_cuda and ctx.weight.is_cuda
-        n, ch, h, w = input.shape
-        ctx.in_shape = (n, ch, h, w)
-        pad_end = 0
-        output = torch.zeros((n, ch, h + pad_end, w),
-                             dtype=torch.float32,
-                             requires_grad=input.requires_grad).cuda()
-
-        with torch.cuda.device_of(input):
-            ctx.f(block=(CUDA_NUM_THREADS,1,1),
-                  grid=(128,1,1),
-                  args=[output.data_ptr(), input.data_ptr(),
-                        ctx.weight.data_ptr(), np.int32(n), np.int32(ch),
-                        np.int32(h), np.int32(w), np.int32(h+pad_end),
-                        np.int32(ctx.klow), np.int32(ctx.khigh), np.int32(1)],
-                  stream=Stream(ptr=torch.cuda.current_stream().cuda_stream))
-        return output
-
-    #  @staticmethod
-    def backward(ctx, grad_out):
-        in_shape = ctx.in_shape
-        n, ch, h, w = grad_out.shape
-        grad_input = torch.zeros(in_shape, dtype=torch.float32).cuda()
-
-        with torch.cuda.device_of(grad_out):
-            ctx.f(block=(CUDA_NUM_THREADS,1,1),
-                  grid=(128,1,1),
-                  args=[grad_input.data_ptr(), grad_out.data_ptr(),
-                        ctx.weight.data_ptr(), np.int32(n), np.int32(ch),
-                        np.int32(h), np.int32(w), np.int32(h),
-                        np.int32(ctx.klow), np.int32(ctx.khigh), np.int32(1)],
-                  stream=Stream(ptr=torch.cuda.current_stream().cuda_stream))
-        return grad_input
-
-
 def coldfilt(X, ha, hb, highpass=False):
     batch, ch, r, c = X.shape
     r2 = r // 2
@@ -215,44 +110,17 @@ def coldfilt(X, ha, hb, highpass=False):
                          'X was {}'.format(X.shape))
     m = ha.shape[2]
     xe = symm_pad(r, m)
-    ha = torch.stack((ha, torch.zeros_like(ha)), dim=-2).reshape(ch, 1, 2*m, 1)
-    hb = torch.stack((torch.zeros_like(hb), hb), dim=-2).reshape(ch, 1, 2*m, 1)
+    X1 = X[:,:,xe[2::2]]
+    X2 = X[:,:,xe[3::2]]
     h = torch.cat((ha, hb), dim=0)
-    Y = F.conv2d(X[:,:,xe[2:]], h, stride=(4,1), groups=ch)
+    Y = F.conv2d(torch.cat((X1, X2), dim=1), h, stride=(2,1), groups=ch*2)
 
     # Reshape result to be shape [Batch, ch, r/2, c]. This reshaping
     # interleaves the columns
     if highpass:
-        Y = torch.stack((Y[:,1::2], Y[:,::2]), dim=-2).view(batch, ch, r2, c)
+        Y = torch.stack((Y[:,ch:], Y[:,:ch]), dim=-2).view(batch, ch, r2, c)
     else:
-        Y = torch.stack((Y[:,::2], Y[:,1::2]), dim=-2).view(batch, ch, r2, c)
-
-    return Y
-
-
-def coldfilt_old(X, ha, hb, highpass=False):
-    batch, ch, r, c = X.shape
-    r2 = r // 2
-    if r % 4 != 0:
-        raise ValueError('No. of rows in X must be a multiple of 4\n' +
-                         'X was {}'.format(X.shape))
-    m = ha.shape[2]
-    xe = symm_pad(r, m)
-    t1 = xe[2:r + 2 * m - 2:2]
-    t2 = xe[3:r + 2 * m - 1:2]
-    if highpass:
-        hb, ha = ha, hb
-        t1, t2 = t2, t1
-    Y1 = F.conv2d(X[:,:,t1], ha, stride=(2,1), groups=ch)
-    Y2 = F.conv2d(X[:,:,t2], hb, stride=(2,1), groups=ch)
-
-    # Stack a_rows and b_rows (both of shape [Batch, ch, r/4, c]) along the
-    # third dimension to make a tensor of shape [Batch, ch, r/4, 2, c].
-    Y = torch.stack((Y1, Y2), dim=3)
-
-    # Reshape result to be shape [Batch, ch, r/2, c]. This reshaping
-    # interleaves the columns
-    Y = Y.view(batch, ch, r2, c)
+        Y = torch.stack((Y[:,:ch], Y[:,ch:]), dim=-2).view(batch, ch, r2, c)
 
     return Y
 
@@ -265,47 +133,17 @@ def rowdfilt(X, ha, hb, highpass=False):
                          'X was {}'.format(X.shape))
     m = ha.shape[2]
     xe = symm_pad(c, m)
-    ha = torch.stack((ha, torch.zeros_like(ha)), dim=-2).reshape(ch, 1, 1, 2*m)
-    hb = torch.stack((torch.zeros_like(hb), hb), dim=-2).reshape(ch, 1, 1, 2*m)
-    h = torch.cat((ha, hb), dim=0)
-    Y = F.conv2d(X[:,:,:,xe[2:]], h, stride=(1,4), groups=ch)
+    X1 = X[:,:,:,xe[2::2]]
+    X2 = X[:,:,:,xe[3::2]]
+    h = torch.cat((ha.reshape(ch,1,1,m), hb.reshape(ch,1,1,m)), dim=0)
+    Y = F.conv2d(torch.cat((X1, X2), dim=1), h, stride=(1,2), groups=ch*2)
 
     # Reshape result to be shape [Batch, ch, r/2, c]. This reshaping
     # interleaves the columns
     if highpass:
-        Y = torch.stack((Y[:,1::2], Y[:,::2]), dim=-1).view(batch, ch, r, c2)
+        Y = torch.stack((Y[:,ch:], Y[:,:ch]), dim=-1).view(batch, ch, r, c2)
     else:
-        Y = torch.stack((Y[:,::2], Y[:,1::2]), dim=-1).view(batch, ch, r, c2)
-
-    return Y
-
-
-def rowdfilt_old(X, ha, hb, highpass=False):
-    batch, ch, r, c = X.shape
-    c2 = c // 2
-    if c % 4 != 0:
-        raise ValueError('No. of cols in X must be a multiple of 4\n' +
-                         'X was {}'.format(X.shape))
-    m = ha.shape[2]
-    xe = symm_pad(c, m)
-    t1 = xe[2:c + 2 * m - 2:2]
-    t2 = xe[3:c + 2 * m - 1:2]
-    if highpass:
-        hb, ha = ha, hb
-        t1, t2 = t2, t1
-
-    ha = ha.transpose(2,3).contiguous()
-    hb = hb.transpose(2,3).contiguous()
-    Y1 = F.conv2d(X[:,:,:,t1], ha, stride=(1,2), groups=ch)
-    Y2 = F.conv2d(X[:,:,:,t2], hb, stride=(1,2), groups=ch)
-
-    # Stack a_rows and b_rows (both of shape [Batch, ch, r, c/4]) along the
-    # fourth dimension to make a tensor of shape [Batch, ch, r, c/4, 2].
-    Y = torch.stack((Y1, Y2), dim=4)
-
-    # Reshape result to be shape [Batch, ch, r, c/2]. This reshaping
-    # interleaves the columns
-    Y = Y.view(batch, ch, r, c2)
+        Y = torch.stack((Y[:,:ch], Y[:,ch:]), dim=-1).view(batch, ch, r, c2)
 
     return Y
 
@@ -322,42 +160,36 @@ def colifilt(X, ha, hb, highpass=False):
             raise ValueError('No. of rows in X must be a multiple of 2.\n' +
                              'X was {}'.format(X.shape))
         xe = symm_pad(r, m2)
+
         if m2 % 2 == 0:
             h1 = hae
             h2 = hbe
             h3 = hao
             h4 = hbo
-            t1 = xe[:-2:2]
-            t2 = xe[1:-2:2]
-            t3 = xe[2::2]
-            t4 = xe[3::2]
+            X1 = X[:,:,xe[:-2:2]]
+            X2 = X[:,:,xe[1:-2:2]]
+            X3 = X[:,:,xe[2::2]]
+            X4 = X[:,:,xe[3::2]]
         else:
             h1 = hao
             h2 = hbo
             h3 = hae
             h4 = hbe
-            t1 = xe[1:-1:2]
-            t2 = xe[2:-1:2]
-            t3 = t1
-            t4 = t2
+            X1 = X[:,:,xe[1:-1:2]]
+            X2 = X[:,:,xe[2:-1:2]]
+            X3 = X[:,:,xe[1:-1:2]]
+            X4 = X[:,:,xe[2:-1:2]]
         if highpass:
-            t1, t2 = t2, t1
-            t3, t4 = t4, t3
-        h1 = h1.contiguous()
-        h2 = h2.contiguous()
-        h3 = h3.contiguous()
-        h4 = h4.contiguous()
+            X2, X1 = X1, X2
+            X4, X3 = X3, X4
+        h = torch.cat((h1, h2, h3, h4), dim=0)
+        X = torch.cat((X1, X2, X3, X4), dim=1)
 
-        Y1 = F.conv2d(X[:,:,t1], h1, groups=ch)
-        Y2 = F.conv2d(X[:,:,t2], h2, groups=ch)
-        Y3 = F.conv2d(X[:,:,t3], h3, groups=ch)
-        Y4 = F.conv2d(X[:,:,t4], h4, groups=ch)
+        Y = F.conv2d(X, h, groups=4*ch)
         # Stack 4 tensors of shape [batch, ch, r2, c] into one tensor
         # [batch, ch, r2, 4, c]
-        Y = torch.stack((Y1, Y2, Y3, Y4), dim=3)
-
-        # Reshape to be [batch, ch,r * 2, c]. This interleaves the rows
-        Y = Y.view(batch, ch, r*2, c)
+        Y = torch.stack([Y[:,:ch], Y[:,ch:2*ch], Y[:,2*ch:3*ch], Y[:,3*ch:]],
+                        dim=3).view(batch, ch, r*2, c)
         return Y
 
 
@@ -373,42 +205,36 @@ def rowifilt(X, ha, hb, highpass=False):
             raise ValueError('No. of cols in X must be a multiple of 2.\n' +
                              'X was {}'.format(X.shape))
         xe = symm_pad(c, m2)
+
         if m2 % 2 == 0:
             h1 = hae
             h2 = hbe
             h3 = hao
             h4 = hbo
-            t1 = xe[:-2:2]
-            t2 = xe[1:-2:2]
-            t3 = xe[2::2]
-            t4 = xe[3::2]
+            X1 = X[:,:,:,xe[:-2:2]]
+            X2 = X[:,:,:,xe[1:-2:2]]
+            X3 = X[:,:,:,xe[2::2]]
+            X4 = X[:,:,:,xe[3::2]]
         else:
             h1 = hao
             h2 = hbo
             h3 = hae
             h4 = hbe
-            t1 = xe[1:-1:2]
-            t2 = xe[2:-1:2]
-            t3 = t1
-            t4 = t2
+            X1 = X[:,:,:,xe[1:-1:2]]
+            X2 = X[:,:,:,xe[2:-1:2]]
+            X3 = X[:,:,:,xe[1:-1:2]]
+            X4 = X[:,:,:,xe[2:-1:2]]
         if highpass:
-            t1, t2 = t2, t1
-            t3, t4 = t4, t3
+            X2, X1 = X1, X2
+            X4, X3 = X3, X4
+        h = torch.cat((h1, h2, h3, h4), dim=0).reshape(4*ch,1,1,m2)
+        X = torch.cat((X1, X2, X3, X4), dim=1)
 
-        h1 = h1.transpose(2,3).contiguous()
-        h2 = h2.transpose(2,3).contiguous()
-        h3 = h3.transpose(2,3).contiguous()
-        h4 = h4.transpose(2,3).contiguous()
-        Y1 = F.conv2d(X[:,:,:,t1], h1, groups=ch)
-        Y2 = F.conv2d(X[:,:,:,t2], h2, groups=ch)
-        Y3 = F.conv2d(X[:,:,:,t3], h3, groups=ch)
-        Y4 = F.conv2d(X[:,:,:,t4], h4, groups=ch)
-        # Stack 4 tensors of shape [batch, ch, r, c2] into one tensor
-        # [batch, ch, r, c2, 4]
-        Y = torch.stack((Y1, Y2, Y3, Y4), dim=4)
-
-        # Reshape to be [batch, ch, r, c*2]. This interleaves the rows
-        Y = Y.view(batch, ch, r, c*2)
+        Y = F.conv2d(X, h, groups=4*ch)
+        # Stack 4 tensors of shape [batch, ch, r2, c] into one tensor
+        # [batch, ch, r2, 4, c]
+        Y = torch.stack([Y[:,:ch], Y[:,ch:2*ch], Y[:,2*ch:3*ch], Y[:,3*ch:]],
+                        dim=4).view(batch, ch, r, c*2)
         return Y
 
 
