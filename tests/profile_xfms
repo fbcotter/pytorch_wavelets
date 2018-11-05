@@ -1,0 +1,15 @@
+#! /bin/bash
+
+# Profile 5 scales 
+for J in {1..2}; do
+    nvprof python profile.py -j $J 2> profiles/end_to_end_j${J}_symb.prof
+    nvprof python profile.py -f -j $J 2> profiles/forward_j${J}_symb.prof
+    nvprof python profile.py -b -j $J 2> profiles/inverse_j${J}_symb.prof
+done
+
+# Profile 5 scales without first highpass
+# for J in {1..2}; do
+    # nvprof python profile.py -j $J --no_hp 2> profiles/end_to_end_j${J}_nohp.prof
+    # nvprof python profile.py -f -j $J --no_hp 2> profiles/forward_j${J}_nohp.prof
+    # nvprof python profile.py -b -j $J --no_hp 2> profiles/inverse_j${J}_nohp.prof
+# done

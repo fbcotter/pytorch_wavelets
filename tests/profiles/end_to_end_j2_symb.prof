@@ -1,0 +1,54 @@
+==13464== NVPROF is profiling process 13464, command: python profile.py -j 2
+==13464== Profiling application: python profile.py -j 2
+==13464== Profiling result:
+            Type  Time(%)      Time     Calls       Avg       Min       Max  Name
+ GPU activities:   40.41%  8.7709ms        24  365.46us  86.304us  752.22us  void spatialDepthwiseConvolutionUpdateOutput<float, float, unsigned int, int=0>(THCDeviceTensor<float, int=4, int, DefaultPtrTraits>, THCDeviceTensor<float, int=4, int, DefaultPtrTraits>, THCDeviceTensor<float, int=4, int, DefaultPtrTraits>, THCDeviceTensor<float, int=1, int, DefaultPtrTraits>, bool, unsigned int, int, int, int, int, int, int, int, int, int, int, int, int, int, int)
+                   12.36%  2.6817ms        48  55.869us  14.272us  129.60us  void kernelPointwiseApply2<TensorTakeOp<float, int, int=-2>, float, long, unsigned int, int=1, int=1>(OffsetInfo<int, TensorTakeOp<float, int, int=-2>, float>, OffsetInfo<int=-2, TensorTakeOp<float, int, int=-2>, long>, TensorTakeOp<float, int, int=-2>, float)
+                   10.61%  2.3034ms        80  28.792us  1.4400us  123.68us  void kernelPointwiseApply3<TensorAddOp<long>, long, long, long, unsigned int, int=1, int=2, int=2>(OffsetInfo<TensorAddOp<long>, long, unsigned int>, OffsetInfo<long, long, int=1>, OffsetInfo<long, long, int=2>, long, long)
+                   10.16%  2.2051ms        79  27.912us     896ns  2.1280ms  [CUDA memcpy HtoD]
+                    4.34%  941.59us        60  15.693us     896ns  72.511us  void kernelPointwiseApply2<CopyOp<float, float>, float, float, unsigned int, int=1, int=1>(OffsetInfo<float, float, float>, OffsetInfo<CopyOp<float, float>, float, unsigned int>, float, float)
+                    2.89%  628.06us        12  52.338us  28.447us  64.832us  void kernelPointwiseApply2<CopyOp<float, float>, float, float, unsigned int, int=1, int=2>(OffsetInfo<float, float, float>, OffsetInfo<CopyOp<float, float>, float, unsigned int>, float, float)
+                    2.58%  560.54us        18  31.141us  3.1360us  66.240us  void CatArrayBatchedCopy<float, unsigned int, int=4>(float*, CatArrInputTensor<float, unsigned int>*, OutputTensorSizeStride<unsigned int, unsigned int=4>, int, unsigned int)
+                    2.46%  534.81us        24  22.283us  4.5760us  42.367us  void kernelPointwiseApply3<TensorAddOp<float>, float, float, float, unsigned int, int=1, int=2, int=2>(OffsetInfo<TensorAddOp<float>, float, unsigned int>, OffsetInfo<float, float, int=1>, OffsetInfo<float, float, int=2>, float, float)
+                    2.03%  440.70us        36  12.241us  3.9990us  32.640us  void kernelPointwiseApply2<CopyOp<float, float>, float, float, unsigned int, int=2, int=1>(OffsetInfo<float, float, float>, OffsetInfo<CopyOp<float, float>, float, unsigned int>, float, float)
+                    1.91%  414.08us         6  69.012us  41.152us  86.143us  void kernelPointwiseApply3<TensorAddOp<float>, float, float, float, unsigned int, int=1, int=1, int=1>(OffsetInfo<TensorAddOp<float>, float, unsigned int>, OffsetInfo<float, float, int=1>, OffsetInfo<float, float, int=1>, float, float)
+                    1.86%  402.78us        18  22.376us  6.8480us  37.952us  void kernelPointwiseApply3<TensorSubOp<float>, float, float, float, unsigned int, int=1, int=2, int=2>(OffsetInfo<TensorSubOp<float>, float, unsigned int>, OffsetInfo<float, float, int=1>, OffsetInfo<float, float, int=2>, float, float)
+                    0.99%  215.81us         6  35.967us  13.919us  59.360us  void kernelPointwiseApply2<TensorDivConstantOp<float>, float, float, unsigned int, int=1, int=1>(OffsetInfo<TensorDivConstantOp<float>, float, unsigned int>, OffsetInfo<float, float, int=1>, float, float)
+                    0.94%  203.39us        48  4.2370us  3.9360us  4.4480us  void kernelReduceAll<long, unsigned int, long, thrust::identity<long>, ReduceMax<long>, int=1>(TensorInfo<long, unsigned int>, unsigned int, long, long, thrust::identity<long>, long*)
+                    0.93%  202.24us       192  1.0530us     992ns  1.4400us  [CUDA memcpy DtoH]
+                    0.87%  189.02us        48  3.9370us  3.8390us  4.0640us  void kernelReduceAll<long, unsigned int, long, thrust::identity<long>, ReduceMin<long>, int=1>(TensorInfo<long, unsigned int>, unsigned int, long, long, thrust::identity<long>, long*)
+                    0.83%  180.80us        24  7.5330us  6.0160us  8.0960us  void kernelPointwiseApply2<CopyOp<float, float>, float, float, unsigned int, int=2, int=2>(OffsetInfo<float, float, float>, OffsetInfo<CopyOp<float, float>, float, unsigned int>, float, float)
+                    0.73%  158.11us         4  39.527us  19.232us  59.903us  void kernelPointwiseApply2<TensorDivConstantOp<float>, float, float, unsigned int, int=1, int=2>(OffsetInfo<TensorDivConstantOp<float>, float, unsigned int>, OffsetInfo<float, float, int=1>, float, float)
+                    0.52%  112.74us        96  1.1740us     928ns  1.4400us  void kernelPointwiseApply2<TensorMulConstantOp<long>, long, long, unsigned int, int=1, int=1>(OffsetInfo<TensorMulConstantOp<long>, long, unsigned int>, OffsetInfo<long, long, int=1>, long, long)
+                    0.49%  107.20us         6  17.866us  5.9840us  29.696us  void kernelPointwiseApply3<TensorAddOp<float>, float, float, float, unsigned int, int=1, int=1, int=2>(OffsetInfo<TensorAddOp<float>, float, unsigned int>, OffsetInfo<float, float, int=1>, OffsetInfo<float, float, int=1>, float, float)
+                    0.49%  106.56us        80  1.3310us     800ns  11.999us  void thrust::cuda_cub::core::_kernel_agent<thrust::cuda_cub::__parallel_for::ParallelForAgent<thrust::cuda_cub::__tabulate::functor<thrust::device_ptr<long>, LinspaceOp<long, long>, long>, long>, thrust::cuda_cub::__tabulate::functor<thrust::device_ptr<long>, LinspaceOp<long, long>, long>, long>(thrust::device_ptr<long>, long)
+                    0.45%  97.919us         2  48.959us  21.376us  76.543us  void kernelPointwiseApply2<TensorDivConstantOp<float>, float, float, unsigned int, int=1, int=-1>(OffsetInfo<TensorDivConstantOp<float>, float, unsigned int>, OffsetInfo<float, float, int=1>, float, float)
+                    0.43%  92.608us        96     964ns     768ns  1.2480us  void kernelPointwiseApply1<TensorFillOp<long>, long, unsigned int, int=1>(OffsetInfo<TensorFillOp<long>, long, unsigned int>, long, long)
+                    0.37%  80.639us        48  1.6790us  1.5040us  1.8870us  void kernelPointwiseApply2<TensorRemainderOp<long>, long, long, unsigned int, int=1, int=1>(OffsetInfo<TensorRemainderOp<long>, long, unsigned int>, OffsetInfo<long, long, int=1>, long, long)
+                    0.33%  72.351us         6  12.058us  3.4560us  20.639us  void kernelPointwiseApply2<Tensor_neg_Float_Op, float, float, unsigned int, int=1, int=2>(OffsetInfo<float, unsigned int, int=1>, OffsetInfo<float, unsigned int, int=2>, unsigned int, Tensor_neg_Float_Op)
+      API calls:   99.27%  5.58730s        21  266.06ms  6.4740us  5.57239s  cudaMalloc
+                    0.16%  9.2073ms       790  11.654us  5.8900us  144.86us  cudaLaunch
+                    0.12%  7.0110ms       253  27.711us  1.7070us  790.23us  cudaStreamSynchronize
+                    0.12%  6.9428ms       271  25.619us  5.5130us  3.1218ms  cudaMemcpyAsync
+                    0.09%  4.8091ms       185  25.995us     240ns  1.5994ms  cuDeviceGetAttribute
+                    0.07%  4.1265ms         2  2.0633ms  2.0487ms  2.0778ms  cudaGetDeviceProperties
+                    0.07%  3.7073ms      8979     412ns     266ns  16.138us  cudaGetDevice
+                    0.03%  1.4215ms      2978     477ns     292ns  15.211us  cudaSetDevice
+                    0.02%  1.2178ms         1  1.2178ms  1.2178ms  1.2178ms  cudaHostAlloc
+                    0.02%  859.08us      3632     236ns     111ns  15.220us  cudaSetupArgument
+                    0.01%  452.04us         2  226.02us  221.54us  230.50us  cuDeviceTotalMem
+                    0.01%  397.87us         2  198.94us  198.67us  199.20us  cuDeviceGetName
+                    0.01%  302.87us        80  3.7850us  3.0510us  13.165us  cudaFuncGetAttributes
+                    0.00%  231.17us       874     264ns     116ns  14.052us  cudaGetLastError
+                    0.00%  230.24us       790     291ns     150ns  8.1010us  cudaConfigureCall
+                    0.00%  57.475us        80     718ns     434ns  7.5670us  cudaDeviceGetAttribute
+                    0.00%  46.505us        17  2.7350us  2.0990us  3.7420us  cudaEventQuery
+                    0.00%  31.935us       160     199ns     106ns  5.6140us  cudaPeekAtLastError
+                    0.00%  25.544us        18  1.4190us     911ns  2.0070us  cudaEventCreateWithFlags
+                    0.00%  23.323us        18  1.2950us     964ns  1.8840us  cudaEventRecord
+                    0.00%  22.619us        17  1.3300us     951ns  1.7700us  cudaEventDestroy
+                    0.00%  5.3020us        13     407ns     181ns  1.6200us  cudaGetDeviceCount
+                    0.00%  2.9380us         4     734ns     242ns  1.9240us  cuDeviceGetCount
+                    0.00%  1.7160us         3     572ns     295ns  1.0120us  cuDeviceGet
+                    0.00%     932ns         1     932ns     932ns     932ns  cuInit
+                    0.00%     876ns         1     876ns     876ns     876ns  cuDriverGetVersion
