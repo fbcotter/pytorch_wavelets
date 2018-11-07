@@ -10,15 +10,17 @@ class ifm1(Function):
     @staticmethod
     def forward(ctx, yl, yh1, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        batch, ch, r, c = yl.shape
         ll = yl
         # Level 1 inverse with biorthogonal synthesis filters
-        lh = c2q(yh1[:,:,0:6:5])
-        hl = c2q(yh1[:,:,2:4:1])
-        hh = c2q(yh1[:,:,1:5:3])
-        Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
-        Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
-        y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
+        if yh1 is not None and yh1.shape != torch.Size([0]):
+            lh = c2q(yh1[:,:,0:6:5])
+            hl = c2q(yh1[:,:,2:4:1])
+            hh = c2q(yh1[:,:,1:5:3])
+            Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
+            Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
+        else:
+            y = rowfilter(colfilter(ll, g0o), g0o)
 
         return y
 
@@ -41,15 +43,16 @@ class ifm1(Function):
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
             LoLo = colfilter(Lo, g0o_t)
-            Hi = rowfilter(grad_y, g1o_t)
-            LoHi = colfilter(Lo, g1o_t)
-            HiLo = colfilter(Hi, g0o_t)
-            HiHi = colfilter(Hi, g1o_t)
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh1 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            if ctx.needs_input_grad[1]:
+                Hi = rowfilter(grad_y, g1o_t)
+                LoHi = colfilter(Lo, g1o_t)
+                HiLo = colfilter(Hi, g0o_t)
+                HiHi = colfilter(Hi, g1o_t)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh1 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
 
             grad_yl = LoLo
 
@@ -59,9 +62,10 @@ class ifm1(Function):
 class xfm1(Function):
 
     @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
+    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b, skip_hps):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
+        ctx.skip_hps = skip_hps
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -73,17 +77,20 @@ class xfm1(Function):
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
+        if not ctx.skip_hps[0]:
+            Hi = rowfilter(input, h1o)
+            LoHi = colfilter(Lo, h1o)
+            HiLo = colfilter(Hi, h0o)
+            HiHi = colfilter(Hi, h1o)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh1 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh1 = torch.tensor([])
         LoLo = colfilter(Lo, h0o)
-        Hi = rowfilter(input, h1o)
-        LoHi = colfilter(Lo, h1o)
-        HiLo = colfilter(Hi, h0o)
-        HiHi = colfilter(Hi, h1o)
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh1 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
+        
         Yl = LoLo
         return Yl, Yh1
 
@@ -103,97 +110,18 @@ class xfm1(Function):
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 1 backward (time reversed biorthogonal analysis filters)
-            lh = c2q(grad_Yh1[:,:,0:6:5])
-            hl = c2q(grad_Yh1[:,:,2:4:1])
-            hh = c2q(grad_Yh1[:,:,1:5:3])
-            Hi = colfilter(hh, h1o_t) + colfilter(hl, h0o_t)
-            Lo = colfilter(lh, h1o_t) + colfilter(ll, h0o_t)
-            grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
+            if not ctx.skip_hps[0]:
+                lh = c2q(grad_Yh1[:,:,0:6:5])
+                hl = c2q(grad_Yh1[:,:,2:4:1])
+                hh = c2q(grad_Yh1[:,:,1:5:3])
+                Hi = colfilter(hh, h1o_t) + colfilter(hl, h0o_t)
+                Lo = colfilter(lh, h1o_t) + colfilter(ll, h0o_t)
+                grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
+            else:
+                grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            
 
-        return (grad_input,) + (None,) * 6
-
-
-class ifm1no_l1(Function):
-
-    @staticmethod
-    def forward(ctx, yl, yh1, g0o, g1o, g0a, g0b, g1a, g1b):
-        ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        batch, ch, r, c = yl.shape
-        ll = yl
-        # Level 1 inverse - no highpasses so only use the
-        # Low-low band with biorthogonal synthesis filters
-        y = rowfilter(colfilter(ll, g0o), g0o)
-
-        return y
-
-    @staticmethod
-    def backward(ctx, grad_y):
-        g0o, g1o, g0a, g0b, g1a, g1b = ctx.saved_tensors
-        grad_yl = None
-        grad_yh1 = None
-
-        # Use the special properties of the filters to get the time reverse
-        g0o_t = g0o
-        g1o_t = g1o
-        g0a_t = g0b
-        g0b_t = g0a
-        g1a_t = g1b
-        g1b_t = g1a
-
-        if True in ctx.needs_input_grad:
-            # Level 1 inverse gradient - same as fwd transform
-            # with time reverse biorthogonal synthesis filters
-            Lo = rowfilter(grad_y, g0o_t)
-            LoLo = colfilter(Lo, g0o_t)
-            # No more processing - hps coeffs are 0
-            grad_yl = LoLo
-
-        return grad_yl, grad_yh1, None, None, None, None, None, None
-
-
-class xfm1no_l1(Function):
-
-    @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
-        ctx.in_shape = input.shape
-        batch, ch, r, c = input.shape
-
-        # If the row/col count of X is not divisible by 2 then we need to
-        # extend X
-        if r % 2 != 0:
-            input = torch.cat((input, input[:,:,-1:]), dim=2)
-        if c % 2 != 0:
-            input = torch.cat((input, input[:,:,:,-1:]), dim=3)
-
-        # Level 1 forward (biorthogonal analysis filters)
-        Lo = rowfilter(input, h0o)
-        LoLo = colfilter(Lo, h0o)
-        Yh1 = torch.tensor([])
-
-        Yl = LoLo
-        return Yl, Yh1
-
-    @staticmethod
-    def backward(ctx, grad_LoLo, grad_Yh1):
-        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
-        in_shape = ctx.in_shape
-        grad_input = None
-        # Use the special properties of the filters to get the time reverse
-        h0o_t = h0o
-        h1o_t = h1o
-        h0a_t = h0b
-        h0b_t = h0a
-        h1a_t = h1b
-        h1b_t = h1a
-
-        if True in ctx.needs_input_grad:
-            ll = grad_LoLo
-            # Level 1 backward (time reversed biorthogonal analysis filters). No
-            # Highpasses so only need to use the low-low
-            grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
-
-        return (grad_input,) + (None,) * 6
+        return (grad_input,) + (None,) * 7
 
 
 class ifm2(Function):
@@ -201,28 +129,34 @@ class ifm2(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        batch, ch, r, c = yl.shape
         ll = yl
         # Level 2 inverse transform with quater shift synthesis filters
-        lh = c2q(yh2[:,:,0:6:5])
-        hl = c2q(yh2[:,:,2:4:1])
-        hh = c2q(yh2[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh1.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh2 is not None and yh2.shape != torch.Size([0]):
+            lh = c2q(yh2[:,:,0:6:5])
+            hl = c2q(yh2[:,:,2:4:1])
+            hh = c2q(yh2[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
         # Level 1 inverse with biorthogonal synthesis filters
-        lh = c2q(yh1[:,:,0:6:5])
-        hl = c2q(yh1[:,:,2:4:1])
-        hh = c2q(yh1[:,:,1:5:3])
-        Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
-        Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
-        y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
+        if yh1 is not None and yh1.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh1.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh1[:,:,0:6:5])
+            hl = c2q(yh1[:,:,2:4:1])
+            hh = c2q(yh1[:,:,1:5:3])
+            Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
+            Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
+        else:
+            y = rowfilter(colfilter(ll, g0o), g0o)
 
         return y
 
@@ -246,15 +180,16 @@ class ifm2(Function):
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
             LoLo = colfilter(Lo, g0o_t)
-            Hi = rowfilter(grad_y, g1o_t)
-            LoHi = colfilter(Lo, g1o_t)
-            HiLo = colfilter(Hi, g0o_t)
-            HiHi = colfilter(Hi, g1o_t)
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh1 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            if ctx.needs_input_grad[1]:
+                Hi = rowfilter(grad_y, g1o_t)
+                LoHi = colfilter(Lo, g1o_t)
+                HiLo = colfilter(Hi, g0o_t)
+                HiHi = colfilter(Hi, g1o_t)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh1 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
 
             # Level 2 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
@@ -264,17 +199,18 @@ class ifm2(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[2]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh2 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh2 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             grad_yl = LoLo
 
         return grad_yl, grad_yh1, grad_yh2, None, None, None, None, None, None
@@ -283,9 +219,10 @@ class ifm2(Function):
 class xfm2(Function):
 
     @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
+    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b, skip_hps):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
+        ctx.skip_hps = skip_hps
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -297,17 +234,20 @@ class xfm2(Function):
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
+        if not ctx.skip_hps[0]:
+            Hi = rowfilter(input, h1o)
+            LoHi = colfilter(Lo, h1o)
+            HiLo = colfilter(Hi, h0o)
+            HiHi = colfilter(Hi, h1o)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh1 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh1 = torch.tensor([])
         LoLo = colfilter(Lo, h0o)
-        Hi = rowfilter(input, h1o)
-        LoHi = colfilter(Lo, h1o)
-        HiLo = colfilter(Hi, h0o)
-        HiHi = colfilter(Hi, h1o)
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh1 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
+        
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -316,17 +256,20 @@ class xfm2(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[1]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh2 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh2 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh2 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         Yl = LoLo
         return Yl, Yh1, Yh2
@@ -347,12 +290,15 @@ class xfm2(Function):
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 2 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh2[:,:,0:6:5])
-            hl = c2q(grad_Yh2[:,:,2:4:1])
-            hh = c2q(grad_Yh2[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[2]:
+                lh = c2q(grad_Yh2[:,:,0:6:5])
+                hl = c2q(grad_Yh2[:,:,2:4:1])
+                hh = c2q(grad_Yh2[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh1.shape[3:5]
             if r != r1 * 2:
@@ -361,159 +307,18 @@ class xfm2(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 1 backward (time reversed biorthogonal analysis filters)
-            lh = c2q(grad_Yh1[:,:,0:6:5])
-            hl = c2q(grad_Yh1[:,:,2:4:1])
-            hh = c2q(grad_Yh1[:,:,1:5:3])
-            Hi = colfilter(hh, h1o_t) + colfilter(hl, h0o_t)
-            Lo = colfilter(lh, h1o_t) + colfilter(ll, h0o_t)
-            grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
+            if not ctx.skip_hps[0]:
+                lh = c2q(grad_Yh1[:,:,0:6:5])
+                hl = c2q(grad_Yh1[:,:,2:4:1])
+                hh = c2q(grad_Yh1[:,:,1:5:3])
+                Hi = colfilter(hh, h1o_t) + colfilter(hl, h0o_t)
+                Lo = colfilter(lh, h1o_t) + colfilter(ll, h0o_t)
+                grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
+            else:
+                grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            
 
-        return (grad_input,) + (None,) * 6
-
-
-class ifm2no_l1(Function):
-
-    @staticmethod
-    def forward(ctx, yl, yh1, yh2, g0o, g1o, g0a, g0b, g1a, g1b):
-        ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        batch, ch, r, c = yl.shape
-        ll = yl
-        # Level 2 inverse transform with quater shift synthesis filters
-        lh = c2q(yh2[:,:,0:6:5])
-        hl = c2q(yh2[:,:,2:4:1])
-        hh = c2q(yh2[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        
-        # Level 1 inverse - no highpasses so only use the
-        # Low-low band with biorthogonal synthesis filters
-        y = rowfilter(colfilter(ll, g0o), g0o)
-
-        return y
-
-    @staticmethod
-    def backward(ctx, grad_y):
-        g0o, g1o, g0a, g0b, g1a, g1b = ctx.saved_tensors
-        grad_yl = None
-        grad_yh1 = None
-        grad_yh2 = None
-
-        # Use the special properties of the filters to get the time reverse
-        g0o_t = g0o
-        g1o_t = g1o
-        g0a_t = g0b
-        g0b_t = g0a
-        g1a_t = g1b
-        g1b_t = g1a
-
-        if True in ctx.needs_input_grad:
-            # Level 1 inverse gradient - same as fwd transform
-            # with time reverse biorthogonal synthesis filters
-            Lo = rowfilter(grad_y, g0o_t)
-            LoLo = colfilter(Lo, g0o_t)
-            # No more processing - hps coeffs are 0
-            # Level 2 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh2 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            grad_yl = LoLo
-
-        return grad_yl, grad_yh1, grad_yh2, None, None, None, None, None, None
-
-
-class xfm2no_l1(Function):
-
-    @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
-        ctx.in_shape = input.shape
-        batch, ch, r, c = input.shape
-
-        # If the row/col count of X is not divisible by 2 then we need to
-        # extend X
-        if r % 2 != 0:
-            input = torch.cat((input, input[:,:,-1:]), dim=2)
-        if c % 2 != 0:
-            input = torch.cat((input, input[:,:,:,-1:]), dim=3)
-
-        # Level 1 forward (biorthogonal analysis filters)
-        Lo = rowfilter(input, h0o)
-        LoLo = colfilter(Lo, h0o)
-        Yh1 = torch.tensor([])
-
-        # Level 2 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh2 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        Yl = LoLo
-        return Yl, Yh1, Yh2
-
-    @staticmethod
-    def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2):
-        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
-        in_shape = ctx.in_shape
-        grad_input = None
-        # Use the special properties of the filters to get the time reverse
-        h0o_t = h0o
-        h1o_t = h1o
-        h0a_t = h0b
-        h0b_t = h0a
-        h1a_t = h1b
-        h1b_t = h1a
-
-        if True in ctx.needs_input_grad:
-            ll = grad_LoLo
-            # Level 2 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh2[:,:,0:6:5])
-            hl = c2q(grad_Yh2[:,:,2:4:1])
-            hh = c2q(grad_Yh2[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = in_shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 1 backward (time reversed biorthogonal analysis filters). No
-            # Highpasses so only need to use the low-low
-            grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
-
-        return (grad_input,) + (None,) * 6
+        return (grad_input,) + (None,) * 7
 
 
 class ifm3(Function):
@@ -521,42 +326,52 @@ class ifm3(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, yh3, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        batch, ch, r, c = yl.shape
         ll = yl
         # Level 3 inverse transform with quater shift synthesis filters
-        lh = c2q(yh3[:,:,0:6:5])
-        hl = c2q(yh3[:,:,2:4:1])
-        hh = c2q(yh3[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh2.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh3 is not None and yh3.shape != torch.Size([0]):
+            lh = c2q(yh3[:,:,0:6:5])
+            hl = c2q(yh3[:,:,2:4:1])
+            hh = c2q(yh3[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
 
         # Level 2 inverse transform with quater shift synthesis filters
-        lh = c2q(yh2[:,:,0:6:5])
-        hl = c2q(yh2[:,:,2:4:1])
-        hh = c2q(yh2[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh1.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh2 is not None and yh2.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh2.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh2[:,:,0:6:5])
+            hl = c2q(yh2[:,:,2:4:1])
+            hh = c2q(yh2[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
         # Level 1 inverse with biorthogonal synthesis filters
-        lh = c2q(yh1[:,:,0:6:5])
-        hl = c2q(yh1[:,:,2:4:1])
-        hh = c2q(yh1[:,:,1:5:3])
-        Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
-        Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
-        y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
+        if yh1 is not None and yh1.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh1.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh1[:,:,0:6:5])
+            hl = c2q(yh1[:,:,2:4:1])
+            hh = c2q(yh1[:,:,1:5:3])
+            Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
+            Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
+        else:
+            y = rowfilter(colfilter(ll, g0o), g0o)
 
         return y
 
@@ -581,15 +396,16 @@ class ifm3(Function):
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
             LoLo = colfilter(Lo, g0o_t)
-            Hi = rowfilter(grad_y, g1o_t)
-            LoHi = colfilter(Lo, g1o_t)
-            HiLo = colfilter(Hi, g0o_t)
-            HiHi = colfilter(Hi, g1o_t)
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh1 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            if ctx.needs_input_grad[1]:
+                Hi = rowfilter(grad_y, g1o_t)
+                LoHi = colfilter(Lo, g1o_t)
+                HiLo = colfilter(Hi, g0o_t)
+                HiHi = colfilter(Hi, g1o_t)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh1 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
 
             # Level 2 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
@@ -599,17 +415,18 @@ class ifm3(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[2]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh2 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh2 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             # Level 3 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -618,17 +435,18 @@ class ifm3(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[3]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh3 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh3 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             grad_yl = LoLo
 
         return grad_yl, grad_yh1, grad_yh2, grad_yh3, None, None, None, None, None, None
@@ -637,9 +455,10 @@ class ifm3(Function):
 class xfm3(Function):
 
     @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
+    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b, skip_hps):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
+        ctx.skip_hps = skip_hps
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -651,17 +470,20 @@ class xfm3(Function):
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
+        if not ctx.skip_hps[0]:
+            Hi = rowfilter(input, h1o)
+            LoHi = colfilter(Lo, h1o)
+            HiLo = colfilter(Hi, h0o)
+            HiHi = colfilter(Hi, h1o)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh1 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh1 = torch.tensor([])
         LoLo = colfilter(Lo, h0o)
-        Hi = rowfilter(input, h1o)
-        LoHi = colfilter(Lo, h1o)
-        HiLo = colfilter(Hi, h0o)
-        HiHi = colfilter(Hi, h1o)
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh1 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
+        
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -670,17 +492,20 @@ class xfm3(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[1]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh2 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh2 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh2 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         # Level 3 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -690,17 +515,20 @@ class xfm3(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[2]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh3 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh3 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh3 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         Yl = LoLo
         return Yl, Yh1, Yh2, Yh3
@@ -721,12 +549,15 @@ class xfm3(Function):
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 3 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh3[:,:,0:6:5])
-            hl = c2q(grad_Yh3[:,:,2:4:1])
-            hh = c2q(grad_Yh3[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[3]:
+                lh = c2q(grad_Yh3[:,:,0:6:5])
+                hl = c2q(grad_Yh3[:,:,2:4:1])
+                hh = c2q(grad_Yh3[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh2.shape[3:5]
             if r != r1 * 2:
@@ -735,12 +566,15 @@ class xfm3(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 2 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh2[:,:,0:6:5])
-            hl = c2q(grad_Yh2[:,:,2:4:1])
-            hh = c2q(grad_Yh2[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[2]:
+                lh = c2q(grad_Yh2[:,:,0:6:5])
+                hl = c2q(grad_Yh2[:,:,2:4:1])
+                hh = c2q(grad_Yh2[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh1.shape[3:5]
             if r != r1 * 2:
@@ -749,227 +583,18 @@ class xfm3(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 1 backward (time reversed biorthogonal analysis filters)
-            lh = c2q(grad_Yh1[:,:,0:6:5])
-            hl = c2q(grad_Yh1[:,:,2:4:1])
-            hh = c2q(grad_Yh1[:,:,1:5:3])
-            Hi = colfilter(hh, h1o_t) + colfilter(hl, h0o_t)
-            Lo = colfilter(lh, h1o_t) + colfilter(ll, h0o_t)
-            grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
+            if not ctx.skip_hps[0]:
+                lh = c2q(grad_Yh1[:,:,0:6:5])
+                hl = c2q(grad_Yh1[:,:,2:4:1])
+                hh = c2q(grad_Yh1[:,:,1:5:3])
+                Hi = colfilter(hh, h1o_t) + colfilter(hl, h0o_t)
+                Lo = colfilter(lh, h1o_t) + colfilter(ll, h0o_t)
+                grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
+            else:
+                grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            
 
-        return (grad_input,) + (None,) * 6
-
-
-class ifm3no_l1(Function):
-
-    @staticmethod
-    def forward(ctx, yl, yh1, yh2, yh3, g0o, g1o, g0a, g0b, g1a, g1b):
-        ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        batch, ch, r, c = yl.shape
-        ll = yl
-        # Level 3 inverse transform with quater shift synthesis filters
-        lh = c2q(yh3[:,:,0:6:5])
-        hl = c2q(yh3[:,:,2:4:1])
-        hh = c2q(yh3[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh2.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
-
-        # Level 2 inverse transform with quater shift synthesis filters
-        lh = c2q(yh2[:,:,0:6:5])
-        hl = c2q(yh2[:,:,2:4:1])
-        hh = c2q(yh2[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        
-        # Level 1 inverse - no highpasses so only use the
-        # Low-low band with biorthogonal synthesis filters
-        y = rowfilter(colfilter(ll, g0o), g0o)
-
-        return y
-
-    @staticmethod
-    def backward(ctx, grad_y):
-        g0o, g1o, g0a, g0b, g1a, g1b = ctx.saved_tensors
-        grad_yl = None
-        grad_yh1 = None
-        grad_yh2 = None
-        grad_yh3 = None
-
-        # Use the special properties of the filters to get the time reverse
-        g0o_t = g0o
-        g1o_t = g1o
-        g0a_t = g0b
-        g0b_t = g0a
-        g1a_t = g1b
-        g1b_t = g1a
-
-        if True in ctx.needs_input_grad:
-            # Level 1 inverse gradient - same as fwd transform
-            # with time reverse biorthogonal synthesis filters
-            Lo = rowfilter(grad_y, g0o_t)
-            LoLo = colfilter(Lo, g0o_t)
-            # No more processing - hps coeffs are 0
-            # Level 2 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh2 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            # Level 3 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh3 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            grad_yl = LoLo
-
-        return grad_yl, grad_yh1, grad_yh2, grad_yh3, None, None, None, None, None, None
-
-
-class xfm3no_l1(Function):
-
-    @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
-        ctx.in_shape = input.shape
-        batch, ch, r, c = input.shape
-
-        # If the row/col count of X is not divisible by 2 then we need to
-        # extend X
-        if r % 2 != 0:
-            input = torch.cat((input, input[:,:,-1:]), dim=2)
-        if c % 2 != 0:
-            input = torch.cat((input, input[:,:,:,-1:]), dim=3)
-
-        # Level 1 forward (biorthogonal analysis filters)
-        Lo = rowfilter(input, h0o)
-        LoLo = colfilter(Lo, h0o)
-        Yh1 = torch.tensor([])
-
-        # Level 2 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh2 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        # Level 3 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh3 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        Yl = LoLo
-        return Yl, Yh1, Yh2, Yh3
-
-    @staticmethod
-    def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2, grad_Yh3):
-        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
-        in_shape = ctx.in_shape
-        grad_input = None
-        # Use the special properties of the filters to get the time reverse
-        h0o_t = h0o
-        h1o_t = h1o
-        h0a_t = h0b
-        h0b_t = h0a
-        h1a_t = h1b
-        h1b_t = h1a
-
-        if True in ctx.needs_input_grad:
-            ll = grad_LoLo
-            # Level 3 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh3[:,:,0:6:5])
-            hl = c2q(grad_Yh3[:,:,2:4:1])
-            hh = c2q(grad_Yh3[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = grad_Yh2.shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 2 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh2[:,:,0:6:5])
-            hl = c2q(grad_Yh2[:,:,2:4:1])
-            hh = c2q(grad_Yh2[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = in_shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 1 backward (time reversed biorthogonal analysis filters). No
-            # Highpasses so only need to use the low-low
-            grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
-
-        return (grad_input,) + (None,) * 6
+        return (grad_input,) + (None,) * 7
 
 
 class ifm4(Function):
@@ -977,56 +602,70 @@ class ifm4(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, yh3, yh4, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        batch, ch, r, c = yl.shape
         ll = yl
         # Level 4 inverse transform with quater shift synthesis filters
-        lh = c2q(yh4[:,:,0:6:5])
-        hl = c2q(yh4[:,:,2:4:1])
-        hh = c2q(yh4[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh3.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh4 is not None and yh4.shape != torch.Size([0]):
+            lh = c2q(yh4[:,:,0:6:5])
+            hl = c2q(yh4[:,:,2:4:1])
+            hh = c2q(yh4[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
 
         # Level 3 inverse transform with quater shift synthesis filters
-        lh = c2q(yh3[:,:,0:6:5])
-        hl = c2q(yh3[:,:,2:4:1])
-        hh = c2q(yh3[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh2.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh3 is not None and yh3.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh3.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh3[:,:,0:6:5])
+            hl = c2q(yh3[:,:,2:4:1])
+            hh = c2q(yh3[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
 
         # Level 2 inverse transform with quater shift synthesis filters
-        lh = c2q(yh2[:,:,0:6:5])
-        hl = c2q(yh2[:,:,2:4:1])
-        hh = c2q(yh2[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh1.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh2 is not None and yh2.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh2.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh2[:,:,0:6:5])
+            hl = c2q(yh2[:,:,2:4:1])
+            hh = c2q(yh2[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
         # Level 1 inverse with biorthogonal synthesis filters
-        lh = c2q(yh1[:,:,0:6:5])
-        hl = c2q(yh1[:,:,2:4:1])
-        hh = c2q(yh1[:,:,1:5:3])
-        Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
-        Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
-        y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
+        if yh1 is not None and yh1.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh1.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh1[:,:,0:6:5])
+            hl = c2q(yh1[:,:,2:4:1])
+            hh = c2q(yh1[:,:,1:5:3])
+            Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
+            Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
+        else:
+            y = rowfilter(colfilter(ll, g0o), g0o)
 
         return y
 
@@ -1052,15 +691,16 @@ class ifm4(Function):
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
             LoLo = colfilter(Lo, g0o_t)
-            Hi = rowfilter(grad_y, g1o_t)
-            LoHi = colfilter(Lo, g1o_t)
-            HiLo = colfilter(Hi, g0o_t)
-            HiHi = colfilter(Hi, g1o_t)
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh1 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            if ctx.needs_input_grad[1]:
+                Hi = rowfilter(grad_y, g1o_t)
+                LoHi = colfilter(Lo, g1o_t)
+                HiLo = colfilter(Hi, g0o_t)
+                HiHi = colfilter(Hi, g1o_t)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh1 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
 
             # Level 2 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
@@ -1070,17 +710,18 @@ class ifm4(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[2]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh2 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh2 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             # Level 3 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -1089,17 +730,18 @@ class ifm4(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[3]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh3 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh3 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             # Level 4 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -1108,17 +750,18 @@ class ifm4(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[4]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh4 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh4 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             grad_yl = LoLo
 
         return grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, None, None, None, None, None, None
@@ -1127,9 +770,10 @@ class ifm4(Function):
 class xfm4(Function):
 
     @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
+    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b, skip_hps):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
+        ctx.skip_hps = skip_hps
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -1141,17 +785,20 @@ class xfm4(Function):
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
+        if not ctx.skip_hps[0]:
+            Hi = rowfilter(input, h1o)
+            LoHi = colfilter(Lo, h1o)
+            HiLo = colfilter(Hi, h0o)
+            HiHi = colfilter(Hi, h1o)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh1 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh1 = torch.tensor([])
         LoLo = colfilter(Lo, h0o)
-        Hi = rowfilter(input, h1o)
-        LoHi = colfilter(Lo, h1o)
-        HiLo = colfilter(Hi, h0o)
-        HiHi = colfilter(Hi, h1o)
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh1 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
+        
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -1160,17 +807,20 @@ class xfm4(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[1]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh2 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh2 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh2 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         # Level 3 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -1180,17 +830,20 @@ class xfm4(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[2]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh3 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh3 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh3 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         # Level 4 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -1200,17 +853,20 @@ class xfm4(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[3]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh4 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh4 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh4 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         Yl = LoLo
         return Yl, Yh1, Yh2, Yh3, Yh4
@@ -1231,12 +887,15 @@ class xfm4(Function):
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 4 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh4[:,:,0:6:5])
-            hl = c2q(grad_Yh4[:,:,2:4:1])
-            hh = c2q(grad_Yh4[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[4]:
+                lh = c2q(grad_Yh4[:,:,0:6:5])
+                hl = c2q(grad_Yh4[:,:,2:4:1])
+                hh = c2q(grad_Yh4[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh3.shape[3:5]
             if r != r1 * 2:
@@ -1245,12 +904,15 @@ class xfm4(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 3 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh3[:,:,0:6:5])
-            hl = c2q(grad_Yh3[:,:,2:4:1])
-            hh = c2q(grad_Yh3[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[3]:
+                lh = c2q(grad_Yh3[:,:,0:6:5])
+                hl = c2q(grad_Yh3[:,:,2:4:1])
+                hh = c2q(grad_Yh3[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh2.shape[3:5]
             if r != r1 * 2:
@@ -1259,12 +921,15 @@ class xfm4(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 2 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh2[:,:,0:6:5])
-            hl = c2q(grad_Yh2[:,:,2:4:1])
-            hh = c2q(grad_Yh2[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[2]:
+                lh = c2q(grad_Yh2[:,:,0:6:5])
+                hl = c2q(grad_Yh2[:,:,2:4:1])
+                hh = c2q(grad_Yh2[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh1.shape[3:5]
             if r != r1 * 2:
@@ -1273,295 +938,18 @@ class xfm4(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 1 backward (time reversed biorthogonal analysis filters)
-            lh = c2q(grad_Yh1[:,:,0:6:5])
-            hl = c2q(grad_Yh1[:,:,2:4:1])
-            hh = c2q(grad_Yh1[:,:,1:5:3])
-            Hi = colfilter(hh, h1o_t) + colfilter(hl, h0o_t)
-            Lo = colfilter(lh, h1o_t) + colfilter(ll, h0o_t)
-            grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
+            if not ctx.skip_hps[0]:
+                lh = c2q(grad_Yh1[:,:,0:6:5])
+                hl = c2q(grad_Yh1[:,:,2:4:1])
+                hh = c2q(grad_Yh1[:,:,1:5:3])
+                Hi = colfilter(hh, h1o_t) + colfilter(hl, h0o_t)
+                Lo = colfilter(lh, h1o_t) + colfilter(ll, h0o_t)
+                grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
+            else:
+                grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            
 
-        return (grad_input,) + (None,) * 6
-
-
-class ifm4no_l1(Function):
-
-    @staticmethod
-    def forward(ctx, yl, yh1, yh2, yh3, yh4, g0o, g1o, g0a, g0b, g1a, g1b):
-        ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        batch, ch, r, c = yl.shape
-        ll = yl
-        # Level 4 inverse transform with quater shift synthesis filters
-        lh = c2q(yh4[:,:,0:6:5])
-        hl = c2q(yh4[:,:,2:4:1])
-        hh = c2q(yh4[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh3.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
-
-        # Level 3 inverse transform with quater shift synthesis filters
-        lh = c2q(yh3[:,:,0:6:5])
-        hl = c2q(yh3[:,:,2:4:1])
-        hh = c2q(yh3[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh2.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
-
-        # Level 2 inverse transform with quater shift synthesis filters
-        lh = c2q(yh2[:,:,0:6:5])
-        hl = c2q(yh2[:,:,2:4:1])
-        hh = c2q(yh2[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        
-        # Level 1 inverse - no highpasses so only use the
-        # Low-low band with biorthogonal synthesis filters
-        y = rowfilter(colfilter(ll, g0o), g0o)
-
-        return y
-
-    @staticmethod
-    def backward(ctx, grad_y):
-        g0o, g1o, g0a, g0b, g1a, g1b = ctx.saved_tensors
-        grad_yl = None
-        grad_yh1 = None
-        grad_yh2 = None
-        grad_yh3 = None
-        grad_yh4 = None
-
-        # Use the special properties of the filters to get the time reverse
-        g0o_t = g0o
-        g1o_t = g1o
-        g0a_t = g0b
-        g0b_t = g0a
-        g1a_t = g1b
-        g1b_t = g1a
-
-        if True in ctx.needs_input_grad:
-            # Level 1 inverse gradient - same as fwd transform
-            # with time reverse biorthogonal synthesis filters
-            Lo = rowfilter(grad_y, g0o_t)
-            LoLo = colfilter(Lo, g0o_t)
-            # No more processing - hps coeffs are 0
-            # Level 2 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh2 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            # Level 3 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh3 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            # Level 4 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh4 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            grad_yl = LoLo
-
-        return grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, None, None, None, None, None, None
-
-
-class xfm4no_l1(Function):
-
-    @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
-        ctx.in_shape = input.shape
-        batch, ch, r, c = input.shape
-
-        # If the row/col count of X is not divisible by 2 then we need to
-        # extend X
-        if r % 2 != 0:
-            input = torch.cat((input, input[:,:,-1:]), dim=2)
-        if c % 2 != 0:
-            input = torch.cat((input, input[:,:,:,-1:]), dim=3)
-
-        # Level 1 forward (biorthogonal analysis filters)
-        Lo = rowfilter(input, h0o)
-        LoLo = colfilter(Lo, h0o)
-        Yh1 = torch.tensor([])
-
-        # Level 2 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh2 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        # Level 3 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh3 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        # Level 4 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh4 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        Yl = LoLo
-        return Yl, Yh1, Yh2, Yh3, Yh4
-
-    @staticmethod
-    def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2, grad_Yh3, grad_Yh4):
-        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
-        in_shape = ctx.in_shape
-        grad_input = None
-        # Use the special properties of the filters to get the time reverse
-        h0o_t = h0o
-        h1o_t = h1o
-        h0a_t = h0b
-        h0b_t = h0a
-        h1a_t = h1b
-        h1b_t = h1a
-
-        if True in ctx.needs_input_grad:
-            ll = grad_LoLo
-            # Level 4 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh4[:,:,0:6:5])
-            hl = c2q(grad_Yh4[:,:,2:4:1])
-            hh = c2q(grad_Yh4[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = grad_Yh3.shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 3 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh3[:,:,0:6:5])
-            hl = c2q(grad_Yh3[:,:,2:4:1])
-            hh = c2q(grad_Yh3[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = grad_Yh2.shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 2 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh2[:,:,0:6:5])
-            hl = c2q(grad_Yh2[:,:,2:4:1])
-            hh = c2q(grad_Yh2[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = in_shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 1 backward (time reversed biorthogonal analysis filters). No
-            # Highpasses so only need to use the low-low
-            grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
-
-        return (grad_input,) + (None,) * 6
+        return (grad_input,) + (None,) * 7
 
 
 class ifm5(Function):
@@ -1569,70 +957,88 @@ class ifm5(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, yh3, yh4, yh5, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        batch, ch, r, c = yl.shape
         ll = yl
         # Level 5 inverse transform with quater shift synthesis filters
-        lh = c2q(yh5[:,:,0:6:5])
-        hl = c2q(yh5[:,:,2:4:1])
-        hh = c2q(yh5[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh4.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh5 is not None and yh5.shape != torch.Size([0]):
+            lh = c2q(yh5[:,:,0:6:5])
+            hl = c2q(yh5[:,:,2:4:1])
+            hh = c2q(yh5[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
 
         # Level 4 inverse transform with quater shift synthesis filters
-        lh = c2q(yh4[:,:,0:6:5])
-        hl = c2q(yh4[:,:,2:4:1])
-        hh = c2q(yh4[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh3.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh4 is not None and yh4.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh4.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh4[:,:,0:6:5])
+            hl = c2q(yh4[:,:,2:4:1])
+            hh = c2q(yh4[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
 
         # Level 3 inverse transform with quater shift synthesis filters
-        lh = c2q(yh3[:,:,0:6:5])
-        hl = c2q(yh3[:,:,2:4:1])
-        hh = c2q(yh3[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh2.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh3 is not None and yh3.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh3.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh3[:,:,0:6:5])
+            hl = c2q(yh3[:,:,2:4:1])
+            hh = c2q(yh3[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
 
         # Level 2 inverse transform with quater shift synthesis filters
-        lh = c2q(yh2[:,:,0:6:5])
-        hl = c2q(yh2[:,:,2:4:1])
-        hh = c2q(yh2[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh1.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh2 is not None and yh2.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh2.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh2[:,:,0:6:5])
+            hl = c2q(yh2[:,:,2:4:1])
+            hh = c2q(yh2[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
         # Level 1 inverse with biorthogonal synthesis filters
-        lh = c2q(yh1[:,:,0:6:5])
-        hl = c2q(yh1[:,:,2:4:1])
-        hh = c2q(yh1[:,:,1:5:3])
-        Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
-        Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
-        y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
+        if yh1 is not None and yh1.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh1.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh1[:,:,0:6:5])
+            hl = c2q(yh1[:,:,2:4:1])
+            hh = c2q(yh1[:,:,1:5:3])
+            Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
+            Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
+        else:
+            y = rowfilter(colfilter(ll, g0o), g0o)
 
         return y
 
@@ -1659,15 +1065,16 @@ class ifm5(Function):
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
             LoLo = colfilter(Lo, g0o_t)
-            Hi = rowfilter(grad_y, g1o_t)
-            LoHi = colfilter(Lo, g1o_t)
-            HiLo = colfilter(Hi, g0o_t)
-            HiHi = colfilter(Hi, g1o_t)
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh1 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            if ctx.needs_input_grad[1]:
+                Hi = rowfilter(grad_y, g1o_t)
+                LoHi = colfilter(Lo, g1o_t)
+                HiLo = colfilter(Hi, g0o_t)
+                HiHi = colfilter(Hi, g1o_t)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh1 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
 
             # Level 2 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
@@ -1677,17 +1084,18 @@ class ifm5(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[2]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh2 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh2 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             # Level 3 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -1696,17 +1104,18 @@ class ifm5(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[3]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh3 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh3 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             # Level 4 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -1715,17 +1124,18 @@ class ifm5(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[4]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh4 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh4 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             # Level 5 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -1734,17 +1144,18 @@ class ifm5(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[5]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh5 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh5 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             grad_yl = LoLo
 
         return grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, grad_yh5, None, None, None, None, None, None
@@ -1753,9 +1164,10 @@ class ifm5(Function):
 class xfm5(Function):
 
     @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
+    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b, skip_hps):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
+        ctx.skip_hps = skip_hps
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -1767,17 +1179,20 @@ class xfm5(Function):
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
+        if not ctx.skip_hps[0]:
+            Hi = rowfilter(input, h1o)
+            LoHi = colfilter(Lo, h1o)
+            HiLo = colfilter(Hi, h0o)
+            HiHi = colfilter(Hi, h1o)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh1 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh1 = torch.tensor([])
         LoLo = colfilter(Lo, h0o)
-        Hi = rowfilter(input, h1o)
-        LoHi = colfilter(Lo, h1o)
-        HiLo = colfilter(Hi, h0o)
-        HiHi = colfilter(Hi, h1o)
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh1 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
+        
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -1786,17 +1201,20 @@ class xfm5(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[1]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh2 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh2 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh2 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         # Level 3 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -1806,17 +1224,20 @@ class xfm5(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[2]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh3 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh3 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh3 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         # Level 4 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -1826,17 +1247,20 @@ class xfm5(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[3]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh4 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh4 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh4 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         # Level 5 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -1846,17 +1270,20 @@ class xfm5(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[4]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh5 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh5 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh5 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         Yl = LoLo
         return Yl, Yh1, Yh2, Yh3, Yh4, Yh5
@@ -1877,12 +1304,15 @@ class xfm5(Function):
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 5 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh5[:,:,0:6:5])
-            hl = c2q(grad_Yh5[:,:,2:4:1])
-            hh = c2q(grad_Yh5[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[5]:
+                lh = c2q(grad_Yh5[:,:,0:6:5])
+                hl = c2q(grad_Yh5[:,:,2:4:1])
+                hh = c2q(grad_Yh5[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh4.shape[3:5]
             if r != r1 * 2:
@@ -1891,12 +1321,15 @@ class xfm5(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 4 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh4[:,:,0:6:5])
-            hl = c2q(grad_Yh4[:,:,2:4:1])
-            hh = c2q(grad_Yh4[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[4]:
+                lh = c2q(grad_Yh4[:,:,0:6:5])
+                hl = c2q(grad_Yh4[:,:,2:4:1])
+                hh = c2q(grad_Yh4[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh3.shape[3:5]
             if r != r1 * 2:
@@ -1905,12 +1338,15 @@ class xfm5(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 3 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh3[:,:,0:6:5])
-            hl = c2q(grad_Yh3[:,:,2:4:1])
-            hh = c2q(grad_Yh3[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[3]:
+                lh = c2q(grad_Yh3[:,:,0:6:5])
+                hl = c2q(grad_Yh3[:,:,2:4:1])
+                hh = c2q(grad_Yh3[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh2.shape[3:5]
             if r != r1 * 2:
@@ -1919,12 +1355,15 @@ class xfm5(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 2 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh2[:,:,0:6:5])
-            hl = c2q(grad_Yh2[:,:,2:4:1])
-            hh = c2q(grad_Yh2[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[2]:
+                lh = c2q(grad_Yh2[:,:,0:6:5])
+                hl = c2q(grad_Yh2[:,:,2:4:1])
+                hh = c2q(grad_Yh2[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh1.shape[3:5]
             if r != r1 * 2:
@@ -1933,363 +1372,18 @@ class xfm5(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 1 backward (time reversed biorthogonal analysis filters)
-            lh = c2q(grad_Yh1[:,:,0:6:5])
-            hl = c2q(grad_Yh1[:,:,2:4:1])
-            hh = c2q(grad_Yh1[:,:,1:5:3])
-            Hi = colfilter(hh, h1o_t) + colfilter(hl, h0o_t)
-            Lo = colfilter(lh, h1o_t) + colfilter(ll, h0o_t)
-            grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
+            if not ctx.skip_hps[0]:
+                lh = c2q(grad_Yh1[:,:,0:6:5])
+                hl = c2q(grad_Yh1[:,:,2:4:1])
+                hh = c2q(grad_Yh1[:,:,1:5:3])
+                Hi = colfilter(hh, h1o_t) + colfilter(hl, h0o_t)
+                Lo = colfilter(lh, h1o_t) + colfilter(ll, h0o_t)
+                grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
+            else:
+                grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            
 
-        return (grad_input,) + (None,) * 6
-
-
-class ifm5no_l1(Function):
-
-    @staticmethod
-    def forward(ctx, yl, yh1, yh2, yh3, yh4, yh5, g0o, g1o, g0a, g0b, g1a, g1b):
-        ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        batch, ch, r, c = yl.shape
-        ll = yl
-        # Level 5 inverse transform with quater shift synthesis filters
-        lh = c2q(yh5[:,:,0:6:5])
-        hl = c2q(yh5[:,:,2:4:1])
-        hh = c2q(yh5[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh4.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
-
-        # Level 4 inverse transform with quater shift synthesis filters
-        lh = c2q(yh4[:,:,0:6:5])
-        hl = c2q(yh4[:,:,2:4:1])
-        hh = c2q(yh4[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh3.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
-
-        # Level 3 inverse transform with quater shift synthesis filters
-        lh = c2q(yh3[:,:,0:6:5])
-        hl = c2q(yh3[:,:,2:4:1])
-        hh = c2q(yh3[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh2.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
-
-        # Level 2 inverse transform with quater shift synthesis filters
-        lh = c2q(yh2[:,:,0:6:5])
-        hl = c2q(yh2[:,:,2:4:1])
-        hh = c2q(yh2[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        
-        # Level 1 inverse - no highpasses so only use the
-        # Low-low band with biorthogonal synthesis filters
-        y = rowfilter(colfilter(ll, g0o), g0o)
-
-        return y
-
-    @staticmethod
-    def backward(ctx, grad_y):
-        g0o, g1o, g0a, g0b, g1a, g1b = ctx.saved_tensors
-        grad_yl = None
-        grad_yh1 = None
-        grad_yh2 = None
-        grad_yh3 = None
-        grad_yh4 = None
-        grad_yh5 = None
-
-        # Use the special properties of the filters to get the time reverse
-        g0o_t = g0o
-        g1o_t = g1o
-        g0a_t = g0b
-        g0b_t = g0a
-        g1a_t = g1b
-        g1b_t = g1a
-
-        if True in ctx.needs_input_grad:
-            # Level 1 inverse gradient - same as fwd transform
-            # with time reverse biorthogonal synthesis filters
-            Lo = rowfilter(grad_y, g0o_t)
-            LoLo = colfilter(Lo, g0o_t)
-            # No more processing - hps coeffs are 0
-            # Level 2 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh2 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            # Level 3 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh3 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            # Level 4 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh4 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            # Level 5 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh5 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            grad_yl = LoLo
-
-        return grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, grad_yh5, None, None, None, None, None, None
-
-
-class xfm5no_l1(Function):
-
-    @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
-        ctx.in_shape = input.shape
-        batch, ch, r, c = input.shape
-
-        # If the row/col count of X is not divisible by 2 then we need to
-        # extend X
-        if r % 2 != 0:
-            input = torch.cat((input, input[:,:,-1:]), dim=2)
-        if c % 2 != 0:
-            input = torch.cat((input, input[:,:,:,-1:]), dim=3)
-
-        # Level 1 forward (biorthogonal analysis filters)
-        Lo = rowfilter(input, h0o)
-        LoLo = colfilter(Lo, h0o)
-        Yh1 = torch.tensor([])
-
-        # Level 2 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh2 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        # Level 3 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh3 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        # Level 4 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh4 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        # Level 5 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh5 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        Yl = LoLo
-        return Yl, Yh1, Yh2, Yh3, Yh4, Yh5
-
-    @staticmethod
-    def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2, grad_Yh3, grad_Yh4, grad_Yh5):
-        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
-        in_shape = ctx.in_shape
-        grad_input = None
-        # Use the special properties of the filters to get the time reverse
-        h0o_t = h0o
-        h1o_t = h1o
-        h0a_t = h0b
-        h0b_t = h0a
-        h1a_t = h1b
-        h1b_t = h1a
-
-        if True in ctx.needs_input_grad:
-            ll = grad_LoLo
-            # Level 5 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh5[:,:,0:6:5])
-            hl = c2q(grad_Yh5[:,:,2:4:1])
-            hh = c2q(grad_Yh5[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = grad_Yh4.shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 4 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh4[:,:,0:6:5])
-            hl = c2q(grad_Yh4[:,:,2:4:1])
-            hh = c2q(grad_Yh4[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = grad_Yh3.shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 3 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh3[:,:,0:6:5])
-            hl = c2q(grad_Yh3[:,:,2:4:1])
-            hh = c2q(grad_Yh3[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = grad_Yh2.shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 2 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh2[:,:,0:6:5])
-            hl = c2q(grad_Yh2[:,:,2:4:1])
-            hh = c2q(grad_Yh2[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = in_shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 1 backward (time reversed biorthogonal analysis filters). No
-            # Highpasses so only need to use the low-low
-            grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
-
-        return (grad_input,) + (None,) * 6
+        return (grad_input,) + (None,) * 7
 
 
 class ifm6(Function):
@@ -2297,84 +1391,106 @@ class ifm6(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, yh3, yh4, yh5, yh6, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        batch, ch, r, c = yl.shape
         ll = yl
         # Level 6 inverse transform with quater shift synthesis filters
-        lh = c2q(yh6[:,:,0:6:5])
-        hl = c2q(yh6[:,:,2:4:1])
-        hh = c2q(yh6[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh5.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh6 is not None and yh6.shape != torch.Size([0]):
+            lh = c2q(yh6[:,:,0:6:5])
+            hl = c2q(yh6[:,:,2:4:1])
+            hh = c2q(yh6[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
 
         # Level 5 inverse transform with quater shift synthesis filters
-        lh = c2q(yh5[:,:,0:6:5])
-        hl = c2q(yh5[:,:,2:4:1])
-        hh = c2q(yh5[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh4.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh5 is not None and yh5.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh5.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh5[:,:,0:6:5])
+            hl = c2q(yh5[:,:,2:4:1])
+            hh = c2q(yh5[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
 
         # Level 4 inverse transform with quater shift synthesis filters
-        lh = c2q(yh4[:,:,0:6:5])
-        hl = c2q(yh4[:,:,2:4:1])
-        hh = c2q(yh4[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh3.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh4 is not None and yh4.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh4.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh4[:,:,0:6:5])
+            hl = c2q(yh4[:,:,2:4:1])
+            hh = c2q(yh4[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
 
         # Level 3 inverse transform with quater shift synthesis filters
-        lh = c2q(yh3[:,:,0:6:5])
-        hl = c2q(yh3[:,:,2:4:1])
-        hh = c2q(yh3[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh2.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh3 is not None and yh3.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh3.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh3[:,:,0:6:5])
+            hl = c2q(yh3[:,:,2:4:1])
+            hh = c2q(yh3[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
 
         # Level 2 inverse transform with quater shift synthesis filters
-        lh = c2q(yh2[:,:,0:6:5])
-        hl = c2q(yh2[:,:,2:4:1])
-        hh = c2q(yh2[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh1.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh2 is not None and yh2.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh2.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh2[:,:,0:6:5])
+            hl = c2q(yh2[:,:,2:4:1])
+            hh = c2q(yh2[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
         # Level 1 inverse with biorthogonal synthesis filters
-        lh = c2q(yh1[:,:,0:6:5])
-        hl = c2q(yh1[:,:,2:4:1])
-        hh = c2q(yh1[:,:,1:5:3])
-        Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
-        Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
-        y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
+        if yh1 is not None and yh1.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh1.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh1[:,:,0:6:5])
+            hl = c2q(yh1[:,:,2:4:1])
+            hh = c2q(yh1[:,:,1:5:3])
+            Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
+            Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
+        else:
+            y = rowfilter(colfilter(ll, g0o), g0o)
 
         return y
 
@@ -2402,15 +1518,16 @@ class ifm6(Function):
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
             LoLo = colfilter(Lo, g0o_t)
-            Hi = rowfilter(grad_y, g1o_t)
-            LoHi = colfilter(Lo, g1o_t)
-            HiLo = colfilter(Hi, g0o_t)
-            HiHi = colfilter(Hi, g1o_t)
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh1 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            if ctx.needs_input_grad[1]:
+                Hi = rowfilter(grad_y, g1o_t)
+                LoHi = colfilter(Lo, g1o_t)
+                HiLo = colfilter(Hi, g0o_t)
+                HiHi = colfilter(Hi, g1o_t)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh1 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
 
             # Level 2 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
@@ -2420,17 +1537,18 @@ class ifm6(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[2]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh2 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh2 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             # Level 3 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -2439,17 +1557,18 @@ class ifm6(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[3]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh3 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh3 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             # Level 4 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -2458,17 +1577,18 @@ class ifm6(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[4]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh4 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh4 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             # Level 5 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -2477,17 +1597,18 @@ class ifm6(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[5]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh5 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh5 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             # Level 6 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -2496,17 +1617,18 @@ class ifm6(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[6]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh6 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh6 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             grad_yl = LoLo
 
         return grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, grad_yh5, grad_yh6, None, None, None, None, None, None
@@ -2515,9 +1637,10 @@ class ifm6(Function):
 class xfm6(Function):
 
     @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
+    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b, skip_hps):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
+        ctx.skip_hps = skip_hps
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -2529,17 +1652,20 @@ class xfm6(Function):
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
+        if not ctx.skip_hps[0]:
+            Hi = rowfilter(input, h1o)
+            LoHi = colfilter(Lo, h1o)
+            HiLo = colfilter(Hi, h0o)
+            HiHi = colfilter(Hi, h1o)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh1 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh1 = torch.tensor([])
         LoLo = colfilter(Lo, h0o)
-        Hi = rowfilter(input, h1o)
-        LoHi = colfilter(Lo, h1o)
-        HiLo = colfilter(Hi, h0o)
-        HiHi = colfilter(Hi, h1o)
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh1 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
+        
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -2548,17 +1674,20 @@ class xfm6(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[1]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh2 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh2 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh2 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         # Level 3 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -2568,17 +1697,20 @@ class xfm6(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[2]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh3 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh3 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh3 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         # Level 4 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -2588,17 +1720,20 @@ class xfm6(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[3]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh4 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh4 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh4 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         # Level 5 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -2608,17 +1743,20 @@ class xfm6(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[4]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh5 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh5 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh5 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         # Level 6 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -2628,17 +1766,20 @@ class xfm6(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[5]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh6 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh6 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh6 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         Yl = LoLo
         return Yl, Yh1, Yh2, Yh3, Yh4, Yh5, Yh6
@@ -2659,12 +1800,15 @@ class xfm6(Function):
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 6 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh6[:,:,0:6:5])
-            hl = c2q(grad_Yh6[:,:,2:4:1])
-            hh = c2q(grad_Yh6[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[6]:
+                lh = c2q(grad_Yh6[:,:,0:6:5])
+                hl = c2q(grad_Yh6[:,:,2:4:1])
+                hh = c2q(grad_Yh6[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh5.shape[3:5]
             if r != r1 * 2:
@@ -2673,12 +1817,15 @@ class xfm6(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 5 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh5[:,:,0:6:5])
-            hl = c2q(grad_Yh5[:,:,2:4:1])
-            hh = c2q(grad_Yh5[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[5]:
+                lh = c2q(grad_Yh5[:,:,0:6:5])
+                hl = c2q(grad_Yh5[:,:,2:4:1])
+                hh = c2q(grad_Yh5[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh4.shape[3:5]
             if r != r1 * 2:
@@ -2687,12 +1834,15 @@ class xfm6(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 4 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh4[:,:,0:6:5])
-            hl = c2q(grad_Yh4[:,:,2:4:1])
-            hh = c2q(grad_Yh4[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[4]:
+                lh = c2q(grad_Yh4[:,:,0:6:5])
+                hl = c2q(grad_Yh4[:,:,2:4:1])
+                hh = c2q(grad_Yh4[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh3.shape[3:5]
             if r != r1 * 2:
@@ -2701,12 +1851,15 @@ class xfm6(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 3 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh3[:,:,0:6:5])
-            hl = c2q(grad_Yh3[:,:,2:4:1])
-            hh = c2q(grad_Yh3[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[3]:
+                lh = c2q(grad_Yh3[:,:,0:6:5])
+                hl = c2q(grad_Yh3[:,:,2:4:1])
+                hh = c2q(grad_Yh3[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh2.shape[3:5]
             if r != r1 * 2:
@@ -2715,12 +1868,15 @@ class xfm6(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 2 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh2[:,:,0:6:5])
-            hl = c2q(grad_Yh2[:,:,2:4:1])
-            hh = c2q(grad_Yh2[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[2]:
+                lh = c2q(grad_Yh2[:,:,0:6:5])
+                hl = c2q(grad_Yh2[:,:,2:4:1])
+                hh = c2q(grad_Yh2[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh1.shape[3:5]
             if r != r1 * 2:
@@ -2729,431 +1885,18 @@ class xfm6(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 1 backward (time reversed biorthogonal analysis filters)
-            lh = c2q(grad_Yh1[:,:,0:6:5])
-            hl = c2q(grad_Yh1[:,:,2:4:1])
-            hh = c2q(grad_Yh1[:,:,1:5:3])
-            Hi = colfilter(hh, h1o_t) + colfilter(hl, h0o_t)
-            Lo = colfilter(lh, h1o_t) + colfilter(ll, h0o_t)
-            grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
+            if not ctx.skip_hps[0]:
+                lh = c2q(grad_Yh1[:,:,0:6:5])
+                hl = c2q(grad_Yh1[:,:,2:4:1])
+                hh = c2q(grad_Yh1[:,:,1:5:3])
+                Hi = colfilter(hh, h1o_t) + colfilter(hl, h0o_t)
+                Lo = colfilter(lh, h1o_t) + colfilter(ll, h0o_t)
+                grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
+            else:
+                grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            
 
-        return (grad_input,) + (None,) * 6
-
-
-class ifm6no_l1(Function):
-
-    @staticmethod
-    def forward(ctx, yl, yh1, yh2, yh3, yh4, yh5, yh6, g0o, g1o, g0a, g0b, g1a, g1b):
-        ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        batch, ch, r, c = yl.shape
-        ll = yl
-        # Level 6 inverse transform with quater shift synthesis filters
-        lh = c2q(yh6[:,:,0:6:5])
-        hl = c2q(yh6[:,:,2:4:1])
-        hh = c2q(yh6[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh5.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
-
-        # Level 5 inverse transform with quater shift synthesis filters
-        lh = c2q(yh5[:,:,0:6:5])
-        hl = c2q(yh5[:,:,2:4:1])
-        hh = c2q(yh5[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh4.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
-
-        # Level 4 inverse transform with quater shift synthesis filters
-        lh = c2q(yh4[:,:,0:6:5])
-        hl = c2q(yh4[:,:,2:4:1])
-        hh = c2q(yh4[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh3.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
-
-        # Level 3 inverse transform with quater shift synthesis filters
-        lh = c2q(yh3[:,:,0:6:5])
-        hl = c2q(yh3[:,:,2:4:1])
-        hh = c2q(yh3[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh2.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
-
-        # Level 2 inverse transform with quater shift synthesis filters
-        lh = c2q(yh2[:,:,0:6:5])
-        hl = c2q(yh2[:,:,2:4:1])
-        hh = c2q(yh2[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        
-        # Level 1 inverse - no highpasses so only use the
-        # Low-low band with biorthogonal synthesis filters
-        y = rowfilter(colfilter(ll, g0o), g0o)
-
-        return y
-
-    @staticmethod
-    def backward(ctx, grad_y):
-        g0o, g1o, g0a, g0b, g1a, g1b = ctx.saved_tensors
-        grad_yl = None
-        grad_yh1 = None
-        grad_yh2 = None
-        grad_yh3 = None
-        grad_yh4 = None
-        grad_yh5 = None
-        grad_yh6 = None
-
-        # Use the special properties of the filters to get the time reverse
-        g0o_t = g0o
-        g1o_t = g1o
-        g0a_t = g0b
-        g0b_t = g0a
-        g1a_t = g1b
-        g1b_t = g1a
-
-        if True in ctx.needs_input_grad:
-            # Level 1 inverse gradient - same as fwd transform
-            # with time reverse biorthogonal synthesis filters
-            Lo = rowfilter(grad_y, g0o_t)
-            LoLo = colfilter(Lo, g0o_t)
-            # No more processing - hps coeffs are 0
-            # Level 2 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh2 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            # Level 3 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh3 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            # Level 4 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh4 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            # Level 5 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh5 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            # Level 6 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh6 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            grad_yl = LoLo
-
-        return grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, grad_yh5, grad_yh6, None, None, None, None, None, None
-
-
-class xfm6no_l1(Function):
-
-    @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
-        ctx.in_shape = input.shape
-        batch, ch, r, c = input.shape
-
-        # If the row/col count of X is not divisible by 2 then we need to
-        # extend X
-        if r % 2 != 0:
-            input = torch.cat((input, input[:,:,-1:]), dim=2)
-        if c % 2 != 0:
-            input = torch.cat((input, input[:,:,:,-1:]), dim=3)
-
-        # Level 1 forward (biorthogonal analysis filters)
-        Lo = rowfilter(input, h0o)
-        LoLo = colfilter(Lo, h0o)
-        Yh1 = torch.tensor([])
-
-        # Level 2 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh2 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        # Level 3 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh3 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        # Level 4 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh4 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        # Level 5 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh5 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        # Level 6 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh6 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        Yl = LoLo
-        return Yl, Yh1, Yh2, Yh3, Yh4, Yh5, Yh6
-
-    @staticmethod
-    def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2, grad_Yh3, grad_Yh4, grad_Yh5, grad_Yh6):
-        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
-        in_shape = ctx.in_shape
-        grad_input = None
-        # Use the special properties of the filters to get the time reverse
-        h0o_t = h0o
-        h1o_t = h1o
-        h0a_t = h0b
-        h0b_t = h0a
-        h1a_t = h1b
-        h1b_t = h1a
-
-        if True in ctx.needs_input_grad:
-            ll = grad_LoLo
-            # Level 6 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh6[:,:,0:6:5])
-            hl = c2q(grad_Yh6[:,:,2:4:1])
-            hh = c2q(grad_Yh6[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = grad_Yh5.shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 5 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh5[:,:,0:6:5])
-            hl = c2q(grad_Yh5[:,:,2:4:1])
-            hh = c2q(grad_Yh5[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = grad_Yh4.shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 4 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh4[:,:,0:6:5])
-            hl = c2q(grad_Yh4[:,:,2:4:1])
-            hh = c2q(grad_Yh4[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = grad_Yh3.shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 3 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh3[:,:,0:6:5])
-            hl = c2q(grad_Yh3[:,:,2:4:1])
-            hh = c2q(grad_Yh3[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = grad_Yh2.shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 2 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh2[:,:,0:6:5])
-            hl = c2q(grad_Yh2[:,:,2:4:1])
-            hh = c2q(grad_Yh2[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = in_shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 1 backward (time reversed biorthogonal analysis filters). No
-            # Highpasses so only need to use the low-low
-            grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
-
-        return (grad_input,) + (None,) * 6
+        return (grad_input,) + (None,) * 7
 
 
 class ifm7(Function):
@@ -3161,98 +1904,124 @@ class ifm7(Function):
     @staticmethod
     def forward(ctx, yl, yh1, yh2, yh3, yh4, yh5, yh6, yh7, g0o, g1o, g0a, g0b, g1a, g1b):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        batch, ch, r, c = yl.shape
         ll = yl
         # Level 7 inverse transform with quater shift synthesis filters
-        lh = c2q(yh7[:,:,0:6:5])
-        hl = c2q(yh7[:,:,2:4:1])
-        hh = c2q(yh7[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh6.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh7 is not None and yh7.shape != torch.Size([0]):
+            lh = c2q(yh7[:,:,0:6:5])
+            hl = c2q(yh7[:,:,2:4:1])
+            hh = c2q(yh7[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
 
         # Level 6 inverse transform with quater shift synthesis filters
-        lh = c2q(yh6[:,:,0:6:5])
-        hl = c2q(yh6[:,:,2:4:1])
-        hh = c2q(yh6[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh5.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh6 is not None and yh6.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh6.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh6[:,:,0:6:5])
+            hl = c2q(yh6[:,:,2:4:1])
+            hh = c2q(yh6[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
 
         # Level 5 inverse transform with quater shift synthesis filters
-        lh = c2q(yh5[:,:,0:6:5])
-        hl = c2q(yh5[:,:,2:4:1])
-        hh = c2q(yh5[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh4.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh5 is not None and yh5.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh5.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh5[:,:,0:6:5])
+            hl = c2q(yh5[:,:,2:4:1])
+            hh = c2q(yh5[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
 
         # Level 4 inverse transform with quater shift synthesis filters
-        lh = c2q(yh4[:,:,0:6:5])
-        hl = c2q(yh4[:,:,2:4:1])
-        hh = c2q(yh4[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh3.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh4 is not None and yh4.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh4.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh4[:,:,0:6:5])
+            hl = c2q(yh4[:,:,2:4:1])
+            hh = c2q(yh4[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
 
         # Level 3 inverse transform with quater shift synthesis filters
-        lh = c2q(yh3[:,:,0:6:5])
-        hl = c2q(yh3[:,:,2:4:1])
-        hh = c2q(yh3[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh2.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh3 is not None and yh3.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh3.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh3[:,:,0:6:5])
+            hl = c2q(yh3[:,:,2:4:1])
+            hh = c2q(yh3[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
 
         # Level 2 inverse transform with quater shift synthesis filters
-        lh = c2q(yh2[:,:,0:6:5])
-        hl = c2q(yh2[:,:,2:4:1])
-        hh = c2q(yh2[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh1.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
+        if yh2 is not None and yh2.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh2.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh2[:,:,0:6:5])
+            hl = c2q(yh2[:,:,2:4:1])
+            hh = c2q(yh2[:,:,1:5:3])
+            Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
+            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
+        else:
+            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+        
         # Level 1 inverse with biorthogonal synthesis filters
-        lh = c2q(yh1[:,:,0:6:5])
-        hl = c2q(yh1[:,:,2:4:1])
-        hh = c2q(yh1[:,:,1:5:3])
-        Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
-        Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
-        y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
+        if yh1 is not None and yh1.shape != torch.Size([0]):
+            r, c = ll.shape[2:]
+            r1, c1 = yh1.shape[3:5]
+            if r != r1 * 2:
+                ll = ll[:,:,1:-1]
+            if c != c1 * 2:
+                ll = ll[:,:,:,1:-1]
+            lh = c2q(yh1[:,:,0:6:5])
+            hl = c2q(yh1[:,:,2:4:1])
+            hh = c2q(yh1[:,:,1:5:3])
+            Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
+            Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
+        else:
+            y = rowfilter(colfilter(ll, g0o), g0o)
 
         return y
 
@@ -3281,15 +2050,16 @@ class ifm7(Function):
             # with time reverse biorthogonal synthesis filters
             Lo = rowfilter(grad_y, g0o_t)
             LoLo = colfilter(Lo, g0o_t)
-            Hi = rowfilter(grad_y, g1o_t)
-            LoHi = colfilter(Lo, g1o_t)
-            HiLo = colfilter(Hi, g0o_t)
-            HiHi = colfilter(Hi, g1o_t)
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh1 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            if ctx.needs_input_grad[1]:
+                Hi = rowfilter(grad_y, g1o_t)
+                LoHi = colfilter(Lo, g1o_t)
+                HiLo = colfilter(Hi, g0o_t)
+                HiHi = colfilter(Hi, g1o_t)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh1 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
 
             # Level 2 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
@@ -3299,17 +2069,18 @@ class ifm7(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[2]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh2 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh2 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             # Level 3 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -3318,17 +2089,18 @@ class ifm7(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[3]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh3 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh3 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             # Level 4 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -3337,17 +2109,18 @@ class ifm7(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[4]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh4 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh4 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             # Level 5 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -3356,17 +2129,18 @@ class ifm7(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[5]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh5 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh5 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             # Level 6 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -3375,17 +2149,18 @@ class ifm7(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[6]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh6 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh6 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             # Level 7 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -3394,17 +2169,18 @@ class ifm7(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
+            if ctx.needs_input_grad[7]:
+                Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
+                LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
+                HiLo = coldfilt(Hi, g0b_t, g0a_t)
+                HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh7 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                deg15, deg165 = q2c(LoHi)
+                deg45, deg135 = q2c(HiHi)
+                deg75, deg105 = q2c(HiLo)
+                grad_yh7 = torch.stack(
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
             grad_yl = LoLo
 
         return grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, grad_yh5, grad_yh6, grad_yh7, None, None, None, None, None, None
@@ -3413,9 +2189,10 @@ class ifm7(Function):
 class xfm7(Function):
 
     @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
+    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b, skip_hps):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         ctx.in_shape = input.shape
+        ctx.skip_hps = skip_hps
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -3427,17 +2204,20 @@ class xfm7(Function):
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
+        if not ctx.skip_hps[0]:
+            Hi = rowfilter(input, h1o)
+            LoHi = colfilter(Lo, h1o)
+            HiLo = colfilter(Hi, h0o)
+            HiHi = colfilter(Hi, h1o)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh1 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh1 = torch.tensor([])
         LoLo = colfilter(Lo, h0o)
-        Hi = rowfilter(input, h1o)
-        LoHi = colfilter(Lo, h1o)
-        HiLo = colfilter(Hi, h0o)
-        HiHi = colfilter(Hi, h1o)
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh1 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
+        
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -3446,17 +2226,20 @@ class xfm7(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[1]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh2 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh2 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh2 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         # Level 3 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -3466,17 +2249,20 @@ class xfm7(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[2]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh3 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh3 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh3 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         # Level 4 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -3486,17 +2272,20 @@ class xfm7(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[3]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh4 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh4 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh4 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         # Level 5 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -3506,17 +2295,20 @@ class xfm7(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[4]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh5 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh5 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh5 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         # Level 6 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -3526,17 +2318,20 @@ class xfm7(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[5]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh6 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh6 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh6 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         # Level 7 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -3546,17 +2341,20 @@ class xfm7(Function):
             LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
 
         Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
+        if not ctx.skip_hps[6]:
+            Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
+            LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
+            HiLo = coldfilt(Hi, h0b, h0a)
+            HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh7 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+            deg15, deg165 = q2c(LoHi)
+            deg45, deg135 = q2c(HiHi)
+            deg75, deg105 = q2c(HiLo)
+            Yh7 = torch.stack(
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+        else:
+            Yh7 = torch.tensor([])
+        LoLo = coldfilt(Lo, h0b, h0a)
 
         Yl = LoLo
         return Yl, Yh1, Yh2, Yh3, Yh4, Yh5, Yh6, Yh7
@@ -3577,12 +2375,15 @@ class xfm7(Function):
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 7 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh7[:,:,0:6:5])
-            hl = c2q(grad_Yh7[:,:,2:4:1])
-            hh = c2q(grad_Yh7[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[7]:
+                lh = c2q(grad_Yh7[:,:,0:6:5])
+                hl = c2q(grad_Yh7[:,:,2:4:1])
+                hh = c2q(grad_Yh7[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh6.shape[3:5]
             if r != r1 * 2:
@@ -3591,12 +2392,15 @@ class xfm7(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 6 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh6[:,:,0:6:5])
-            hl = c2q(grad_Yh6[:,:,2:4:1])
-            hh = c2q(grad_Yh6[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[6]:
+                lh = c2q(grad_Yh6[:,:,0:6:5])
+                hl = c2q(grad_Yh6[:,:,2:4:1])
+                hh = c2q(grad_Yh6[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh5.shape[3:5]
             if r != r1 * 2:
@@ -3605,12 +2409,15 @@ class xfm7(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 5 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh5[:,:,0:6:5])
-            hl = c2q(grad_Yh5[:,:,2:4:1])
-            hh = c2q(grad_Yh5[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[5]:
+                lh = c2q(grad_Yh5[:,:,0:6:5])
+                hl = c2q(grad_Yh5[:,:,2:4:1])
+                hh = c2q(grad_Yh5[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh4.shape[3:5]
             if r != r1 * 2:
@@ -3619,12 +2426,15 @@ class xfm7(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 4 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh4[:,:,0:6:5])
-            hl = c2q(grad_Yh4[:,:,2:4:1])
-            hh = c2q(grad_Yh4[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[4]:
+                lh = c2q(grad_Yh4[:,:,0:6:5])
+                hl = c2q(grad_Yh4[:,:,2:4:1])
+                hh = c2q(grad_Yh4[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh3.shape[3:5]
             if r != r1 * 2:
@@ -3633,12 +2443,15 @@ class xfm7(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 3 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh3[:,:,0:6:5])
-            hl = c2q(grad_Yh3[:,:,2:4:1])
-            hh = c2q(grad_Yh3[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[3]:
+                lh = c2q(grad_Yh3[:,:,0:6:5])
+                hl = c2q(grad_Yh3[:,:,2:4:1])
+                hh = c2q(grad_Yh3[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh2.shape[3:5]
             if r != r1 * 2:
@@ -3647,12 +2460,15 @@ class xfm7(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 2 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh2[:,:,0:6:5])
-            hl = c2q(grad_Yh2[:,:,2:4:1])
-            hh = c2q(grad_Yh2[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            if not ctx.skip_hps[2]:
+                lh = c2q(grad_Yh2[:,:,0:6:5])
+                hl = c2q(grad_Yh2[:,:,2:4:1])
+                hh = c2q(grad_Yh2[:,:,1:5:3])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
             r1, c1 = grad_Yh1.shape[3:5]
             if r != r1 * 2:
@@ -3661,497 +2477,16 @@ class xfm7(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 1 backward (time reversed biorthogonal analysis filters)
-            lh = c2q(grad_Yh1[:,:,0:6:5])
-            hl = c2q(grad_Yh1[:,:,2:4:1])
-            hh = c2q(grad_Yh1[:,:,1:5:3])
-            Hi = colfilter(hh, h1o_t) + colfilter(hl, h0o_t)
-            Lo = colfilter(lh, h1o_t) + colfilter(ll, h0o_t)
-            grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
+            if not ctx.skip_hps[0]:
+                lh = c2q(grad_Yh1[:,:,0:6:5])
+                hl = c2q(grad_Yh1[:,:,2:4:1])
+                hh = c2q(grad_Yh1[:,:,1:5:3])
+                Hi = colfilter(hh, h1o_t) + colfilter(hl, h0o_t)
+                Lo = colfilter(lh, h1o_t) + colfilter(ll, h0o_t)
+                grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
+            else:
+                grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            
 
-        return (grad_input,) + (None,) * 6
-
-
-class ifm7no_l1(Function):
-
-    @staticmethod
-    def forward(ctx, yl, yh1, yh2, yh3, yh4, yh5, yh6, yh7, g0o, g1o, g0a, g0b, g1a, g1b):
-        ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        batch, ch, r, c = yl.shape
-        ll = yl
-        # Level 7 inverse transform with quater shift synthesis filters
-        lh = c2q(yh7[:,:,0:6:5])
-        hl = c2q(yh7[:,:,2:4:1])
-        hh = c2q(yh7[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh6.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
-
-        # Level 6 inverse transform with quater shift synthesis filters
-        lh = c2q(yh6[:,:,0:6:5])
-        hl = c2q(yh6[:,:,2:4:1])
-        hh = c2q(yh6[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh5.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
-
-        # Level 5 inverse transform with quater shift synthesis filters
-        lh = c2q(yh5[:,:,0:6:5])
-        hl = c2q(yh5[:,:,2:4:1])
-        hh = c2q(yh5[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh4.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
-
-        # Level 4 inverse transform with quater shift synthesis filters
-        lh = c2q(yh4[:,:,0:6:5])
-        hl = c2q(yh4[:,:,2:4:1])
-        hh = c2q(yh4[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh3.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
-
-        # Level 3 inverse transform with quater shift synthesis filters
-        lh = c2q(yh3[:,:,0:6:5])
-        hl = c2q(yh3[:,:,2:4:1])
-        hh = c2q(yh3[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        r, c = ll.shape[2:]
-        r1, c1 = yh2.shape[3:5]
-        if r != r1 * 2:
-            ll = ll[:,:,1:-1]
-        if c != c1 * 2:
-            ll = ll[:,:,:,1:-1]
-
-        # Level 2 inverse transform with quater shift synthesis filters
-        lh = c2q(yh2[:,:,0:6:5])
-        hl = c2q(yh2[:,:,2:4:1])
-        hh = c2q(yh2[:,:,1:5:3])
-        Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-        Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
-        ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
-        
-        # Level 1 inverse - no highpasses so only use the
-        # Low-low band with biorthogonal synthesis filters
-        y = rowfilter(colfilter(ll, g0o), g0o)
-
-        return y
-
-    @staticmethod
-    def backward(ctx, grad_y):
-        g0o, g1o, g0a, g0b, g1a, g1b = ctx.saved_tensors
-        grad_yl = None
-        grad_yh1 = None
-        grad_yh2 = None
-        grad_yh3 = None
-        grad_yh4 = None
-        grad_yh5 = None
-        grad_yh6 = None
-        grad_yh7 = None
-
-        # Use the special properties of the filters to get the time reverse
-        g0o_t = g0o
-        g1o_t = g1o
-        g0a_t = g0b
-        g0b_t = g0a
-        g1a_t = g1b
-        g1b_t = g1a
-
-        if True in ctx.needs_input_grad:
-            # Level 1 inverse gradient - same as fwd transform
-            # with time reverse biorthogonal synthesis filters
-            Lo = rowfilter(grad_y, g0o_t)
-            LoLo = colfilter(Lo, g0o_t)
-            # No more processing - hps coeffs are 0
-            # Level 2 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh2 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            # Level 3 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh3 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            # Level 4 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh4 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            # Level 5 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh5 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            # Level 6 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh6 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            # Level 7 inverse gradient - same as fwd transform
-            # but with time-reverse quater shift synthesis filters
-            r, c = LoLo.shape[2:]
-            if r % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-            if c % 4 != 0:
-                LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-            Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
-            LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
-            HiLo = coldfilt(Hi, g0b_t, g0a_t)
-            HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
-
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
-            grad_yh7 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            grad_yl = LoLo
-
-        return grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, grad_yh5, grad_yh6, grad_yh7, None, None, None, None, None, None
-
-
-class xfm7no_l1(Function):
-
-    @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b):
-        ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
-        ctx.in_shape = input.shape
-        batch, ch, r, c = input.shape
-
-        # If the row/col count of X is not divisible by 2 then we need to
-        # extend X
-        if r % 2 != 0:
-            input = torch.cat((input, input[:,:,-1:]), dim=2)
-        if c % 2 != 0:
-            input = torch.cat((input, input[:,:,:,-1:]), dim=3)
-
-        # Level 1 forward (biorthogonal analysis filters)
-        Lo = rowfilter(input, h0o)
-        LoLo = colfilter(Lo, h0o)
-        Yh1 = torch.tensor([])
-
-        # Level 2 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh2 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        # Level 3 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh3 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        # Level 4 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh4 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        # Level 5 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh5 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        # Level 6 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh6 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        # Level 7 forward (quater shift analysis filters)
-        r, c = LoLo.shape[2:]
-        if r % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,0:1], LoLo, LoLo[:,:,-1:]), dim=2)
-        if c % 4 != 0:
-            LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
-
-        Lo = rowdfilt(LoLo, h0b, h0a)
-        Hi = rowdfilt(LoLo, h1b, h1a, highpass=True)
-        LoLo = coldfilt(Lo, h0b, h0a)
-        LoHi = coldfilt(Lo, h1b, h1a, highpass=True)
-        HiLo = coldfilt(Hi, h0b, h0a)
-        HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
-
-        deg15, deg165 = q2c(LoHi)
-        deg45, deg135 = q2c(HiHi)
-        deg75, deg105 = q2c(HiLo)
-        Yh7 = torch.stack(
-            [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-
-        Yl = LoLo
-        return Yl, Yh1, Yh2, Yh3, Yh4, Yh5, Yh6, Yh7
-
-    @staticmethod
-    def backward(ctx, grad_LoLo, grad_Yh1, grad_Yh2, grad_Yh3, grad_Yh4, grad_Yh5, grad_Yh6, grad_Yh7):
-        h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
-        in_shape = ctx.in_shape
-        grad_input = None
-        # Use the special properties of the filters to get the time reverse
-        h0o_t = h0o
-        h1o_t = h1o
-        h0a_t = h0b
-        h0b_t = h0a
-        h1a_t = h1b
-        h1b_t = h1a
-
-        if True in ctx.needs_input_grad:
-            ll = grad_LoLo
-            # Level 7 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh7[:,:,0:6:5])
-            hl = c2q(grad_Yh7[:,:,2:4:1])
-            hh = c2q(grad_Yh7[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = grad_Yh6.shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 6 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh6[:,:,0:6:5])
-            hl = c2q(grad_Yh6[:,:,2:4:1])
-            hh = c2q(grad_Yh6[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = grad_Yh5.shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 5 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh5[:,:,0:6:5])
-            hl = c2q(grad_Yh5[:,:,2:4:1])
-            hh = c2q(grad_Yh5[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = grad_Yh4.shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 4 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh4[:,:,0:6:5])
-            hl = c2q(grad_Yh4[:,:,2:4:1])
-            hh = c2q(grad_Yh4[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = grad_Yh3.shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 3 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh3[:,:,0:6:5])
-            hl = c2q(grad_Yh3[:,:,2:4:1])
-            hh = c2q(grad_Yh3[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = grad_Yh2.shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 2 backward (time reversed quater shift analysis filters)
-            lh = c2q(grad_Yh2[:,:,0:6:5])
-            hl = c2q(grad_Yh2[:,:,2:4:1])
-            hh = c2q(grad_Yh2[:,:,1:5:3])
-            Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
-            Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
-            ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
-            r, c = ll.shape[2:]
-            r1, c1 = in_shape[3:5]
-            if r != r1 * 2:
-                ll = ll[:,:,1:-1]
-            if c != c1 * 2:
-                ll = ll[:,:,:,1:-1]
-
-            # Level 1 backward (time reversed biorthogonal analysis filters). No
-            # Highpasses so only need to use the low-low
-            grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
-
-        return (grad_input,) + (None,) * 6
+        return (grad_input,) + (None,) * 7
 

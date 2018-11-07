@@ -87,7 +87,7 @@ def test_fwd(J):
 @pytest.mark.parametrize("J", [1,2,3,4,5])
 def test_fwd_nol1(J):
     X = 100*np.random.randn(3, 5, 100, 100)
-    xfm = DTCWTForward(C=5, J=J, skip_hps=True).cuda()
+    xfm = DTCWTForward(C=5, J=J, skip_hps=[True,] + [False,]*(J-1)).cuda()
     Yl, Yh = xfm(torch.tensor(X, dtype=torch.float32).cuda())
     f1 = Transform2d_np()
     yl, yh = f1.forward(X, nlevels=J)
@@ -134,7 +134,7 @@ def test_inv_nol1(J):
     # Set the torch l1 coeffs to None
     Yh2[0] = torch.tensor([])
 
-    ifm = DTCWTInverse(C=5, J=J, skip_hps=True).cuda()
+    ifm = DTCWTInverse(C=5, J=J).cuda()
     X = ifm((torch.tensor(Yl, dtype=torch.float32).cuda(), Yh2))
     f1 = Transform2d_np()
     x = f1.inverse(Yl, Yh1)

@@ -53,15 +53,20 @@ class DTCWTForward(nn.Module):
         self.h1b = torch.nn.Parameter(prep_filt(h1b, C), False)
 
         # Create the function to do the DTCWT
-        self.dtcwt_func = getattr(tf, 'xfm{J}{suff}'.format(
+        self.dtcwt_func = getattr(tf, 'xfm{J}'.format(
             J=J, suff='no_l1' if skip_hps else ''))
+        if not isinstance(skip_hps, list) and not isinstance(skip_hps, tuple):
+            self.skip_hps = [skip_hps,] * self.J
+        else:
+            self.skip_hps = skip_hps
 
     def forward(self, input):
         assert self.C == input.shape[1], "Input channels ({}) don't match " \
             "Initialization channels ({})".format(input.shape[1], self.C)
 
         coeffs = self.dtcwt_func.apply(input, self.h0o, self.h1o, self.h0a,
-                                       self.h0b, self.h1a, self.h1b)
+                                       self.h0b, self.h1a, self.h1b,
+                                       self.skip_hps)
         # Return in the format: (yl, yh)
         return coeffs[0], coeffs[1:]
 
