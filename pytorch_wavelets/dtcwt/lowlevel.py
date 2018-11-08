@@ -91,7 +91,7 @@ def colfilter(X, h):
     ch, r = X.shape[1:3]
     m = h.shape[2] // 2
     xe = symm_pad(r, m)
-    return F.conv2d(X[:,:,xe], h, groups=ch)
+    return F.conv2d(X[:,:,xe], h.repeat(ch,1,1,1), groups=ch)
 
 
 def rowfilter(X, h):
@@ -99,7 +99,7 @@ def rowfilter(X, h):
     m = h.shape[2] // 2
     xe = symm_pad(c, m)
     h = h.transpose(2,3).contiguous()
-    return F.conv2d(X[:,:,:,xe], h, groups=ch)
+    return F.conv2d(X[:,:,:,xe], h.repeat(ch,1,1,1), groups=ch)
 
 
 def coldfilt(X, ha, hb, highpass=False):
@@ -112,7 +112,7 @@ def coldfilt(X, ha, hb, highpass=False):
     xe = symm_pad(r, m)
     X1 = X[:,:,xe[2::2]]
     X2 = X[:,:,xe[3::2]]
-    h = torch.cat((ha, hb), dim=0)
+    h = torch.cat((ha.repeat(ch, 1, 1, 1), hb.repeat(ch, 1, 1, 1)), dim=0)
     Y = F.conv2d(torch.cat((X1, X2), dim=1), h, stride=(2,1), groups=ch*2)
 
     # Reshape result to be shape [Batch, ch, r/2, c]. This reshaping
@@ -135,7 +135,8 @@ def rowdfilt(X, ha, hb, highpass=False):
     xe = symm_pad(c, m)
     X1 = X[:,:,:,xe[2::2]]
     X2 = X[:,:,:,xe[3::2]]
-    h = torch.cat((ha.reshape(ch,1,1,m), hb.reshape(ch,1,1,m)), dim=0)
+    h = torch.cat((ha.reshape(1,1,1,m).repeat(ch, 1, 1, 1),
+                   hb.reshape(1,1,1,m).repeat(ch, 1, 1, 1)), dim=0)
     Y = F.conv2d(torch.cat((X1, X2), dim=1), h, stride=(1,2), groups=ch*2)
 
     # Reshape result to be shape [Batch, ch, r/2, c]. This reshaping
@@ -182,7 +183,8 @@ def colifilt(X, ha, hb, highpass=False):
         if highpass:
             X2, X1 = X1, X2
             X4, X3 = X3, X4
-        h = torch.cat((h1, h2, h3, h4), dim=0)
+        h = torch.cat((h1.repeat(ch, 1, 1, 1), h2.repeat(ch, 1, 1, 1),
+                       h3.repeat(ch, 1, 1, 1), h4.repeat(ch, 1, 1, 1)), dim=0)
         X = torch.cat((X1, X2, X3, X4), dim=1)
 
         Y = F.conv2d(X, h, groups=4*ch)
@@ -190,6 +192,7 @@ def colifilt(X, ha, hb, highpass=False):
         # [batch, ch, r2, 4, c]
         Y = torch.stack([Y[:,:ch], Y[:,ch:2*ch], Y[:,2*ch:3*ch], Y[:,3*ch:]],
                         dim=3).view(batch, ch, r*2, c)
+
         return Y
 
 
@@ -227,7 +230,9 @@ def rowifilt(X, ha, hb, highpass=False):
         if highpass:
             X2, X1 = X1, X2
             X4, X3 = X3, X4
-        h = torch.cat((h1, h2, h3, h4), dim=0).reshape(4*ch,1,1,m2)
+        h = torch.cat((h1.repeat(ch, 1, 1, 1), h2.repeat(ch, 1, 1, 1),
+                       h3.repeat(ch, 1, 1, 1), h4.repeat(ch, 1, 1, 1)),
+                      dim=0).reshape(4*ch, 1, 1, m2)
         X = torch.cat((X1, X2, X3, X4), dim=1)
 
         Y = F.conv2d(X, h, groups=4*ch)

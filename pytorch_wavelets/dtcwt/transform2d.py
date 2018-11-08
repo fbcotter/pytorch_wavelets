@@ -45,13 +45,13 @@ class DTCWTForward(nn.Module):
         self.skip_hps = skip_hps
         self.J = J
         h0o, _, h1o, _ = _biort(biort)
-        self.h0o = torch.nn.Parameter(prep_filt(h0o, C), False)
-        self.h1o = torch.nn.Parameter(prep_filt(h1o, C), False)
+        self.h0o = torch.nn.Parameter(prep_filt(h0o, 1), False)
+        self.h1o = torch.nn.Parameter(prep_filt(h1o, 1), False)
         h0a, h0b, _, _, h1a, h1b, _, _ = _qshift(qshift)
-        self.h0a = torch.nn.Parameter(prep_filt(h0a, C), False)
-        self.h0b = torch.nn.Parameter(prep_filt(h0b, C), False)
-        self.h1a = torch.nn.Parameter(prep_filt(h1a, C), False)
-        self.h1b = torch.nn.Parameter(prep_filt(h1b, C), False)
+        self.h0a = torch.nn.Parameter(prep_filt(h0a, 1), False)
+        self.h0b = torch.nn.Parameter(prep_filt(h0b, 1), False)
+        self.h1a = torch.nn.Parameter(prep_filt(h1a, 1), False)
+        self.h1b = torch.nn.Parameter(prep_filt(h1b, 1), False)
 
         # Create the function to do the DTCWT
         self.dtcwt_func = getattr(tf, 'xfm{J}'.format(J=J))
@@ -107,13 +107,13 @@ class DTCWTInverse(nn.Module):
         self.qshift = qshift
         self.J = J
         _, g0o, _, g1o = _biort(biort)
-        self.g0o = torch.nn.Parameter(prep_filt(g0o, C), False)
-        self.g1o = torch.nn.Parameter(prep_filt(g1o, C), False)
+        self.g0o = torch.nn.Parameter(prep_filt(g0o, 1), False)
+        self.g1o = torch.nn.Parameter(prep_filt(g1o, 1), False)
         _, _, g0a, g0b, _, _, g1a, g1b = _qshift(qshift)
-        self.g0a = torch.nn.Parameter(prep_filt(g0a, C), False)
-        self.g0b = torch.nn.Parameter(prep_filt(g0b, C), False)
-        self.g1a = torch.nn.Parameter(prep_filt(g1a, C), False)
-        self.g1b = torch.nn.Parameter(prep_filt(g1b, C), False)
+        self.g0a = torch.nn.Parameter(prep_filt(g0a, 1), False)
+        self.g0b = torch.nn.Parameter(prep_filt(g0b, 1), False)
+        self.g1a = torch.nn.Parameter(prep_filt(g1a, 1), False)
+        self.g1b = torch.nn.Parameter(prep_filt(g1b, 1), False)
 
         # Create the function to do the DTCWT
         self.dtcwt_func = getattr(tf, 'ifm{J}'.format(J=J))
