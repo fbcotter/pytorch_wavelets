@@ -17,7 +17,10 @@ class ifm1(Function):
             hl = c2q(yh1[:,:,2:4:1])
             hh = c2q(yh1[:,:,1:5:3])
             Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
-            Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            else:
+                Lo = colfilter(lh, g1o)
             y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
         else:
             y = rowfilter(colfilter(ll, g0o), g0o)
@@ -136,7 +139,10 @@ class ifm2(Function):
             hl = c2q(yh2[:,:,2:4:1])
             hh = c2q(yh2[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -153,7 +159,10 @@ class ifm2(Function):
             hl = c2q(yh1[:,:,2:4:1])
             hh = c2q(yh1[:,:,1:5:3])
             Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
-            Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            else:
+                Lo = colfilter(lh, g1o)
             y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
         else:
             y = rowfilter(colfilter(ll, g0o), g0o)
@@ -333,7 +342,10 @@ class ifm3(Function):
             hl = c2q(yh3[:,:,2:4:1])
             hh = c2q(yh3[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -351,7 +363,10 @@ class ifm3(Function):
             hl = c2q(yh2[:,:,2:4:1])
             hh = c2q(yh2[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -368,7 +383,10 @@ class ifm3(Function):
             hl = c2q(yh1[:,:,2:4:1])
             hh = c2q(yh1[:,:,1:5:3])
             Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
-            Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            else:
+                Lo = colfilter(lh, g1o)
             y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
         else:
             y = rowfilter(colfilter(ll, g0o), g0o)
@@ -609,7 +627,10 @@ class ifm4(Function):
             hl = c2q(yh4[:,:,2:4:1])
             hh = c2q(yh4[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -627,7 +648,10 @@ class ifm4(Function):
             hl = c2q(yh3[:,:,2:4:1])
             hh = c2q(yh3[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -645,7 +669,10 @@ class ifm4(Function):
             hl = c2q(yh2[:,:,2:4:1])
             hh = c2q(yh2[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -662,7 +689,10 @@ class ifm4(Function):
             hl = c2q(yh1[:,:,2:4:1])
             hh = c2q(yh1[:,:,1:5:3])
             Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
-            Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            else:
+                Lo = colfilter(lh, g1o)
             y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
         else:
             y = rowfilter(colfilter(ll, g0o), g0o)
@@ -964,7 +994,10 @@ class ifm5(Function):
             hl = c2q(yh5[:,:,2:4:1])
             hh = c2q(yh5[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -982,7 +1015,10 @@ class ifm5(Function):
             hl = c2q(yh4[:,:,2:4:1])
             hh = c2q(yh4[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -1000,7 +1036,10 @@ class ifm5(Function):
             hl = c2q(yh3[:,:,2:4:1])
             hh = c2q(yh3[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -1018,7 +1057,10 @@ class ifm5(Function):
             hl = c2q(yh2[:,:,2:4:1])
             hh = c2q(yh2[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -1035,7 +1077,10 @@ class ifm5(Function):
             hl = c2q(yh1[:,:,2:4:1])
             hh = c2q(yh1[:,:,1:5:3])
             Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
-            Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            else:
+                Lo = colfilter(lh, g1o)
             y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
         else:
             y = rowfilter(colfilter(ll, g0o), g0o)
@@ -1398,7 +1443,10 @@ class ifm6(Function):
             hl = c2q(yh6[:,:,2:4:1])
             hh = c2q(yh6[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -1416,7 +1464,10 @@ class ifm6(Function):
             hl = c2q(yh5[:,:,2:4:1])
             hh = c2q(yh5[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -1434,7 +1485,10 @@ class ifm6(Function):
             hl = c2q(yh4[:,:,2:4:1])
             hh = c2q(yh4[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -1452,7 +1506,10 @@ class ifm6(Function):
             hl = c2q(yh3[:,:,2:4:1])
             hh = c2q(yh3[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -1470,7 +1527,10 @@ class ifm6(Function):
             hl = c2q(yh2[:,:,2:4:1])
             hh = c2q(yh2[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -1487,7 +1547,10 @@ class ifm6(Function):
             hl = c2q(yh1[:,:,2:4:1])
             hh = c2q(yh1[:,:,1:5:3])
             Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
-            Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            else:
+                Lo = colfilter(lh, g1o)
             y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
         else:
             y = rowfilter(colfilter(ll, g0o), g0o)
@@ -1911,7 +1974,10 @@ class ifm7(Function):
             hl = c2q(yh7[:,:,2:4:1])
             hh = c2q(yh7[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -1929,7 +1995,10 @@ class ifm7(Function):
             hl = c2q(yh6[:,:,2:4:1])
             hh = c2q(yh6[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -1947,7 +2016,10 @@ class ifm7(Function):
             hl = c2q(yh5[:,:,2:4:1])
             hh = c2q(yh5[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -1965,7 +2037,10 @@ class ifm7(Function):
             hl = c2q(yh4[:,:,2:4:1])
             hh = c2q(yh4[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -1983,7 +2058,10 @@ class ifm7(Function):
             hl = c2q(yh3[:,:,2:4:1])
             hh = c2q(yh3[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -2001,7 +2079,10 @@ class ifm7(Function):
             hl = c2q(yh2[:,:,2:4:1])
             hh = c2q(yh2[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
@@ -2018,7 +2099,10 @@ class ifm7(Function):
             hl = c2q(yh1[:,:,2:4:1])
             hh = c2q(yh1[:,:,1:5:3])
             Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
-            Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            else:
+                Lo = colfilter(lh, g1o)
             y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
         else:
             y = rowfilter(colfilter(ll, g0o), g0o)

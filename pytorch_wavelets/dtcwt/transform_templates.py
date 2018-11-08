@@ -129,7 +129,10 @@ level1_hps_fwd_inv = """# Level 1 inverse with biorthogonal synthesis filters
             hl = c2q(yh1[:,:,2:4:1])
             hh = c2q(yh1[:,:,1:5:3])
             Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
-            Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
+            else:
+                Lo = colfilter(lh, g1o)
             y = rowfilter(Hi, g1o) + rowfilter(Lo, g0o)
         else:
             y = rowfilter(colfilter(ll, g0o), g0o)"""
@@ -158,7 +161,10 @@ level2plus_fwd_inv = """# Level {j} inverse transform with quater shift synthesi
             hl = c2q(yh{j}[:,:,2:4:1])
             hh = c2q(yh{j}[:,:,1:5:3])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
-            Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            if ll is not None and ll.shape != torch.Size([0]):
+                Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
+            else:
+                Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)

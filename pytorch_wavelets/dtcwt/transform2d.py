@@ -53,8 +53,7 @@ class DTCWTForward(nn.Module):
         self.h1b = torch.nn.Parameter(prep_filt(h1b, C), False)
 
         # Create the function to do the DTCWT
-        self.dtcwt_func = getattr(tf, 'xfm{J}'.format(
-            J=J, suff='no_l1' if skip_hps else ''))
+        self.dtcwt_func = getattr(tf, 'xfm{J}'.format(J=J))
         if not isinstance(skip_hps, list) and not isinstance(skip_hps, tuple):
             self.skip_hps = [skip_hps,] * self.J
         else:
@@ -100,13 +99,11 @@ class DTCWTInverse(nn.Module):
         g1b (tensor): Non learnable highpass qshift tree b synthesis filter
     """
 
-    def __init__(self, C, biort='near_sym_a', qshift='qshift_a',
-                 J=3, skip_hps=False):
+    def __init__(self, C, biort='near_sym_a', qshift='qshift_a', J=3):
         super().__init__()
         self.C = C
         self.biort = biort
         self.qshift = qshift
-        self.skip_hps = skip_hps
         self.J = J
         _, g0o, _, g1o = _biort(biort)
         self.g0o = torch.nn.Parameter(prep_filt(g0o, C), False)
@@ -118,8 +115,7 @@ class DTCWTInverse(nn.Module):
         self.g1b = torch.nn.Parameter(prep_filt(g1b, C), False)
 
         # Create the function to do the DTCWT
-        self.dtcwt_func = getattr(tf, 'ifm{J}{suff}'.format(
-            J=J, suff='no_l1' if skip_hps else ''))
+        self.dtcwt_func = getattr(tf, 'ifm{J}'.format(J=J))
 
     def forward(self, x):
         yl, yh = x
