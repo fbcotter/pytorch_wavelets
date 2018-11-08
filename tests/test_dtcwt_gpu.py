@@ -85,22 +85,25 @@ def test_fwd(J):
 
 
 @pytest.mark.parametrize("J", [1,2,3,4,5])
-def test_fwd_nol1(J):
+def test_fwd_skip_hps(J):
     X = 100*np.random.randn(3, 5, 100, 100)
-    xfm = DTCWTForward(C=5, J=J, skip_hps=[True,] + [False,]*(J-1)).cuda()
+    # Randomly turn on/off the highpass outputs
+    hps = np.random.binomial(size=J, n=1,p=0.5).astype('bool')
+    xfm = DTCWTForward(C=5, J=J, skip_hps=hps).cuda()
     Yl, Yh = xfm(torch.tensor(X, dtype=torch.float32).cuda())
     f1 = Transform2d_np()
     yl, yh = f1.forward(X, nlevels=J)
 
-    assert Yh[0].shape == torch.Size([0])
-
     np.testing.assert_array_almost_equal(
         Yl.cpu(), yl, decimal=PRECISION_DECIMAL)
-    for i in range(1,len(yh)):
-        np.testing.assert_array_almost_equal(
-            Yh[i][...,0].cpu(), yh[i].real, decimal=PRECISION_DECIMAL)
-        np.testing.assert_array_almost_equal(
-            Yh[i][...,1].cpu(), yh[i].imag, decimal=PRECISION_DECIMAL)
+    for j in range(J):
+        if hps[j]:
+            assert Yh[j].shape == torch.Size([0])
+        else:
+            np.testing.assert_array_almost_equal(
+                Yh[j][...,0].cpu(), yh[j].real, decimal=PRECISION_DECIMAL)
+            np.testing.assert_array_almost_equal(
+                Yh[j][...,1].cpu(), yh[j].imag, decimal=PRECISION_DECIMAL)
 
 
 @pytest.mark.parametrize("J", [1,2,3,4,5])
@@ -122,25 +125,34 @@ def test_inv(J):
 
 
 @pytest.mark.parametrize("J", [1,2,3,4,5])
-def test_inv_nol1(J):
+def test_inv_skip_hps(J):
+    hps = np.random.binomial(size=J, n=1,p=0.5).astype('bool')
     Yl = 100*np.random.randn(3, 5, 64, 64)
     Yhr = [np.random.randn(3, 5, 6, 2**j, 2**j) for j in range(4+J,4,-1)]
     Yhi = [np.random.randn(3, 5, 6, 2**j, 2**j) for j in range(4+J,4,-1)]
     Yh1 = [yhr + 1j*yhi for yhr, yhi in zip(Yhr, Yhi)]
-    # Set the numpy l1 coeffs to 0
-    Yh1[0] = np.zeros_like(Yh1[0])
-    Yh2 = [torch.tensor(np.stack((yhr, yhi), axis=-1), dtype=torch.float32).cuda()
+    Yh2 = [torch.tensor(np.stack((yhr, yhi), axis=-1),
+                        dtype=torch.float32).cuda()
            for yhr, yhi in zip(Yhr, Yhi)]
-    # Set the torch l1 coeffs to None
-    Yh2[0] = torch.tensor([])
+    for j in range(J):
+        if hps[j]:
+            Yh2[j] = torch.tensor([])
+            Yh1[j] = np.zeros_like(Yh1[j])
 
     ifm = DTCWTInverse(C=5, J=J).cuda()
     X = ifm((torch.tensor(Yl, dtype=torch.float32).cuda(), Yh2))
+    # Also test giving None instead of an empty tensor
+    for j in range(J):
+        if hps[j]:
+            Yh2[j] = None
+    X2 = ifm((torch.tensor(Yl, dtype=torch.float32).cuda(), Yh2))
     f1 = Transform2d_np()
     x = f1.inverse(Yl, Yh1)
 
     np.testing.assert_array_almost_equal(
         X.cpu(), x, decimal=PRECISION_DECIMAL)
+    np.testing.assert_array_almost_equal(
+        X2.cpu(), x, decimal=PRECISION_DECIMAL)
 
 
 # Test end to end with numpy inputs

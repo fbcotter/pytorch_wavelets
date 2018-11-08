@@ -145,7 +145,7 @@ class ifm2(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
@@ -348,7 +348,7 @@ class ifm3(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
 
         # Level 2 inverse transform with quater shift synthesis filters
@@ -369,7 +369,7 @@ class ifm3(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
@@ -633,7 +633,7 @@ class ifm4(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
 
         # Level 3 inverse transform with quater shift synthesis filters
@@ -654,7 +654,7 @@ class ifm4(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
 
         # Level 2 inverse transform with quater shift synthesis filters
@@ -675,7 +675,7 @@ class ifm4(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
@@ -1000,7 +1000,7 @@ class ifm5(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
 
         # Level 4 inverse transform with quater shift synthesis filters
@@ -1021,7 +1021,7 @@ class ifm5(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
 
         # Level 3 inverse transform with quater shift synthesis filters
@@ -1042,7 +1042,7 @@ class ifm5(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
 
         # Level 2 inverse transform with quater shift synthesis filters
@@ -1063,7 +1063,7 @@ class ifm5(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
@@ -1449,7 +1449,7 @@ class ifm6(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
 
         # Level 5 inverse transform with quater shift synthesis filters
@@ -1470,7 +1470,7 @@ class ifm6(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
 
         # Level 4 inverse transform with quater shift synthesis filters
@@ -1491,7 +1491,7 @@ class ifm6(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
 
         # Level 3 inverse transform with quater shift synthesis filters
@@ -1512,7 +1512,7 @@ class ifm6(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
 
         # Level 2 inverse transform with quater shift synthesis filters
@@ -1533,7 +1533,7 @@ class ifm6(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
@@ -1980,7 +1980,7 @@ class ifm7(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
 
         # Level 6 inverse transform with quater shift synthesis filters
@@ -2001,7 +2001,7 @@ class ifm7(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
 
         # Level 5 inverse transform with quater shift synthesis filters
@@ -2022,7 +2022,7 @@ class ifm7(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
 
         # Level 4 inverse transform with quater shift synthesis filters
@@ -2043,7 +2043,7 @@ class ifm7(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
 
         # Level 3 inverse transform with quater shift synthesis filters
@@ -2064,7 +2064,7 @@ class ifm7(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
 
         # Level 2 inverse transform with quater shift synthesis filters
@@ -2085,7 +2085,7 @@ class ifm7(Function):
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):

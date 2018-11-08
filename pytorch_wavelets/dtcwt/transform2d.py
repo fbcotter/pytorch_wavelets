@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from numpy import ndarray
 
 from pytorch_wavelets.dtcwt.coeffs import biort as _biort, qshift as _qshift
 from pytorch_wavelets.dtcwt.lowlevel import prep_filt
@@ -54,10 +55,10 @@ class DTCWTForward(nn.Module):
 
         # Create the function to do the DTCWT
         self.dtcwt_func = getattr(tf, 'xfm{J}'.format(J=J))
-        if not isinstance(skip_hps, list) and not isinstance(skip_hps, tuple):
-            self.skip_hps = [skip_hps,] * self.J
-        else:
+        if isinstance(skip_hps, (list, tuple, ndarray)):
             self.skip_hps = skip_hps
+        else:
+            self.skip_hps = [skip_hps,] * self.J
 
     def forward(self, input):
         assert self.C == input.shape[1], "Input channels ({}) don't match " \
@@ -122,7 +123,7 @@ class DTCWTInverse(nn.Module):
         assert self.C == yl.shape[1], "Input channels ({}) don't match " \
             "Initialization channels ({})".format(yl.shape[1], self.C)
         for s in yh:
-            if s.shape != torch.Size([0]):
+            if s is not None and s.shape != torch.Size([0]):
                 assert s.shape[2] == 6, "Inverse transform must have input " \
                     "with 6 orientations"
                 assert s.shape[-1] == 2, "Inputs must be complex with real " \

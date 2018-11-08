@@ -167,7 +167,7 @@ level2plus_fwd_inv = """# Level {j} inverse transform with quater shift synthesi
                 Lo = colifilt(lh, g1b, g1a, True)
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
-            ll = rowifilt(colifilt(Lo, g0b, g0a), g0b, g0a)
+            ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
         """
 
 fwd_checkshape_hps = """r, c = ll.shape[2:]
