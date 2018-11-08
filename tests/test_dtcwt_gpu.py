@@ -37,7 +37,7 @@ def test_barbara_loaded():
 
 
 def test_simple():
-    xfm = DTCWTForward(C=3, J=3).cuda()
+    xfm = DTCWTForward(J=3).cuda()
     Yl, Yh = xfm(barbara_t)
     assert len(Yl.shape) == 4
     assert len(Yh) == 3
@@ -45,7 +45,7 @@ def test_simple():
 
 
 def test_specific_wavelet():
-    xfm = DTCWTForward(C=3, J=3, biort='antonini', qshift='qshift_06').cuda()
+    xfm = DTCWTForward(J=3, biort='antonini', qshift='qshift_06').cuda()
     Yl, Yh = xfm(barbara_t)
     assert len(Yl.shape) == 4
     assert len(Yh) == 3
@@ -53,24 +53,24 @@ def test_specific_wavelet():
 
 
 def test_odd_rows():
-    xfm = DTCWTForward(C=3, J=3).cuda()
+    xfm = DTCWTForward(J=3).cuda()
     Yl, Yh = xfm(barbara_t[:,:,:509])
 
 
 def test_odd_cols():
-    xfm = DTCWTForward(C=3, J=3).cuda()
+    xfm = DTCWTForward(J=3).cuda()
     Yl, Yh = xfm(barbara_t[:,:,:,:509])
 
 
 def test_odd_rows_and_cols():
-    xfm = DTCWTForward(C=3, J=3).cuda()
+    xfm = DTCWTForward(J=3).cuda()
     Yl, Yh = xfm(barbara_t[:,:,:509,:509])
 
 
 @pytest.mark.parametrize("J", [1,2,3,4,5])
 def test_fwd(J):
     X = 100*np.random.randn(3, 5, 100, 100)
-    xfm = DTCWTForward(C=5, J=J).cuda()
+    xfm = DTCWTForward(J=J).cuda()
     Yl, Yh = xfm(torch.tensor(X, dtype=torch.float32).cuda())
     f1 = Transform2d_np()
     yl, yh = f1.forward(X, nlevels=J)
@@ -89,7 +89,7 @@ def test_fwd_skip_hps(J):
     X = 100*np.random.randn(3, 5, 100, 100)
     # Randomly turn on/off the highpass outputs
     hps = np.random.binomial(size=J, n=1,p=0.5).astype('bool')
-    xfm = DTCWTForward(C=5, J=J, skip_hps=hps).cuda()
+    xfm = DTCWTForward(J=J, skip_hps=hps).cuda()
     Yl, Yh = xfm(torch.tensor(X, dtype=torch.float32).cuda())
     f1 = Transform2d_np()
     yl, yh = f1.forward(X, nlevels=J)
@@ -115,7 +115,7 @@ def test_inv(J):
     Yh2 = [torch.tensor(np.stack((yhr, yhi), axis=-1), dtype=torch.float32).cuda()
            for yhr, yhi in zip(Yhr, Yhi)]
 
-    ifm = DTCWTInverse(C=5, J=J).cuda()
+    ifm = DTCWTInverse(J=J).cuda()
     X = ifm((torch.tensor(Yl, dtype=torch.float32).cuda(), Yh2))
     f1 = Transform2d_np()
     x = f1.inverse(Yl, Yh1)
@@ -139,7 +139,7 @@ def test_inv_skip_hps(J):
             Yh2[j] = torch.tensor([])
             Yh1[j] = np.zeros_like(Yh1[j])
 
-    ifm = DTCWTInverse(C=5, J=J).cuda()
+    ifm = DTCWTInverse(J=J).cuda()
     X = ifm((torch.tensor(Yl, dtype=torch.float32).cuda(), Yh2))
     # Also test giving None instead of an empty tensor
     for j in range(J):
@@ -165,9 +165,9 @@ def test_inv_skip_hps(J):
 ])
 def test_end2end(biort, qshift, size, J):
     im = np.random.randn(5,6,*size).astype('float32')
-    xfm = DTCWTForward(C=6, J=J).cuda()
+    xfm = DTCWTForward(J=J).cuda()
     Yl, Yh = xfm(torch.tensor(im, dtype=torch.float32).cuda())
-    ifm = DTCWTInverse(C=6, J=J).cuda()
+    ifm = DTCWTInverse(J=J).cuda()
     y = ifm((Yl, Yh))
 
     # Compare with numpy results

@@ -43,41 +43,41 @@ def test_barbara_loaded():
 @pytest.mark.skip("Don't currently check for this in lowlevel code for speed")
 def test_odd_filter():
     with raises(ValueError):
-        ha = prep_filt((-1,2,-1), ch).cuda()
-        hb = prep_filt((-1,2,1), ch).cuda()
+        ha = prep_filt((-1,2,-1), 1).cuda()
+        hb = prep_filt((-1,2,1), 1).cuda()
         coldfilt(barbara_t, ha, hb)
 
 
 @pytest.mark.skip("Don't currently check for this in lowlevel code for speed")
 def test_different_size():
     with raises(ValueError):
-        ha = prep_filt((-0.5,-1,2,0.5), ch).cuda()
-        hb = prep_filt((-1,2,1), ch).cuda()
+        ha = prep_filt((-0.5,-1,2,0.5), 1).cuda()
+        hb = prep_filt((-1,2,1), 1).cuda()
         coldfilt(barbara_t, ha, hb)
 
 
 def test_bad_input_size():
     with raises(ValueError):
-        ha = prep_filt((-1, 1), ch).cuda()
-        hb = prep_filt((1, -1), ch).cuda()
+        ha = prep_filt((-1, 1), 1).cuda()
+        hb = prep_filt((1, -1), 1).cuda()
         coldfilt(barbara_t[:,:,:511,:], ha, hb)
 
 
 def test_good_input_size():
-    ha = prep_filt((-1, 1), ch).cuda()
-    hb = prep_filt((1, -1), ch).cuda()
+    ha = prep_filt((-1, 1), 1).cuda()
+    hb = prep_filt((1, -1), 1).cuda()
     coldfilt(barbara_t[:,:,:,:511], ha, hb)
 
 
 def test_good_input_size_non_orthogonal():
-    ha = prep_filt((1, 1), ch).cuda()
-    hb = prep_filt((1, -1), ch).cuda()
+    ha = prep_filt((1, 1), 1).cuda()
+    hb = prep_filt((1, -1), 1).cuda()
     coldfilt(barbara_t[:,:,:,:511], ha, hb)
 
 
 def test_output_size():
-    ha = prep_filt((-1, 1), ch).cuda()
-    hb = prep_filt((1, -1), ch).cuda()
+    ha = prep_filt((-1, 1), 1).cuda()
+    hb = prep_filt((1, -1), 1).cuda()
     y_op = coldfilt(barbara_t, ha, hb)
     assert list(y_op.shape)[1:] == bshape_half
 
@@ -93,7 +93,7 @@ def test_equal_small_in(hp):
     im = barbara[:,0:4,0:4]
     im_t = torch.unsqueeze(torch.tensor(im, dtype=torch.float32), dim=0).cuda()
     ref = ref_coldfilt(im, ha, hb)
-    y = coldfilt(im_t, prep_filt(ha, ch).cuda(), prep_filt(hb, ch).cuda(), highpass=hp)
+    y = coldfilt(im_t, prep_filt(ha, 1).cuda(), prep_filt(hb, 1).cuda(), highpass=hp)
     np.testing.assert_array_almost_equal(y[0].cpu(), ref, decimal=4)
 
 
@@ -106,7 +106,7 @@ def test_equal_numpy_qshift1(hp):
         ha = qshift('qshift_a')[0]
         hb = qshift('qshift_a')[1]
     ref = ref_coldfilt(barbara, ha, hb)
-    y = coldfilt(barbara_t, prep_filt(ha, ch).cuda(), prep_filt(hb, ch).cuda(), highpass=hp)
+    y = coldfilt(barbara_t, prep_filt(ha, 1).cuda(), prep_filt(hb, 1).cuda(), highpass=hp)
     np.testing.assert_array_almost_equal(y[0].cpu(), ref, decimal=4)
 
 
@@ -121,7 +121,7 @@ def test_equal_numpy_qshift2(hp):
     im = barbara[:, :508, :502]
     im_t = torch.unsqueeze(torch.tensor(im, dtype=torch.float32), dim=0).cuda()
     ref = ref_coldfilt(im, ha, hb)
-    y = coldfilt(im_t, prep_filt(ha, ch).cuda(), prep_filt(hb, ch).cuda(), highpass=hp)
+    y = coldfilt(im_t, prep_filt(ha, 1).cuda(), prep_filt(hb, 1).cuda(), highpass=hp)
     np.testing.assert_array_almost_equal(y[0].cpu(), ref, decimal=4)
 
 
@@ -136,7 +136,7 @@ def test_equal_numpy_qshift3(hp):
     im = barbara[:, :508, :502]
     im_t = torch.unsqueeze(torch.tensor(im, dtype=torch.float32), dim=0).cuda()
     ref = ref_coldfilt(im, ha, hb)
-    y = coldfilt(im_t, prep_filt(ha, ch).cuda(), prep_filt(hb, ch).cuda(), highpass=hp)
+    y = coldfilt(im_t, prep_filt(ha, 1).cuda(), prep_filt(hb, 1).cuda(), highpass=hp)
     np.testing.assert_array_almost_equal(y[0].cpu(), ref, decimal=4)
 
 
@@ -146,7 +146,7 @@ def test_gradients():
     hb = qshift('qshift_c')[1]
     im_t = torch.unsqueeze(torch.tensor(barbara, dtype=torch.float32,
                                         requires_grad=True), dim=0)
-    y_t = coldfilt(im_t, prep_filt(ha, ch), prep_filt(hb, ch), np.sum(ha*hb)>0)
+    y_t = coldfilt(im_t, prep_filt(ha, 1), prep_filt(hb, 1), np.sum(ha*hb)>0)
     dy = np.random.randn(*tuple(y_t.shape)).astype('float32')
     dx = torch.autograd.grad(y_t, im_t, grad_outputs=torch.tensor(dy))
 # vim:sw=4:sts=4:et

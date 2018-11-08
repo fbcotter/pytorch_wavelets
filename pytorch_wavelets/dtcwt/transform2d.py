@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from numpy import ndarray
+import warnings
 
 from pytorch_wavelets.dtcwt.coeffs import biort as _biort, qshift as _qshift
 from pytorch_wavelets.dtcwt.lowlevel import prep_filt
@@ -11,7 +12,6 @@ class DTCWTForward(nn.Module):
     """ Performs a 2d DTCWT Forward decomposition of an image
 
     Args:
-        C (int): Number of channels in input
         biort (str): One of 'antonini', 'legall', 'near_sym_a', 'near_sym_b'.
             Specifies the first level biorthogonal wavelet filters.
         qshift (str): One of 'qshift_06', 'qshift_a', 'qshift_b', 'qshift_c',
@@ -36,10 +36,12 @@ class DTCWTForward(nn.Module):
         h0b (tensor): Non learnable lowpass qshift tree b analysis filter
         h1b (tensor): Non learnable highpass qshift tree b analysis filter
     """
-    def __init__(self, C, biort='near_sym_a', qshift='qshift_a',
+    def __init__(self, C=None, biort='near_sym_a', qshift='qshift_a',
                  J=3, skip_hps=False):
         super().__init__()
-        self.C = C
+        if C is not None:
+            warnings.warn('C parameter is deprecated. do not need to pass it')
+
         self.biort = biort
         self.qshift = qshift
         self.skip_hps = skip_hps
@@ -61,12 +63,10 @@ class DTCWTForward(nn.Module):
             self.skip_hps = [skip_hps,] * self.J
 
     def forward(self, input):
-        assert self.C == input.shape[1], "Input channels ({}) don't match " \
-            "Initialization channels ({})".format(input.shape[1], self.C)
+        coeffs = self.dtcwt_func.apply(
+            input, self.h0o, self.h1o, self.h0a, self.h0b, self.h1a,
+            self.h1b, self.skip_hps)
 
-        coeffs = self.dtcwt_func.apply(input, self.h0o, self.h1o, self.h0a,
-                                       self.h0b, self.h1a, self.h1b,
-                                       self.skip_hps)
         # Return in the format: (yl, yh)
         return coeffs[0], coeffs[1:]
 
@@ -75,7 +75,6 @@ class DTCWTInverse(nn.Module):
     """ 2d DTCWT Inverse
 
     Args:
-        C (int): Number of channels in input
         biort (str): One of 'antonini', 'legall', 'near_sym_a', 'near_sym_b'.
             Specifies the first level biorthogonal wavelet filters.
         qshift (str): One of 'qshift_06', 'qshift_a', 'qshift_b', 'qshift_c',
@@ -100,9 +99,10 @@ class DTCWTInverse(nn.Module):
         g1b (tensor): Non learnable highpass qshift tree b synthesis filter
     """
 
-    def __init__(self, C, biort='near_sym_a', qshift='qshift_a', J=3):
+    def __init__(self, C=None, biort='near_sym_a', qshift='qshift_a', J=3):
         super().__init__()
-        self.C = C
+        if C is not None:
+            warnings.warn('C parameter is deprecated. do not need to pass it')
         self.biort = biort
         self.qshift = qshift
         self.J = J
@@ -120,8 +120,6 @@ class DTCWTInverse(nn.Module):
 
     def forward(self, x):
         yl, yh = x
-        assert self.C == yl.shape[1], "Input channels ({}) don't match " \
-            "Initialization channels ({})".format(yl.shape[1], self.C)
         for s in yh:
             if s is not None and s.shape != torch.Size([0]):
                 assert s.shape[2] == 6, "Inverse transform must have input " \

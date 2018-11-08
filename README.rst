@@ -63,7 +63,7 @@ For the DTCWT:
 
     import torch
     from pytorch_wavelets import DTCWTForward, DTCWTInverse
-    xfm = DTCWTForward(C=5, J=3, biort='near_sym_b', qshift='qshift_b')
+    xfm = DTCWTForward(J=3, biort='near_sym_b', qshift='qshift_b')
     X = torch.randn(10,5,64,64)
     Yl, Yh = xfm(X) 
     print(Yl.shape)
@@ -74,7 +74,7 @@ For the DTCWT:
     >>> torch.Size([10, 5, 6, 16, 16, 2])
     print(Yh[2].shape)
     >>> torch.Size([10, 5, 6, 8, 8, 2])
-    ifm = DTCWTInverse(C=5, J=3, biort='near_sym_b', qshift='qshift_b')
+    ifm = DTCWTInverse(J=3, biort='near_sym_b', qshift='qshift_b')
     Y = ifm((Yl, Yh))
 
 Some initial notes:

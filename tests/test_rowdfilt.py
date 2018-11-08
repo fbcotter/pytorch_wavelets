@@ -38,41 +38,41 @@ def test_barbara_loaded():
 @pytest.mark.skip
 def test_odd_filter():
     with raises(ValueError):
-        ha = prep_filt((-1,2,-1), ch)
-        hb = prep_filt((-1,2,1), ch)
+        ha = prep_filt((-1,2,-1), 1)
+        hb = prep_filt((-1,2,1), 1)
         rowdfilt(barbara_t, ha, hb)
 
 
 @pytest.mark.skip
 def test_different_size():
     with raises(ValueError):
-        ha = prep_filt((-0.5,-1,2,0.5), ch)
-        hb = prep_filt((-1,2,1), ch)
+        ha = prep_filt((-0.5,-1,2,0.5), 1)
+        hb = prep_filt((-1,2,1), 1)
         rowdfilt(barbara_t, ha, hb)
 
 
 def test_bad_input_size():
     with raises(ValueError):
-        ha = prep_filt((-1, 1), ch)
-        hb = prep_filt((1, -1), ch)
+        ha = prep_filt((-1, 1), 1)
+        hb = prep_filt((1, -1), 1)
         rowdfilt(barbara_t[:,:,:,:511], ha, hb)
 
 
 def test_good_input_size():
-    ha = prep_filt((-1, 1), ch)
-    hb = prep_filt((1, -1), ch)
+    ha = prep_filt((-1, 1), 1)
+    hb = prep_filt((1, -1), 1)
     rowdfilt(barbara_t[:,:,:511,:], ha, hb)
 
 
 def test_good_input_size_non_orthogonal():
-    ha = prep_filt((1, 1), ch)
-    hb = prep_filt((1, -1), ch)
+    ha = prep_filt((1, 1), 1)
+    hb = prep_filt((1, -1), 1)
     rowdfilt(barbara_t[:,:,:511,:], ha, hb)
 
 
 def test_output_size():
-    ha = prep_filt((-1, 1), ch)
-    hb = prep_filt((1, -1), ch)
+    ha = prep_filt((-1, 1), 1)
+    hb = prep_filt((1, -1), 1)
     y_op = rowdfilt(barbara_t, ha, hb)
     assert list(y_op.shape[1:]) == bshape_half
 
@@ -88,7 +88,7 @@ def test_equal_small_in(hp):
     im = barbara[:,0:4,0:4]
     im_t = torch.unsqueeze(torch.tensor(im, dtype=torch.float32), dim=0)
     ref = ref_rowdfilt(im, ha, hb)
-    y = rowdfilt(im_t, prep_filt(ha, ch), prep_filt(hb, ch), highpass=hp)
+    y = rowdfilt(im_t, prep_filt(ha, 1), prep_filt(hb, 1), highpass=hp)
     np.testing.assert_array_almost_equal(y[0], ref, decimal=4)
 
 
@@ -101,7 +101,7 @@ def test_equal_numpy_qshift1(hp):
         ha = qshift('qshift_a')[0]
         hb = qshift('qshift_a')[1]
     ref = ref_rowdfilt(barbara, ha, hb)
-    y = rowdfilt(barbara_t, prep_filt(ha, ch), prep_filt(hb, ch), highpass=hp)
+    y = rowdfilt(barbara_t, prep_filt(ha, 1), prep_filt(hb, 1), highpass=hp)
     np.testing.assert_array_almost_equal(y[0], ref, decimal=4)
 
 
@@ -116,7 +116,7 @@ def test_equal_numpy_qshift2(hp):
     im = barbara[:, :502, :508]
     im_t = torch.unsqueeze(torch.tensor(im, dtype=torch.float32), dim=0)
     ref = ref_rowdfilt(im, ha, hb)
-    y = rowdfilt(im_t, prep_filt(ha, ch), prep_filt(hb, ch), highpass=hp)
+    y = rowdfilt(im_t, prep_filt(ha, 1), prep_filt(hb, 1), highpass=hp)
     np.testing.assert_array_almost_equal(y[0], ref, decimal=4)
 
 
@@ -131,7 +131,7 @@ def test_equal_numpy_qshift3(hp):
     im = barbara[:, :502, :508]
     im_t = torch.unsqueeze(torch.tensor(im, dtype=torch.float32), dim=0)
     ref = ref_rowdfilt(im, ha, hb)
-    y = rowdfilt(im_t, prep_filt(ha, ch), prep_filt(hb, ch), highpass=hp)
+    y = rowdfilt(im_t, prep_filt(ha, 1), prep_filt(hb, 1), highpass=hp)
     np.testing.assert_array_almost_equal(y[0], ref, decimal=4)
 
 
@@ -146,7 +146,7 @@ def test_equal_numpy_qshift4(hp):
     im = barbara[:, :502, :508]
     im_t = torch.unsqueeze(torch.tensor(im, dtype=torch.float32), dim=0)
     ref = ref_rowdfilt(im, ha, hb)
-    y = rowdfilt(im_t, prep_filt(ha, ch), prep_filt(hb, ch), highpass=hp)
+    y = rowdfilt(im_t, prep_filt(ha, 1), prep_filt(hb, 1), highpass=hp)
     np.testing.assert_array_almost_equal(y[0], ref, decimal=4)
 
 
@@ -160,7 +160,7 @@ def test_gradients(hp):
         hb = qshift('qshift_b')[1]
     im_t = torch.unsqueeze(torch.tensor(barbara, dtype=torch.float32,
                                         requires_grad=True), dim=0)
-    y_t = rowdfilt(im_t, prep_filt(ha, ch), prep_filt(hb, ch), highpass=hp)
+    y_t = rowdfilt(im_t, prep_filt(ha, 1), prep_filt(hb, 1), highpass=hp)
     dy = np.random.randn(*tuple(y_t.shape)).astype('float32')
     dx = torch.autograd.grad(y_t, im_t, grad_outputs=torch.tensor(dy))
 

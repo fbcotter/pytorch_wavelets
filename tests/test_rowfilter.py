@@ -36,33 +36,33 @@ def test_barbara_loaded():
 
 def test_odd_size():
     h = [-1, 2, -1]
-    y_op = rowfilter(barbara_t, prep_filt(h, 3))
+    y_op = rowfilter(barbara_t, prep_filt(h, 1))
     assert list(y_op.shape)[1:] == bshape
 
 
 def test_even_size():
     h = [-1, -1]
-    y_op = rowfilter(barbara_t, prep_filt(h, 3))
+    y_op = rowfilter(barbara_t, prep_filt(h, 1))
     assert list(y_op.shape)[1:] == bshape_extracol
 
 
 def test_qshift():
     h = _qshift('qshift_a')[0]
     x = barbara_t
-    y_op = rowfilter(x, prep_filt(h, 3))
+    y_op = rowfilter(x, prep_filt(h, 1))
     assert list(y_op.shape)[1:] == bshape_extracol
 
 
 def test_biort():
     h = _biort('antonini')[0]
-    y_op = rowfilter(barbara_t, prep_filt(h, 3))
+    y_op = rowfilter(barbara_t, prep_filt(h, 1))
     assert list(y_op.shape)[1:] == bshape
 
 
 def test_even_size_batch():
     zero_t = torch.zeros([1, *barbara.shape], dtype=torch.float32)
     h = [-1, 1]
-    y = rowfilter(zero_t, prep_filt(h, 3))
+    y = rowfilter(zero_t, prep_filt(h, 1))
     assert list(y.shape)[1:] == bshape_extracol
     np.testing.assert_array_almost_equal(y, np.zeros_like(y), decimal=5)
 
@@ -72,14 +72,14 @@ def test_equal_small_in():
     im = barbara[:,0:4,0:4]
     im_t = torch.unsqueeze(torch.tensor(im, dtype=torch.float32), dim=0)
     ref = ref_rowfilter(im, h)
-    y = rowfilter(im_t, prep_filt(h, 3))
+    y = rowfilter(im_t, prep_filt(h, 1))
     np.testing.assert_array_almost_equal(y[0], ref, decimal=4)
 
 
 def test_equal_numpy_biort1():
     h = _biort('near_sym_b')[0]
     ref = ref_rowfilter(barbara, h)
-    y = rowfilter(barbara_t, prep_filt(h, 3))
+    y = rowfilter(barbara_t, prep_filt(h, 1))
     np.testing.assert_array_almost_equal(y[0], ref, decimal=4)
 
 
@@ -88,14 +88,14 @@ def test_equal_numpy_biort2():
     im = barbara[:, 52:407, 30:401]
     im_t = torch.unsqueeze(torch.tensor(im, dtype=torch.float32), dim=0)
     ref = ref_rowfilter(im, h)
-    y = rowfilter(im_t, prep_filt(h, 3))
+    y = rowfilter(im_t, prep_filt(h, 1))
     np.testing.assert_array_almost_equal(y[0], ref, decimal=4)
 
 
 def test_equal_numpy_qshift1():
     h = _qshift('qshift_c')[0]
     ref = ref_rowfilter(barbara, h)
-    y = rowfilter(barbara_t, prep_filt(h, 3))
+    y = rowfilter(barbara_t, prep_filt(h, 1))
     np.testing.assert_array_almost_equal(y[0], ref, decimal=4)
 
 
@@ -104,7 +104,7 @@ def test_equal_numpy_qshift2():
     im = barbara[:, 52:407, 30:401]
     im_t = torch.unsqueeze(torch.tensor(im, dtype=torch.float32), dim=0)
     ref = ref_rowfilter(im, h)
-    y = rowfilter(im_t, prep_filt(h, 3))
+    y = rowfilter(im_t, prep_filt(h, 1))
     np.testing.assert_array_almost_equal(y[0], ref, decimal=4)
 
 
@@ -113,7 +113,7 @@ def test_gradients():
     h = _biort('near_sym_b')[0]
     im_t = torch.unsqueeze(torch.tensor(barbara, dtype=torch.float32,
                                         requires_grad=True), dim=0)
-    y_t = rowfilter(im_t, prep_filt(h, 3))
+    y_t = rowfilter(im_t, prep_filt(h, 1))
     dy = np.random.randn(*tuple(y_t.shape)).astype('float32')
     dx = torch.autograd.grad(y_t, im_t, grad_outputs=torch.tensor(dy))
 
