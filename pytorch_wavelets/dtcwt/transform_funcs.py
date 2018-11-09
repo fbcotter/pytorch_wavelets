@@ -57,7 +57,8 @@ class ifm1(Function):
                 grad_yh1 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
 
-            grad_yl = LoLo
+            if ctx.needs_input_grad[0]:
+                grad_yl = LoLo
 
         return grad_yl, grad_yh1, None, None, None, None, None, None
 
@@ -220,7 +221,8 @@ class ifm2(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh2 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            grad_yl = LoLo
+            if ctx.needs_input_grad[0]:
+                grad_yl = LoLo
 
         return grad_yl, grad_yh1, grad_yh2, None, None, None, None, None, None
 
@@ -465,7 +467,8 @@ class ifm3(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh3 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            grad_yl = LoLo
+            if ctx.needs_input_grad[0]:
+                grad_yl = LoLo
 
         return grad_yl, grad_yh1, grad_yh2, grad_yh3, None, None, None, None, None, None
 
@@ -792,7 +795,8 @@ class ifm4(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh4 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            grad_yl = LoLo
+            if ctx.needs_input_grad[0]:
+                grad_yl = LoLo
 
         return grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, None, None, None, None, None, None
 
@@ -1201,7 +1205,8 @@ class ifm5(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh5 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            grad_yl = LoLo
+            if ctx.needs_input_grad[0]:
+                grad_yl = LoLo
 
         return grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, grad_yh5, None, None, None, None, None, None
 
@@ -1692,7 +1697,8 @@ class ifm6(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh6 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            grad_yl = LoLo
+            if ctx.needs_input_grad[0]:
+                grad_yl = LoLo
 
         return grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, grad_yh5, grad_yh6, None, None, None, None, None, None
 
@@ -2265,7 +2271,8 @@ class ifm7(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh7 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
-            grad_yl = LoLo
+            if ctx.needs_input_grad[0]:
+                grad_yl = LoLo
 
         return grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, grad_yh5, grad_yh6, grad_yh7, None, None, None, None, None, None
 

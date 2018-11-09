@@ -226,7 +226,8 @@ class ifm{J}(Function):
 
         if True in ctx.needs_input_grad:
             {level1bwd}
-            {level2plusbwd}grad_yl = LoLo
+            {level2plusbwd}if ctx.needs_input_grad[0]:
+                grad_yl = LoLo
 
         return grad_yl, {grad_yh_ret}, None, None, None, None, None, None
 
