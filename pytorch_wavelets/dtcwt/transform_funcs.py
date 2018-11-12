@@ -301,7 +301,7 @@ class xfm2(Function):
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 2 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[2]:
+            if not ctx.skip_hps[1]:
                 lh = c2q(grad_Yh2[:,:,0:6:5])
                 hl = c2q(grad_Yh2[:,:,2:4:1])
                 hh = c2q(grad_Yh2[:,:,1:5:3])
@@ -570,7 +570,7 @@ class xfm3(Function):
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 3 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[3]:
+            if not ctx.skip_hps[2]:
                 lh = c2q(grad_Yh3[:,:,0:6:5])
                 hl = c2q(grad_Yh3[:,:,2:4:1])
                 hh = c2q(grad_Yh3[:,:,1:5:3])
@@ -587,7 +587,7 @@ class xfm3(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 2 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[2]:
+            if not ctx.skip_hps[1]:
                 lh = c2q(grad_Yh2[:,:,0:6:5])
                 hl = c2q(grad_Yh2[:,:,2:4:1])
                 hh = c2q(grad_Yh2[:,:,1:5:3])
@@ -921,7 +921,7 @@ class xfm4(Function):
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 4 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[4]:
+            if not ctx.skip_hps[3]:
                 lh = c2q(grad_Yh4[:,:,0:6:5])
                 hl = c2q(grad_Yh4[:,:,2:4:1])
                 hh = c2q(grad_Yh4[:,:,1:5:3])
@@ -938,7 +938,7 @@ class xfm4(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 3 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[3]:
+            if not ctx.skip_hps[2]:
                 lh = c2q(grad_Yh3[:,:,0:6:5])
                 hl = c2q(grad_Yh3[:,:,2:4:1])
                 hh = c2q(grad_Yh3[:,:,1:5:3])
@@ -955,7 +955,7 @@ class xfm4(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 2 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[2]:
+            if not ctx.skip_hps[1]:
                 lh = c2q(grad_Yh2[:,:,0:6:5])
                 hl = c2q(grad_Yh2[:,:,2:4:1])
                 hh = c2q(grad_Yh2[:,:,1:5:3])
@@ -1354,7 +1354,7 @@ class xfm5(Function):
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 5 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[5]:
+            if not ctx.skip_hps[4]:
                 lh = c2q(grad_Yh5[:,:,0:6:5])
                 hl = c2q(grad_Yh5[:,:,2:4:1])
                 hh = c2q(grad_Yh5[:,:,1:5:3])
@@ -1371,7 +1371,7 @@ class xfm5(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 4 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[4]:
+            if not ctx.skip_hps[3]:
                 lh = c2q(grad_Yh4[:,:,0:6:5])
                 hl = c2q(grad_Yh4[:,:,2:4:1])
                 hh = c2q(grad_Yh4[:,:,1:5:3])
@@ -1388,7 +1388,7 @@ class xfm5(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 3 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[3]:
+            if not ctx.skip_hps[2]:
                 lh = c2q(grad_Yh3[:,:,0:6:5])
                 hl = c2q(grad_Yh3[:,:,2:4:1])
                 hh = c2q(grad_Yh3[:,:,1:5:3])
@@ -1405,7 +1405,7 @@ class xfm5(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 2 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[2]:
+            if not ctx.skip_hps[1]:
                 lh = c2q(grad_Yh2[:,:,0:6:5])
                 hl = c2q(grad_Yh2[:,:,2:4:1])
                 hh = c2q(grad_Yh2[:,:,1:5:3])
@@ -1869,7 +1869,7 @@ class xfm6(Function):
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 6 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[6]:
+            if not ctx.skip_hps[5]:
                 lh = c2q(grad_Yh6[:,:,0:6:5])
                 hl = c2q(grad_Yh6[:,:,2:4:1])
                 hh = c2q(grad_Yh6[:,:,1:5:3])
@@ -1886,7 +1886,7 @@ class xfm6(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 5 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[5]:
+            if not ctx.skip_hps[4]:
                 lh = c2q(grad_Yh5[:,:,0:6:5])
                 hl = c2q(grad_Yh5[:,:,2:4:1])
                 hh = c2q(grad_Yh5[:,:,1:5:3])
@@ -1903,7 +1903,7 @@ class xfm6(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 4 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[4]:
+            if not ctx.skip_hps[3]:
                 lh = c2q(grad_Yh4[:,:,0:6:5])
                 hl = c2q(grad_Yh4[:,:,2:4:1])
                 hh = c2q(grad_Yh4[:,:,1:5:3])
@@ -1920,7 +1920,7 @@ class xfm6(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 3 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[3]:
+            if not ctx.skip_hps[2]:
                 lh = c2q(grad_Yh3[:,:,0:6:5])
                 hl = c2q(grad_Yh3[:,:,2:4:1])
                 hh = c2q(grad_Yh3[:,:,1:5:3])
@@ -1937,7 +1937,7 @@ class xfm6(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 2 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[2]:
+            if not ctx.skip_hps[1]:
                 lh = c2q(grad_Yh2[:,:,0:6:5])
                 hl = c2q(grad_Yh2[:,:,2:4:1])
                 hh = c2q(grad_Yh2[:,:,1:5:3])
@@ -2466,7 +2466,7 @@ class xfm7(Function):
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
             # Level 7 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[7]:
+            if not ctx.skip_hps[6]:
                 lh = c2q(grad_Yh7[:,:,0:6:5])
                 hl = c2q(grad_Yh7[:,:,2:4:1])
                 hh = c2q(grad_Yh7[:,:,1:5:3])
@@ -2483,7 +2483,7 @@ class xfm7(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 6 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[6]:
+            if not ctx.skip_hps[5]:
                 lh = c2q(grad_Yh6[:,:,0:6:5])
                 hl = c2q(grad_Yh6[:,:,2:4:1])
                 hh = c2q(grad_Yh6[:,:,1:5:3])
@@ -2500,7 +2500,7 @@ class xfm7(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 5 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[5]:
+            if not ctx.skip_hps[4]:
                 lh = c2q(grad_Yh5[:,:,0:6:5])
                 hl = c2q(grad_Yh5[:,:,2:4:1])
                 hh = c2q(grad_Yh5[:,:,1:5:3])
@@ -2517,7 +2517,7 @@ class xfm7(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 4 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[4]:
+            if not ctx.skip_hps[3]:
                 lh = c2q(grad_Yh4[:,:,0:6:5])
                 hl = c2q(grad_Yh4[:,:,2:4:1])
                 hh = c2q(grad_Yh4[:,:,1:5:3])
@@ -2534,7 +2534,7 @@ class xfm7(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 3 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[3]:
+            if not ctx.skip_hps[2]:
                 lh = c2q(grad_Yh3[:,:,0:6:5])
                 hl = c2q(grad_Yh3[:,:,2:4:1])
                 hh = c2q(grad_Yh3[:,:,1:5:3])
@@ -2551,7 +2551,7 @@ class xfm7(Function):
                 ll = ll[:,:,:,1:-1]
 
             # Level 2 backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[2]:
+            if not ctx.skip_hps[1]:
                 lh = c2q(grad_Yh2[:,:,0:6:5])
                 hl = c2q(grad_Yh2[:,:,2:4:1])
                 hh = c2q(grad_Yh2[:,:,1:5:3])

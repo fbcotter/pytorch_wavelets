@@ -163,7 +163,7 @@ def test_inv_skip_hps(J):
             Yh1[j] = np.zeros_like(Yh1[j])
 
     ifm = DTCWTInverse(J=J)
-    X = ifm((torch.tensor(Yl, dtype=torch.float32), Yh2))
+    X = ifm((torch.tensor(Yl, dtype=torch.float32, requires_grad=True), Yh2))
 
     # Also test giving None instead of an empty tensor
     for j in range(J):
@@ -175,9 +175,12 @@ def test_inv_skip_hps(J):
     x = f1.inverse(Yl, Yh1)
 
     np.testing.assert_array_almost_equal(
-        X, x, decimal=PRECISION_DECIMAL)
+        X.detach(), x, decimal=PRECISION_DECIMAL)
     np.testing.assert_array_almost_equal(
         X2, x, decimal=PRECISION_DECIMAL)
+
+    # Test gradients are ok
+    X.backward(torch.ones_like(X))
 
 
 # Test end to end with numpy inputs

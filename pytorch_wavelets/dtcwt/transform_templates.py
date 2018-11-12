@@ -56,7 +56,7 @@ level2plus_fwd = """# Level {j} forward (quater shift analysis filters)
 """
 
 level2plus_bwd = """# Level {j} backward (time reversed quater shift analysis filters)
-            if not ctx.skip_hps[{j}]:
+            if not ctx.skip_hps[{i}]:
                 lh = c2q(grad_Yh{j}[:,:,0:6:5])
                 hl = c2q(grad_Yh{j}[:,:,2:4:1])
                 hh = c2q(grad_Yh{j}[:,:,1:5:3])
@@ -288,7 +288,7 @@ for J in range(1,8):
         level2plus = level2plus + '\n        '
     level2plusbwd = '\n            '.join(
         [level2plus_bwd.format(
-            j=j,
+            j=j, i=j-1,
             checkshape=(bwd_checkshape_hps.format(j2=j-1)))
          for j in range(J,1,-1)])
     if level2plusbwd != '':
