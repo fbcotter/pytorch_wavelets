@@ -17,15 +17,19 @@ class DTCWTForward(nn.Module):
         qshift (str): One of 'qshift_06', 'qshift_a', 'qshift_b', 'qshift_c',
             'qshift_d'.  Specifies the second level quarter shift filters.
         J (int): Number of levels of decomposition
-        skip_hps (bool): True if the decomposition should not calculate the
-            first scale's highpass coefficients (these are often noise). Will
-            speed up computation significantly.
-
+        skip_hps list(bool): List of bools of length J which specify whether or
+            not to calculate the bandpass outputs at the given scale.
+            skip_hps[0] is for the first scale. Can be a single bool in which
+            case that is applied to all scales.
+        o_before_c (bool): whether or not to put the orientations before the
+            channel dimension.
     Shape:
         - Input x: :math:`(N, C_{in}, H_{in}, W_{in})`
         - Output yl: :math:`(N, C_{in}, H_{in}', W_{in}')`
         - Output yh: :math:`list(N, C_{in}, 6, H_{in}'', W_{in}'', 2)` where
             :math:`H_{in}', W_{in}'` are the shapes of a DTCWT pyramid.
+            or :math:`list(N, 6, C_{in}, H_{in}'', W_{in}'', 2)` if o_before_c
+            is true
 
 
     Attributes:
@@ -37,14 +41,14 @@ class DTCWTForward(nn.Module):
         h1b (tensor): Non learnable highpass qshift tree b analysis filter
     """
     def __init__(self, C=None, biort='near_sym_a', qshift='qshift_a',
-                 J=3, skip_hps=False):
+                 J=3, skip_hps=False, o_before_c=False):
         super().__init__()
         if C is not None:
             warnings.warn('C parameter is deprecated. do not need to pass it')
 
         self.biort = biort
         self.qshift = qshift
-        self.skip_hps = skip_hps
+        self.o_before_c = o_before_c
         self.J = J
         h0o, _, h1o, _ = _biort(biort)
         self.h0o = torch.nn.Parameter(prep_filt(h0o, 1), False)
@@ -65,7 +69,7 @@ class DTCWTForward(nn.Module):
     def forward(self, input):
         coeffs = self.dtcwt_func.apply(
             input, self.h0o, self.h1o, self.h0a, self.h0b, self.h1a,
-            self.h1b, self.skip_hps)
+            self.h1b, self.skip_hps, self.o_before_c)
 
         # Return in the format: (yl, yh)
         return coeffs[0], coeffs[1:]
@@ -80,15 +84,21 @@ class DTCWTInverse(nn.Module):
         qshift (str): One of 'qshift_06', 'qshift_a', 'qshift_b', 'qshift_c',
             'qshift_d'.  Specifies the second level quarter shift filters.
         J (int): Number of levels of decomposition
-        skip_hps (bool): True if the inverse method should not look at the first
-            scale's highpass coefficients (these are often noise). Will speed up
-            computation significantly.
+        o_before_c (bool): whether or not to put the orientations before the
+            channel dimension.
 
     Shape:
         - Input yl: :math:`(N, C_{in}, H_{in}', W_{in}')`
         - Input yh: :math:`list(N, C_{in}, 6, H_{in}'', W_{in}'', 2)` where
             :math:`H_{in}', W_{in}'` are the shapes of a DTCWT pyramid.
+            or :math:`list(N, 6, C_{in}, H_{in}'', W_{in}'', 2)` if o_before_c
+            is true
         - Output y: :math:`(N, C_{in}, H_{in}, W_{in})`
+
+    Note:
+        Can accept Nones or an empty tensor (torch.tensor([])) for the lowpass
+        or bandpass inputs. In this cases, an array of zeros replaces that
+        input.
 
     Attributes:
         g0o (tensor): Non learnable lowpass biorthogonal synthesis filter
@@ -99,12 +109,14 @@ class DTCWTInverse(nn.Module):
         g1b (tensor): Non learnable highpass qshift tree b synthesis filter
     """
 
-    def __init__(self, C=None, biort='near_sym_a', qshift='qshift_a', J=3):
+    def __init__(self, C=None, biort='near_sym_a', qshift='qshift_a', J=3,
+                 o_before_c=False):
         super().__init__()
         if C is not None:
             warnings.warn('C parameter is deprecated. do not need to pass it')
         self.biort = biort
         self.qshift = qshift
+        self.o_before_c = o_before_c
         self.J = J
         _, g0o, _, g1o = _biort(biort)
         self.g0o = torch.nn.Parameter(prep_filt(g0o, 1), False)
@@ -122,12 +134,19 @@ class DTCWTInverse(nn.Module):
         yl, yh = x
         for s in yh:
             if s is not None and s.shape != torch.Size([0]):
-                assert s.shape[2] == 6, "Inverse transform must have input " \
-                    "with 6 orientations"
+                if self.o_before_c:
+                    assert s.shape[1] == 6, "Inverse transform must have " \
+                        "input with 6 orientations"
+                    assert len(s.shape) == 6, "Bandpass inputs must have " \
+                        "shape (n, 6, c, h, w, 2)"
+                else:
+                    assert s.shape[2] == 6, "Inverse transform must have " \
+                        "input with 6 orientations"
+                    assert len(s.shape) == 6, "Bandpass inputs must have " \
+                        "shape (n, c, 6, h, w, 2)"
                 assert s.shape[-1] == 2, "Inputs must be complex with real " \
                     "and imaginary parts in the last dimension"
-                assert len(s.shape) == 6, "Bandpass inputs must have shape " \
-                    "(n, c, 6, h, w, 2)"
 
         return self.dtcwt_func.apply(yl, *yh, self.g0o, self.g1o, self.g0a,
-                                     self.g0b, self.g1a, self.g1b)
+                                     self.g0b, self.g1a, self.g1b,
+                                     self.o_before_c)

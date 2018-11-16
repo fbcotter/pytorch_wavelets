@@ -262,7 +262,7 @@ def q2c(y):
     return torch.stack((a-d, b+c), dim=-1), torch.stack((a+d, b-c), dim=-1)
 
 
-def c2q(w):
+def c2q(w1, w2):
     """
     Scale by gain and convert from complex w(:,:,1:2) to real quad-numbers
     in z.
@@ -276,16 +276,15 @@ def c2q(w):
 
     """
 
-    # Input has shape [batch, ch, 2, r, c, 2]
-    ch, _, r, c, _ = w.shape[1:]
-    w = w/np.sqrt(2)
+    # Input has shape [batch, ch, r, c, 2]
+    ch, r, c, _ = w1.shape[1:]
     # shape will be:
     #   x1   x2
     #   x3   x4
-    x1 = w[:,:,0,:,:,0] + w[:,:,1,:,:,0]
-    x2 = w[:,:,0,:,:,1] + w[:,:,1,:,:,1]
-    x3 = w[:,:,0,:,:,1] - w[:,:,1,:,:,1]
-    x4 = -w[:,:,0,:,:,0] + w[:,:,1,:,:,0]
+    x1 = w1[...,0] + w2[...,0]
+    x2 = w1[...,1] + w2[...,1]
+    x3 = w1[...,1] - w2[...,1]
+    x4 = -w1[...,0] + w2[...,0]
 
     # Stack 2 inputs of shape [batch, ch, r, c] to [batch, ch, r, 2, c]
     x_rows1 = torch.stack((x1, x3), dim=-2)
@@ -297,6 +296,6 @@ def c2q(w):
 
     # Stack the two [batch, ch, 2*r, c] tensors to [batch, ch, 2*r, c, 2]
     x_cols = torch.stack((x_rows1, x_rows2), dim=-1)
-    y = x_cols.view(-1, ch, 2*r, 2*c)
+    y = x_cols.view(-1, ch, 2*r, 2*c)/np.sqrt(2)
 
     return y

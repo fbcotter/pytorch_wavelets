@@ -13,7 +13,7 @@ level1_fwd = """# Level 1 forward (biorthogonal analysis filters)
             deg45, deg135 = q2c(HiHi)
             deg75, deg105 = q2c(HiLo)
             Yh1 = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
             Yh1 = torch.tensor([])
         LoLo = colfilter(Lo, h0o)
@@ -21,9 +21,14 @@ level1_fwd = """# Level 1 forward (biorthogonal analysis filters)
 
 level1_hps_bwd = """# Level 1 backward (time reversed biorthogonal analysis filters)
             if not ctx.skip_hps[0]:
-                lh = c2q(grad_Yh1[:,:,0:6:5])
-                hl = c2q(grad_Yh1[:,:,2:4:1])
-                hh = c2q(grad_Yh1[:,:,1:5:3])
+                if ctx.o_dim == 1:
+                    lh = c2q(grad_Yh1[:,0], grad_Yh1[:,5])
+                    hl = c2q(grad_Yh1[:,2], grad_Yh1[:,3])
+                    hh = c2q(grad_Yh1[:,1], grad_Yh1[:,4])
+                else:
+                    lh = c2q(grad_Yh1[:,:,0], grad_Yh1[:,:,5])
+                    hl = c2q(grad_Yh1[:,:,2], grad_Yh1[:,:,3])
+                    hh = c2q(grad_Yh1[:,:,1], grad_Yh1[:,:,4])
                 Hi = colfilter(hh, h1o_t) + colfilter(hl, h0o_t)
                 Lo = colfilter(lh, h1o_t) + colfilter(ll, h0o_t)
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
@@ -49,7 +54,7 @@ level2plus_fwd = """# Level {j} forward (quater shift analysis filters)
             deg45, deg135 = q2c(HiHi)
             deg75, deg105 = q2c(HiLo)
             Yh{j} = torch.stack(
-                [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
             Yh{j} = torch.tensor([])
         LoLo = coldfilt(Lo, h0b, h0a)
@@ -57,9 +62,14 @@ level2plus_fwd = """# Level {j} forward (quater shift analysis filters)
 
 level2plus_bwd = """# Level {j} backward (time reversed quater shift analysis filters)
             if not ctx.skip_hps[{i}]:
-                lh = c2q(grad_Yh{j}[:,:,0:6:5])
-                hl = c2q(grad_Yh{j}[:,:,2:4:1])
-                hh = c2q(grad_Yh{j}[:,:,1:5:3])
+                if ctx.o_dim == 1:
+                    lh = c2q(grad_Yh{j}[:,0], grad_Yh{j}[:,5])
+                    hl = c2q(grad_Yh{j}[:,2], grad_Yh{j}[:,3])
+                    hh = c2q(grad_Yh{j}[:,1], grad_Yh{j}[:,4])
+                else:
+                    lh = c2q(grad_Yh{j}[:,:,0], grad_Yh{j}[:,:,5])
+                    hl = c2q(grad_Yh{j}[:,:,2], grad_Yh{j}[:,:,3])
+                    hh = c2q(grad_Yh{j}[:,:,1], grad_Yh{j}[:,:,4])
                 Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
                 Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
                 ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
@@ -84,8 +94,12 @@ xfm = """
 class xfm{J}(Function):
 
     @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b, skip_hps):
+    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b, skip_hps, o_before_c):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
+        if o_before_c:
+            ctx.o_dim = 1
+        else:
+            ctx.o_dim = 2
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         batch, ch, r, c = input.shape
@@ -118,16 +132,21 @@ class xfm{J}(Function):
             ll = grad_LoLo{level2plusbwd}
             {level1bwd}
 
-        return (grad_input,) + (None,) * 7
+        return (grad_input,) + (None,) * 8
 
 """
 
 ## Inverse Templates
 level1_hps_fwd_inv = """# Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
-            {checkshape}lh = c2q(yh1[:,:,0:6:5])
-            hl = c2q(yh1[:,:,2:4:1])
-            hh = c2q(yh1[:,:,1:5:3])
+            {checkshape}if ctx.o_dim == 1:
+                lh = c2q(yh1[:,0], yh1[:,5])
+                hl = c2q(yh1[:,2], yh1[:,3])
+                hh = c2q(yh1[:,1], yh1[:,4])
+            else:
+                lh = c2q(yh1[:,:,0], yh1[:,:,5])
+                hl = c2q(yh1[:,:,2], yh1[:,:,3])
+                hh = c2q(yh1[:,:,1], yh1[:,:,4])
             Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
             if ll is not None and ll.shape != torch.Size([0]):
                 Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
@@ -152,14 +171,19 @@ level1_hps_bwd_inv = """if ctx.needs_input_grad[1]:
                 deg45, deg135 = q2c(HiHi)
                 deg75, deg105 = q2c(HiLo)
                 grad_yh1 = torch.stack(
-                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
 """
 
 level2plus_fwd_inv = """# Level {j} inverse transform with quater shift synthesis filters
         if yh{j} is not None and yh{j}.shape != torch.Size([0]):
-            {checkshape}lh = c2q(yh{j}[:,:,0:6:5])
-            hl = c2q(yh{j}[:,:,2:4:1])
-            hh = c2q(yh{j}[:,:,1:5:3])
+            {checkshape}if ctx.o_dim == 1:
+                lh = c2q(yh{j}[:,0], yh{j}[:,5])
+                hl = c2q(yh{j}[:,2], yh{j}[:,3])
+                hh = c2q(yh{j}[:,1], yh{j}[:,4])
+            else:
+                lh = c2q(yh{j}[:,:,0], yh{j}[:,:,5])
+                hl = c2q(yh{j}[:,:,2], yh{j}[:,:,3])
+                hh = c2q(yh{j}[:,:,1], yh{j}[:,:,4])
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
             if ll is not None and ll.shape != torch.Size([0]):
                 Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
@@ -197,14 +221,18 @@ level2plus_bwd_inv = """# Level {j} inverse gradient - same as fwd transform
                 deg45, deg135 = q2c(HiHi)
                 deg75, deg105 = q2c(HiLo)
                 grad_yh{j} = torch.stack(
-                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=2)"""
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)"""
 
 ifm = """
 class ifm{J}(Function):
 
     @staticmethod
-    def forward(ctx, yl, {yh_in}, g0o, g1o, g0a, g0b, g1a, g1b):
+    def forward(ctx, yl, {yh_in}, g0o, g1o, g0a, g0b, g1a, g1b, o_before_c):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
+        if o_before_c:
+            ctx.o_dim = 1
+        else:
+            ctx.o_dim = 2
         ll = yl
         {level2plus}{level1}
 
@@ -229,7 +257,7 @@ class ifm{J}(Function):
             {level2plusbwd}if ctx.needs_input_grad[0]:
                 grad_yl = LoLo
 
-        return grad_yl, {grad_yh_ret}, None, None, None, None, None, None
+        return (grad_yl, {grad_yh_ret}) + (None,) * 7
 
 """
 
