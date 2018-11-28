@@ -18,7 +18,7 @@ size = (10, 10, 128, 128)
 
 def forward(J, no_hp=False):
     x = torch.randn(*size).cuda()
-    xfm = DTCWTForward(J=J, C=size[1], skip_hps=no_hp).cuda()
+    xfm = DTCWTForward(J=J, skip_hps=no_hp).cuda()
     Yl, Yh = xfm(x)
 
 
@@ -26,14 +26,14 @@ def inverse(J, no_hp=False):
     yl = torch.randn(size[0], size[1], size[2]>>(J-1), size[3]>>(J-1)).cuda()
     yh = [torch.randn(size[0], size[1], 6, size[2]>>j, size[3]>>j, 2).cuda() for j in
           range(1,J+1)]
-    ifm = DTCWTInverse(J=J, C=size[1], skip_hps=no_hp).cuda()
+    ifm = DTCWTInverse(J=J).cuda()
     Y = ifm((yl, yh))
 
 
 def end_to_end(J, no_hp=False):
     x = torch.randn(*size).cuda()
-    xfm = DTCWTForward(J=J, C=size[1], skip_hps=no_hp).cuda()
-    ifm = DTCWTInverse(J=J, C=size[1], skip_hps=no_hp).cuda()
+    xfm = DTCWTForward(J=J, skip_hps=no_hp).cuda()
+    ifm = DTCWTInverse(J=J).cuda()
     Yl, Yh = xfm(x)
     Y = ifm((Yl, Yh))
 

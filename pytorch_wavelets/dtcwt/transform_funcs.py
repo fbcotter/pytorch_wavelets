@@ -106,12 +106,12 @@ class xfm1scale(Function):
             Yh1 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh1 = torch.tensor([])
+            Yh1 = torch.tensor([], device=input.device)
         LoLo = colfilter(Lo, h0o)
         if ctx.include_scale[0]:
             Ys1 = LoLo
         else:
-            Ys1 = torch.tensor([])
+            Ys1 = torch.tensor([], device=input.device)
         
         Yl = LoLo
         return Ys1, Yh1
@@ -186,12 +186,12 @@ class xfm1(Function):
             Yh1 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh1 = torch.tensor([])
+            Yh1 = torch.tensor([], device=input.device)
         LoLo = colfilter(Lo, h0o)
         if ctx.include_scale[0]:
             Ys1 = LoLo
         else:
-            Ys1 = torch.tensor([])
+            Ys1 = torch.tensor([], device=input.device)
         
         Yl = LoLo
         return Yl, Yh1
@@ -379,12 +379,12 @@ class xfm2scale(Function):
             Yh1 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh1 = torch.tensor([])
+            Yh1 = torch.tensor([], device=input.device)
         LoLo = colfilter(Lo, h0o)
         if ctx.include_scale[0]:
             Ys1 = LoLo
         else:
-            Ys1 = torch.tensor([])
+            Ys1 = torch.tensor([], device=input.device)
         
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -406,12 +406,12 @@ class xfm2scale(Function):
             Yh2 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh2 = torch.tensor([])
+            Yh2 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[1]:
             Ys2 = LoLo
         else:
-            Ys2 = torch.tensor([])
+            Ys2 = torch.tensor([], device=input.device)
 
         Yl = LoLo
         return Ys1, Ys2, Yh1, Yh2
@@ -453,7 +453,7 @@ class xfm2scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[0]:
+            if ctx.include_scale[0]:
                 ll = (ll + grad_Ys1)/2
 
             # Level 1 backward (time reversed biorthogonal analysis filters)
@@ -510,12 +510,12 @@ class xfm2(Function):
             Yh1 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh1 = torch.tensor([])
+            Yh1 = torch.tensor([], device=input.device)
         LoLo = colfilter(Lo, h0o)
         if ctx.include_scale[0]:
             Ys1 = LoLo
         else:
-            Ys1 = torch.tensor([])
+            Ys1 = torch.tensor([], device=input.device)
         
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -537,12 +537,12 @@ class xfm2(Function):
             Yh2 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh2 = torch.tensor([])
+            Yh2 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[1]:
             Ys2 = LoLo
         else:
-            Ys2 = torch.tensor([])
+            Ys2 = torch.tensor([], device=input.device)
 
         Yl = LoLo
         return Yl, Yh1, Yh2
@@ -799,12 +799,12 @@ class xfm3scale(Function):
             Yh1 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh1 = torch.tensor([])
+            Yh1 = torch.tensor([], device=input.device)
         LoLo = colfilter(Lo, h0o)
         if ctx.include_scale[0]:
             Ys1 = LoLo
         else:
-            Ys1 = torch.tensor([])
+            Ys1 = torch.tensor([], device=input.device)
         
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -826,12 +826,12 @@ class xfm3scale(Function):
             Yh2 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh2 = torch.tensor([])
+            Yh2 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[1]:
             Ys2 = LoLo
         else:
-            Ys2 = torch.tensor([])
+            Ys2 = torch.tensor([], device=input.device)
 
         # Level 3 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -853,12 +853,12 @@ class xfm3scale(Function):
             Yh3 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh3 = torch.tensor([])
+            Yh3 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[2]:
             Ys3 = LoLo
         else:
-            Ys3 = torch.tensor([])
+            Ys3 = torch.tensor([], device=input.device)
 
         Yl = LoLo
         return Ys1, Ys2, Ys3, Yh1, Yh2, Yh3
@@ -900,7 +900,7 @@ class xfm3scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[1]:
+            if ctx.include_scale[1]:
                 ll = (ll + grad_Ys2)/2
 
             # Level 2 backward (time reversed quater shift analysis filters)
@@ -924,7 +924,7 @@ class xfm3scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[0]:
+            if ctx.include_scale[0]:
                 ll = (ll + grad_Ys1)/2
 
             # Level 1 backward (time reversed biorthogonal analysis filters)
@@ -981,12 +981,12 @@ class xfm3(Function):
             Yh1 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh1 = torch.tensor([])
+            Yh1 = torch.tensor([], device=input.device)
         LoLo = colfilter(Lo, h0o)
         if ctx.include_scale[0]:
             Ys1 = LoLo
         else:
-            Ys1 = torch.tensor([])
+            Ys1 = torch.tensor([], device=input.device)
         
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -1008,12 +1008,12 @@ class xfm3(Function):
             Yh2 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh2 = torch.tensor([])
+            Yh2 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[1]:
             Ys2 = LoLo
         else:
-            Ys2 = torch.tensor([])
+            Ys2 = torch.tensor([], device=input.device)
 
         # Level 3 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -1035,12 +1035,12 @@ class xfm3(Function):
             Yh3 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh3 = torch.tensor([])
+            Yh3 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[2]:
             Ys3 = LoLo
         else:
-            Ys3 = torch.tensor([])
+            Ys3 = torch.tensor([], device=input.device)
 
         Yl = LoLo
         return Yl, Yh1, Yh2, Yh3
@@ -1366,12 +1366,12 @@ class xfm4scale(Function):
             Yh1 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh1 = torch.tensor([])
+            Yh1 = torch.tensor([], device=input.device)
         LoLo = colfilter(Lo, h0o)
         if ctx.include_scale[0]:
             Ys1 = LoLo
         else:
-            Ys1 = torch.tensor([])
+            Ys1 = torch.tensor([], device=input.device)
         
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -1393,12 +1393,12 @@ class xfm4scale(Function):
             Yh2 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh2 = torch.tensor([])
+            Yh2 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[1]:
             Ys2 = LoLo
         else:
-            Ys2 = torch.tensor([])
+            Ys2 = torch.tensor([], device=input.device)
 
         # Level 3 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -1420,12 +1420,12 @@ class xfm4scale(Function):
             Yh3 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh3 = torch.tensor([])
+            Yh3 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[2]:
             Ys3 = LoLo
         else:
-            Ys3 = torch.tensor([])
+            Ys3 = torch.tensor([], device=input.device)
 
         # Level 4 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -1447,12 +1447,12 @@ class xfm4scale(Function):
             Yh4 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh4 = torch.tensor([])
+            Yh4 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[3]:
             Ys4 = LoLo
         else:
-            Ys4 = torch.tensor([])
+            Ys4 = torch.tensor([], device=input.device)
 
         Yl = LoLo
         return Ys1, Ys2, Ys3, Ys4, Yh1, Yh2, Yh3, Yh4
@@ -1494,7 +1494,7 @@ class xfm4scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[2]:
+            if ctx.include_scale[2]:
                 ll = (ll + grad_Ys3)/2
 
             # Level 3 backward (time reversed quater shift analysis filters)
@@ -1518,7 +1518,7 @@ class xfm4scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[1]:
+            if ctx.include_scale[1]:
                 ll = (ll + grad_Ys2)/2
 
             # Level 2 backward (time reversed quater shift analysis filters)
@@ -1542,7 +1542,7 @@ class xfm4scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[0]:
+            if ctx.include_scale[0]:
                 ll = (ll + grad_Ys1)/2
 
             # Level 1 backward (time reversed biorthogonal analysis filters)
@@ -1599,12 +1599,12 @@ class xfm4(Function):
             Yh1 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh1 = torch.tensor([])
+            Yh1 = torch.tensor([], device=input.device)
         LoLo = colfilter(Lo, h0o)
         if ctx.include_scale[0]:
             Ys1 = LoLo
         else:
-            Ys1 = torch.tensor([])
+            Ys1 = torch.tensor([], device=input.device)
         
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -1626,12 +1626,12 @@ class xfm4(Function):
             Yh2 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh2 = torch.tensor([])
+            Yh2 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[1]:
             Ys2 = LoLo
         else:
-            Ys2 = torch.tensor([])
+            Ys2 = torch.tensor([], device=input.device)
 
         # Level 3 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -1653,12 +1653,12 @@ class xfm4(Function):
             Yh3 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh3 = torch.tensor([])
+            Yh3 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[2]:
             Ys3 = LoLo
         else:
-            Ys3 = torch.tensor([])
+            Ys3 = torch.tensor([], device=input.device)
 
         # Level 4 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -1680,12 +1680,12 @@ class xfm4(Function):
             Yh4 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh4 = torch.tensor([])
+            Yh4 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[3]:
             Ys4 = LoLo
         else:
-            Ys4 = torch.tensor([])
+            Ys4 = torch.tensor([], device=input.device)
 
         Yl = LoLo
         return Yl, Yh1, Yh2, Yh3, Yh4
@@ -2080,12 +2080,12 @@ class xfm5scale(Function):
             Yh1 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh1 = torch.tensor([])
+            Yh1 = torch.tensor([], device=input.device)
         LoLo = colfilter(Lo, h0o)
         if ctx.include_scale[0]:
             Ys1 = LoLo
         else:
-            Ys1 = torch.tensor([])
+            Ys1 = torch.tensor([], device=input.device)
         
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -2107,12 +2107,12 @@ class xfm5scale(Function):
             Yh2 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh2 = torch.tensor([])
+            Yh2 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[1]:
             Ys2 = LoLo
         else:
-            Ys2 = torch.tensor([])
+            Ys2 = torch.tensor([], device=input.device)
 
         # Level 3 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -2134,12 +2134,12 @@ class xfm5scale(Function):
             Yh3 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh3 = torch.tensor([])
+            Yh3 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[2]:
             Ys3 = LoLo
         else:
-            Ys3 = torch.tensor([])
+            Ys3 = torch.tensor([], device=input.device)
 
         # Level 4 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -2161,12 +2161,12 @@ class xfm5scale(Function):
             Yh4 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh4 = torch.tensor([])
+            Yh4 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[3]:
             Ys4 = LoLo
         else:
-            Ys4 = torch.tensor([])
+            Ys4 = torch.tensor([], device=input.device)
 
         # Level 5 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -2188,12 +2188,12 @@ class xfm5scale(Function):
             Yh5 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh5 = torch.tensor([])
+            Yh5 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[4]:
             Ys5 = LoLo
         else:
-            Ys5 = torch.tensor([])
+            Ys5 = torch.tensor([], device=input.device)
 
         Yl = LoLo
         return Ys1, Ys2, Ys3, Ys4, Ys5, Yh1, Yh2, Yh3, Yh4, Yh5
@@ -2235,7 +2235,7 @@ class xfm5scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[3]:
+            if ctx.include_scale[3]:
                 ll = (ll + grad_Ys4)/2
 
             # Level 4 backward (time reversed quater shift analysis filters)
@@ -2259,7 +2259,7 @@ class xfm5scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[2]:
+            if ctx.include_scale[2]:
                 ll = (ll + grad_Ys3)/2
 
             # Level 3 backward (time reversed quater shift analysis filters)
@@ -2283,7 +2283,7 @@ class xfm5scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[1]:
+            if ctx.include_scale[1]:
                 ll = (ll + grad_Ys2)/2
 
             # Level 2 backward (time reversed quater shift analysis filters)
@@ -2307,7 +2307,7 @@ class xfm5scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[0]:
+            if ctx.include_scale[0]:
                 ll = (ll + grad_Ys1)/2
 
             # Level 1 backward (time reversed biorthogonal analysis filters)
@@ -2364,12 +2364,12 @@ class xfm5(Function):
             Yh1 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh1 = torch.tensor([])
+            Yh1 = torch.tensor([], device=input.device)
         LoLo = colfilter(Lo, h0o)
         if ctx.include_scale[0]:
             Ys1 = LoLo
         else:
-            Ys1 = torch.tensor([])
+            Ys1 = torch.tensor([], device=input.device)
         
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -2391,12 +2391,12 @@ class xfm5(Function):
             Yh2 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh2 = torch.tensor([])
+            Yh2 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[1]:
             Ys2 = LoLo
         else:
-            Ys2 = torch.tensor([])
+            Ys2 = torch.tensor([], device=input.device)
 
         # Level 3 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -2418,12 +2418,12 @@ class xfm5(Function):
             Yh3 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh3 = torch.tensor([])
+            Yh3 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[2]:
             Ys3 = LoLo
         else:
-            Ys3 = torch.tensor([])
+            Ys3 = torch.tensor([], device=input.device)
 
         # Level 4 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -2445,12 +2445,12 @@ class xfm5(Function):
             Yh4 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh4 = torch.tensor([])
+            Yh4 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[3]:
             Ys4 = LoLo
         else:
-            Ys4 = torch.tensor([])
+            Ys4 = torch.tensor([], device=input.device)
 
         # Level 5 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -2472,12 +2472,12 @@ class xfm5(Function):
             Yh5 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh5 = torch.tensor([])
+            Yh5 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[4]:
             Ys5 = LoLo
         else:
-            Ys5 = torch.tensor([])
+            Ys5 = torch.tensor([], device=input.device)
 
         Yl = LoLo
         return Yl, Yh1, Yh2, Yh3, Yh4, Yh5
@@ -2941,12 +2941,12 @@ class xfm6scale(Function):
             Yh1 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh1 = torch.tensor([])
+            Yh1 = torch.tensor([], device=input.device)
         LoLo = colfilter(Lo, h0o)
         if ctx.include_scale[0]:
             Ys1 = LoLo
         else:
-            Ys1 = torch.tensor([])
+            Ys1 = torch.tensor([], device=input.device)
         
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -2968,12 +2968,12 @@ class xfm6scale(Function):
             Yh2 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh2 = torch.tensor([])
+            Yh2 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[1]:
             Ys2 = LoLo
         else:
-            Ys2 = torch.tensor([])
+            Ys2 = torch.tensor([], device=input.device)
 
         # Level 3 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -2995,12 +2995,12 @@ class xfm6scale(Function):
             Yh3 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh3 = torch.tensor([])
+            Yh3 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[2]:
             Ys3 = LoLo
         else:
-            Ys3 = torch.tensor([])
+            Ys3 = torch.tensor([], device=input.device)
 
         # Level 4 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -3022,12 +3022,12 @@ class xfm6scale(Function):
             Yh4 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh4 = torch.tensor([])
+            Yh4 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[3]:
             Ys4 = LoLo
         else:
-            Ys4 = torch.tensor([])
+            Ys4 = torch.tensor([], device=input.device)
 
         # Level 5 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -3049,12 +3049,12 @@ class xfm6scale(Function):
             Yh5 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh5 = torch.tensor([])
+            Yh5 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[4]:
             Ys5 = LoLo
         else:
-            Ys5 = torch.tensor([])
+            Ys5 = torch.tensor([], device=input.device)
 
         # Level 6 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -3076,12 +3076,12 @@ class xfm6scale(Function):
             Yh6 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh6 = torch.tensor([])
+            Yh6 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[5]:
             Ys6 = LoLo
         else:
-            Ys6 = torch.tensor([])
+            Ys6 = torch.tensor([], device=input.device)
 
         Yl = LoLo
         return Ys1, Ys2, Ys3, Ys4, Ys5, Ys6, Yh1, Yh2, Yh3, Yh4, Yh5, Yh6
@@ -3123,7 +3123,7 @@ class xfm6scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[4]:
+            if ctx.include_scale[4]:
                 ll = (ll + grad_Ys5)/2
 
             # Level 5 backward (time reversed quater shift analysis filters)
@@ -3147,7 +3147,7 @@ class xfm6scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[3]:
+            if ctx.include_scale[3]:
                 ll = (ll + grad_Ys4)/2
 
             # Level 4 backward (time reversed quater shift analysis filters)
@@ -3171,7 +3171,7 @@ class xfm6scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[2]:
+            if ctx.include_scale[2]:
                 ll = (ll + grad_Ys3)/2
 
             # Level 3 backward (time reversed quater shift analysis filters)
@@ -3195,7 +3195,7 @@ class xfm6scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[1]:
+            if ctx.include_scale[1]:
                 ll = (ll + grad_Ys2)/2
 
             # Level 2 backward (time reversed quater shift analysis filters)
@@ -3219,7 +3219,7 @@ class xfm6scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[0]:
+            if ctx.include_scale[0]:
                 ll = (ll + grad_Ys1)/2
 
             # Level 1 backward (time reversed biorthogonal analysis filters)
@@ -3276,12 +3276,12 @@ class xfm6(Function):
             Yh1 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh1 = torch.tensor([])
+            Yh1 = torch.tensor([], device=input.device)
         LoLo = colfilter(Lo, h0o)
         if ctx.include_scale[0]:
             Ys1 = LoLo
         else:
-            Ys1 = torch.tensor([])
+            Ys1 = torch.tensor([], device=input.device)
         
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -3303,12 +3303,12 @@ class xfm6(Function):
             Yh2 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh2 = torch.tensor([])
+            Yh2 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[1]:
             Ys2 = LoLo
         else:
-            Ys2 = torch.tensor([])
+            Ys2 = torch.tensor([], device=input.device)
 
         # Level 3 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -3330,12 +3330,12 @@ class xfm6(Function):
             Yh3 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh3 = torch.tensor([])
+            Yh3 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[2]:
             Ys3 = LoLo
         else:
-            Ys3 = torch.tensor([])
+            Ys3 = torch.tensor([], device=input.device)
 
         # Level 4 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -3357,12 +3357,12 @@ class xfm6(Function):
             Yh4 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh4 = torch.tensor([])
+            Yh4 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[3]:
             Ys4 = LoLo
         else:
-            Ys4 = torch.tensor([])
+            Ys4 = torch.tensor([], device=input.device)
 
         # Level 5 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -3384,12 +3384,12 @@ class xfm6(Function):
             Yh5 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh5 = torch.tensor([])
+            Yh5 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[4]:
             Ys5 = LoLo
         else:
-            Ys5 = torch.tensor([])
+            Ys5 = torch.tensor([], device=input.device)
 
         # Level 6 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -3411,12 +3411,12 @@ class xfm6(Function):
             Yh6 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh6 = torch.tensor([])
+            Yh6 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[5]:
             Ys6 = LoLo
         else:
-            Ys6 = torch.tensor([])
+            Ys6 = torch.tensor([], device=input.device)
 
         Yl = LoLo
         return Yl, Yh1, Yh2, Yh3, Yh4, Yh5, Yh6
@@ -3949,12 +3949,12 @@ class xfm7scale(Function):
             Yh1 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh1 = torch.tensor([])
+            Yh1 = torch.tensor([], device=input.device)
         LoLo = colfilter(Lo, h0o)
         if ctx.include_scale[0]:
             Ys1 = LoLo
         else:
-            Ys1 = torch.tensor([])
+            Ys1 = torch.tensor([], device=input.device)
         
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -3976,12 +3976,12 @@ class xfm7scale(Function):
             Yh2 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh2 = torch.tensor([])
+            Yh2 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[1]:
             Ys2 = LoLo
         else:
-            Ys2 = torch.tensor([])
+            Ys2 = torch.tensor([], device=input.device)
 
         # Level 3 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -4003,12 +4003,12 @@ class xfm7scale(Function):
             Yh3 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh3 = torch.tensor([])
+            Yh3 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[2]:
             Ys3 = LoLo
         else:
-            Ys3 = torch.tensor([])
+            Ys3 = torch.tensor([], device=input.device)
 
         # Level 4 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -4030,12 +4030,12 @@ class xfm7scale(Function):
             Yh4 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh4 = torch.tensor([])
+            Yh4 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[3]:
             Ys4 = LoLo
         else:
-            Ys4 = torch.tensor([])
+            Ys4 = torch.tensor([], device=input.device)
 
         # Level 5 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -4057,12 +4057,12 @@ class xfm7scale(Function):
             Yh5 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh5 = torch.tensor([])
+            Yh5 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[4]:
             Ys5 = LoLo
         else:
-            Ys5 = torch.tensor([])
+            Ys5 = torch.tensor([], device=input.device)
 
         # Level 6 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -4084,12 +4084,12 @@ class xfm7scale(Function):
             Yh6 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh6 = torch.tensor([])
+            Yh6 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[5]:
             Ys6 = LoLo
         else:
-            Ys6 = torch.tensor([])
+            Ys6 = torch.tensor([], device=input.device)
 
         # Level 7 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -4111,12 +4111,12 @@ class xfm7scale(Function):
             Yh7 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh7 = torch.tensor([])
+            Yh7 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[6]:
             Ys7 = LoLo
         else:
-            Ys7 = torch.tensor([])
+            Ys7 = torch.tensor([], device=input.device)
 
         Yl = LoLo
         return Ys1, Ys2, Ys3, Ys4, Ys5, Ys6, Ys7, Yh1, Yh2, Yh3, Yh4, Yh5, Yh6, Yh7
@@ -4158,7 +4158,7 @@ class xfm7scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[5]:
+            if ctx.include_scale[5]:
                 ll = (ll + grad_Ys6)/2
 
             # Level 6 backward (time reversed quater shift analysis filters)
@@ -4182,7 +4182,7 @@ class xfm7scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[4]:
+            if ctx.include_scale[4]:
                 ll = (ll + grad_Ys5)/2
 
             # Level 5 backward (time reversed quater shift analysis filters)
@@ -4206,7 +4206,7 @@ class xfm7scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[3]:
+            if ctx.include_scale[3]:
                 ll = (ll + grad_Ys4)/2
 
             # Level 4 backward (time reversed quater shift analysis filters)
@@ -4230,7 +4230,7 @@ class xfm7scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[2]:
+            if ctx.include_scale[2]:
                 ll = (ll + grad_Ys3)/2
 
             # Level 3 backward (time reversed quater shift analysis filters)
@@ -4254,7 +4254,7 @@ class xfm7scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[1]:
+            if ctx.include_scale[1]:
                 ll = (ll + grad_Ys2)/2
 
             # Level 2 backward (time reversed quater shift analysis filters)
@@ -4278,7 +4278,7 @@ class xfm7scale(Function):
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]
-            if not ctx.include_scale[0]:
+            if ctx.include_scale[0]:
                 ll = (ll + grad_Ys1)/2
 
             # Level 1 backward (time reversed biorthogonal analysis filters)
@@ -4335,12 +4335,12 @@ class xfm7(Function):
             Yh1 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh1 = torch.tensor([])
+            Yh1 = torch.tensor([], device=input.device)
         LoLo = colfilter(Lo, h0o)
         if ctx.include_scale[0]:
             Ys1 = LoLo
         else:
-            Ys1 = torch.tensor([])
+            Ys1 = torch.tensor([], device=input.device)
         
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -4362,12 +4362,12 @@ class xfm7(Function):
             Yh2 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh2 = torch.tensor([])
+            Yh2 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[1]:
             Ys2 = LoLo
         else:
-            Ys2 = torch.tensor([])
+            Ys2 = torch.tensor([], device=input.device)
 
         # Level 3 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -4389,12 +4389,12 @@ class xfm7(Function):
             Yh3 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh3 = torch.tensor([])
+            Yh3 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[2]:
             Ys3 = LoLo
         else:
-            Ys3 = torch.tensor([])
+            Ys3 = torch.tensor([], device=input.device)
 
         # Level 4 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -4416,12 +4416,12 @@ class xfm7(Function):
             Yh4 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh4 = torch.tensor([])
+            Yh4 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[3]:
             Ys4 = LoLo
         else:
-            Ys4 = torch.tensor([])
+            Ys4 = torch.tensor([], device=input.device)
 
         # Level 5 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -4443,12 +4443,12 @@ class xfm7(Function):
             Yh5 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh5 = torch.tensor([])
+            Yh5 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[4]:
             Ys5 = LoLo
         else:
-            Ys5 = torch.tensor([])
+            Ys5 = torch.tensor([], device=input.device)
 
         # Level 6 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -4470,12 +4470,12 @@ class xfm7(Function):
             Yh6 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh6 = torch.tensor([])
+            Yh6 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[5]:
             Ys6 = LoLo
         else:
-            Ys6 = torch.tensor([])
+            Ys6 = torch.tensor([], device=input.device)
 
         # Level 7 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
@@ -4497,12 +4497,12 @@ class xfm7(Function):
             Yh7 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh7 = torch.tensor([])
+            Yh7 = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[6]:
             Ys7 = LoLo
         else:
-            Ys7 = torch.tensor([])
+            Ys7 = torch.tensor([], device=input.device)
 
         Yl = LoLo
         return Yl, Yh1, Yh2, Yh3, Yh4, Yh5, Yh6, Yh7

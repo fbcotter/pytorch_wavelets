@@ -78,7 +78,7 @@ class DTCWTForward(nn.Module):
             input, self.h0o, self.h1o, self.h0a, self.h0b, self.h1a,
             self.h1b, self.skip_hps, self.o_before_c, self.include_scale)
 
-        if True in self.dtcwt_func:
+        if True in self.include_scale:
             return coeffs[:self.J], coeffs[self.J:]
         else:
             # Return in the format: (yl, yh)

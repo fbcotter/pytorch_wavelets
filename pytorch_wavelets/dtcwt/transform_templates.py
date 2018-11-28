@@ -15,12 +15,12 @@ level1_fwd = """# Level 1 forward (biorthogonal analysis filters)
             Yh1 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh1 = torch.tensor([])
+            Yh1 = torch.tensor([], device=input.device)
         LoLo = colfilter(Lo, h0o)
         if ctx.include_scale[0]:
             Ys1 = LoLo
         else:
-            Ys1 = torch.tensor([])
+            Ys1 = torch.tensor([], device=input.device)
         """
 
 level1_hps_bwd = """# Level 1 backward (time reversed biorthogonal analysis filters)
@@ -60,12 +60,12 @@ level2plus_fwd = """# Level {j} forward (quater shift analysis filters)
             Yh{j} = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
-            Yh{j} = torch.tensor([])
+            Yh{j} = torch.tensor([], device=input.device)
         LoLo = coldfilt(Lo, h0b, h0a)
         if ctx.include_scale[{i}]:
             Ys{j} = LoLo
         else:
-            Ys{j} = torch.tensor([])
+            Ys{j} = torch.tensor([], device=input.device)
 """
 
 level2plus_bwd = """# Level {j} backward (time reversed quater shift analysis filters)
@@ -101,7 +101,7 @@ level2plus_bwd_scale = """# Level {j} backward (time reversed quater shift analy
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             {checkshape}
-            if not ctx.include_scale[{i2}]:
+            if ctx.include_scale[{i2}]:
                 ll = (ll + grad_Ys{j2})/2
 """
 bwd_checkshape_hps = """r, c = ll.shape[2:]
@@ -353,7 +353,8 @@ for J in range(1,8):
         else:
             fwd_lo_out = ', '.join(['Ys{j}'.format(j=j) for j in range(1,J+1)])
             bwd_lo_in = ', '.join(['grad_Ys{j}'.format(j=j) for j in range(1,J+1)])
-            bwd_lo_init = 'll = grad_Ys{j}'.format(j=J)
+            bwd_lo_init = '''ll = grad_Ys{j}'''.format(j=J)
+            {bwd_lo_init}
             level2plusbwd = '\n            '.join(
                 [level2plus_bwd_scale.format(j=j, i=j-1,i2=j-2,j2=j-1, checkshape=(bwd_checkshape_hps.format(j2=j-1)))
                  for j in range(J,1,-1)])
