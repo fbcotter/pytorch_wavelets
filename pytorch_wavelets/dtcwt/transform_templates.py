@@ -17,6 +17,10 @@ level1_fwd = """# Level 1 forward (biorthogonal analysis filters)
         else:
             Yh1 = torch.tensor([])
         LoLo = colfilter(Lo, h0o)
+        if ctx.include_scale[0]:
+            Ys1 = LoLo
+        else:
+            Ys1 = torch.tensor([])
         """
 
 level1_hps_bwd = """# Level 1 backward (time reversed biorthogonal analysis filters)
@@ -58,6 +62,10 @@ level2plus_fwd = """# Level {j} forward (quater shift analysis filters)
         else:
             Yh{j} = torch.tensor([])
         LoLo = coldfilt(Lo, h0b, h0a)
+        if ctx.include_scale[{i}]:
+            Ys{j} = LoLo
+        else:
+            Ys{j} = torch.tensor([])
 """
 
 level2plus_bwd = """# Level {j} backward (time reversed quater shift analysis filters)
@@ -77,6 +85,25 @@ level2plus_bwd = """# Level {j} backward (time reversed quater shift analysis fi
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             {checkshape}
 """
+level2plus_bwd_scale = """# Level {j} backward (time reversed quater shift analysis filters)
+            if not ctx.skip_hps[{i}]:
+                if ctx.o_dim == 1:
+                    lh = c2q(grad_Yh{j}[:,0], grad_Yh{j}[:,5])
+                    hl = c2q(grad_Yh{j}[:,2], grad_Yh{j}[:,3])
+                    hh = c2q(grad_Yh{j}[:,1], grad_Yh{j}[:,4])
+                else:
+                    lh = c2q(grad_Yh{j}[:,:,0], grad_Yh{j}[:,:,5])
+                    hl = c2q(grad_Yh{j}[:,:,2], grad_Yh{j}[:,:,3])
+                    hh = c2q(grad_Yh{j}[:,:,1], grad_Yh{j}[:,:,4])
+                Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
+                Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
+                ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
+            else:
+                ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
+            {checkshape}
+            if not ctx.include_scale[{i2}]:
+                ll = (ll + grad_Ys{j2})/2
+"""
 bwd_checkshape_hps = """r, c = ll.shape[2:]
             r1, c1 = grad_Yh{j2}.shape[3:5]
             if r != r1 * 2:
@@ -91,10 +118,10 @@ bwd_checkshape_nohps = """r, c = ll.shape[2:]
                 ll = ll[:,:,:,1:-1]"""
 
 xfm = """
-class xfm{J}(Function):
+class xfm{J}{scale}(Function):
 
     @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b, skip_hps, o_before_c):
+    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b, skip_hps, o_before_c, include_scale):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
         if o_before_c:
             ctx.o_dim = 1
@@ -102,6 +129,7 @@ class xfm{J}(Function):
             ctx.o_dim = 2
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
+        ctx.include_scale = include_scale
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
@@ -113,10 +141,10 @@ class xfm{J}(Function):
 
         {level1}
         {level2plus}Yl = LoLo
-        return Yl, {fwd_out}
+        return {fwd_lo_out}, {fwd_out}
 
     @staticmethod
-    def backward(ctx, grad_LoLo, {bwd_in}):
+    def backward(ctx, {bwd_lo_in}, {bwd_in}):
         h0o, h1o, h0a, h0b, h1a, h1b = ctx.saved_tensors
         in_shape = ctx.in_shape
         grad_input = None
@@ -129,10 +157,11 @@ class xfm{J}(Function):
         h1b_t = h1a
 
         if True in ctx.needs_input_grad:
-            ll = grad_LoLo{level2plusbwd}
+            {bwd_lo_init}
+            {level2plusbwd}
             {level1bwd}
 
-        return (grad_input,) + (None,) * 8
+        return (grad_input,) + (None,) * 9
 
 """
 
@@ -306,29 +335,44 @@ for J in range(1,8):
     ))
 
     # Do the forward transform
-    fwd_out = ", ".join(
-        ['Yh{j}'.format(j=j) for j in range(1,J+1)])
-    bwd_in = ", ".join(
-        ['grad_Yh{j}'.format(j=j) for j in range(1,J+1)])
-    level2plus = '\n        '.join(
-        [level2plus_fwd.format(j=j, i=j-1) for j in range(2,J+1)])
-    if level2plus != '':
-        level2plus = level2plus + '\n        '
-    level2plusbwd = '\n            '.join(
-        [level2plus_bwd.format(
-            j=j, i=j-1,
-            checkshape=(bwd_checkshape_hps.format(j2=j-1)))
-         for j in range(J,1,-1)])
-    if level2plusbwd != '':
-        level2plusbwd = '\n            ' + level2plusbwd
+    for s in ('scale', ''):
+        fwd_out = ", ".join(['Yh{j}'.format(j=j) for j in range(1,J+1)])
+        bwd_in = ", ".join(['grad_Yh{j}'.format(j=j) for j in range(1,J+1)])
+        level2plus = '\n        '.join([level2plus_fwd.format(j=j, i=j-1) for j in range(2,J+1)])
+        if level2plus != '':
+            level2plus = level2plus + '\n        '
+        if s == '':
+            fwd_lo_out = 'Yl'
+            bwd_lo_in = 'grad_LoLo'
+            bwd_lo_init = 'll = grad_LoLo'
+            level2plusbwd = '\n            '.join(
+                [level2plus_bwd.format(j=j, i=j-1, checkshape=(bwd_checkshape_hps.format(j2=j-1)))
+                 for j in range(J,1,-1)])
+            include_scale = ''
+            include_scale2 = ''
+        else:
+            fwd_lo_out = ', '.join(['Ys{j}'.format(j=j) for j in range(1,J+1)])
+            bwd_lo_in = ', '.join(['grad_Ys{j}'.format(j=j) for j in range(1,J+1)])
+            bwd_lo_init = 'll = grad_Ys{j}'.format(j=J)
+            level2plusbwd = '\n            '.join(
+                [level2plus_bwd_scale.format(j=j, i=j-1,i2=j-2,j2=j-1, checkshape=(bwd_checkshape_hps.format(j2=j-1)))
+                 for j in range(J,1,-1)])
+            include_scale = ', include_scale'
+            include_scale2 = 'ctx.include_scale = include_scale'
+        if level2plusbwd != '':
+            level2plusbwd = '\n            ' + level2plusbwd
 
-    f.write(xfm.format(
-        level1=level1_fwd,
-        level2plus=level2plus,
-        fwd_out=fwd_out,
-        bwd_in=bwd_in,
-        level1bwd=(level1_hps_bwd),
-        level2plusbwd=level2plusbwd,
-        J=J))
+        f.write(xfm.format(
+            scale=s,
+            level1=level1_fwd,
+            level2plus=level2plus,
+            fwd_lo_out=fwd_lo_out,
+            fwd_out=fwd_out,
+            bwd_in=bwd_in,
+            bwd_lo_in=bwd_lo_in,
+            bwd_lo_init=bwd_lo_init,
+            level1bwd=(level1_hps_bwd),
+            level2plusbwd=level2plusbwd,
+            J=J))
 
 f.close()

@@ -133,6 +133,27 @@ def test_fwd_skip_hps(J, o_before_c):
                     Yh[j][...,1].cpu(), yh[j].imag, decimal=PRECISION_DECIMAL)
 
 
+@pytest.mark.parametrize("scales", [
+    (True,), (True, True), (True, True, True), (True, True, True, True),
+    (True, False, True), (False, True, True), (True, True, False),
+    (True, True, False, True)])
+def test_fwd_include_scale(scales):
+    X = 100*np.random.randn(3, 5, 100, 100)
+    # Randomly turn on/off the highpass outputs
+    J = len(scales)
+    xfm = DTCWTForward(J=J, o_before_c=o_before_c, include_scale=scales).to(dev)
+    Ys, Yh = xfm(torch.tensor(X, dtype=torch.float32, device=dev))
+    f1 = Transform2d_np()
+    yl, yh, ys = f1.forward(X, nlevels=J, include_scale=True)
+
+    for j in range(J):
+        if scales[j]:
+            assert Ys[j].shape == torch.Size([0])
+        else:
+            np.testing.assert_array_almost_equal(
+                Ys[j].cpu(), ys[j], decimal=PRECISION_DECIMAL)
+
+
 @pytest.mark.parametrize("J, o_before_c", [
     (1,False),(1,True),(2, False), (2,True),
     (3, False),(3, True),(4, False), (4, True),

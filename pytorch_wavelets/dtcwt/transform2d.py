@@ -41,7 +41,7 @@ class DTCWTForward(nn.Module):
         h1b (tensor): Non learnable highpass qshift tree b analysis filter
     """
     def __init__(self, C=None, biort='near_sym_a', qshift='qshift_a',
-                 J=3, skip_hps=False, o_before_c=False):
+                 J=3, skip_hps=False, o_before_c=False, include_scale=False):
         super().__init__()
         if C is not None:
             warnings.warn('C parameter is deprecated. do not need to pass it')
@@ -60,19 +60,29 @@ class DTCWTForward(nn.Module):
         self.h1b = torch.nn.Parameter(prep_filt(h1b, 1), False)
 
         # Create the function to do the DTCWT
-        self.dtcwt_func = getattr(tf, 'xfm{J}'.format(J=J))
         if isinstance(skip_hps, (list, tuple, ndarray)):
             self.skip_hps = skip_hps
         else:
             self.skip_hps = [skip_hps,] * self.J
+        if isinstance(include_scale, (list, tuple, ndarray)):
+            self.include_scale = include_scale
+        else:
+            self.include_scale = [include_scale,] * self.J
+        if True in self.include_scale:
+            self.dtcwt_func = getattr(tf, 'xfm{J}scale'.format(J=J))
+        else:
+            self.dtcwt_func = getattr(tf, 'xfm{J}'.format(J=J))
 
     def forward(self, input):
         coeffs = self.dtcwt_func.apply(
             input, self.h0o, self.h1o, self.h0a, self.h0b, self.h1a,
-            self.h1b, self.skip_hps, self.o_before_c)
+            self.h1b, self.skip_hps, self.o_before_c, self.include_scale)
 
-        # Return in the format: (yl, yh)
-        return coeffs[0], coeffs[1:]
+        if True in self.dtcwt_func:
+            return coeffs[:self.J], coeffs[self.J:]
+        else:
+            # Return in the format: (yl, yh)
+            return coeffs[0], coeffs[1:]
 
 
 class DTCWTInverse(nn.Module):
