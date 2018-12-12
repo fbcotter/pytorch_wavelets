@@ -2,7 +2,4 @@ sphinx
 sphinx_rtd_theme
 sphinxcontrib-napoleon
 sphinxcontrib-bibtex
-numpy
-torch
-PyWavelets
 

@@ -1,9 +1,12 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
-import pywt
-import warnings
+import os
+on_rtd = os.environ.get('READTHEDOCS') == 'True'
+if not on_rtd:
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+    import numpy as np
+    import pywt
+    import warnings
 
 
 class DWTForward(nn.Module):
