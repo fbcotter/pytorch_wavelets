@@ -1,14 +1,11 @@
-import os
-on_rtd = os.environ.get('READTHEDOCS') == 'True'
-if not on_rtd:
-    import torch
-    import torch.nn as nn
-    from numpy import ndarray
-    import warnings
+import torch
+import torch.nn as nn
+from numpy import ndarray
+import warnings
 
-    from pytorch_wavelets.dtcwt.coeffs import biort as _biort, qshift as _qshift
-    from pytorch_wavelets.dtcwt.lowlevel import prep_filt
-    from pytorch_wavelets.dtcwt import transform_funcs as tf
+from pytorch_wavelets.dtcwt.coeffs import biort as _biort, qshift as _qshift
+from pytorch_wavelets.dtcwt.lowlevel import prep_filt
+from pytorch_wavelets.dtcwt import transform_funcs as tf
 
 
 class DTCWTForward(nn.Module):
