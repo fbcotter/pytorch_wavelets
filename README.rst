@@ -6,6 +6,10 @@
 .. |Build Status| image:: https://travis-ci.org/fbcotter/pytorch_wavelets.png?branch=master
     :target: https://travis-ci.org/fbcotter/pytorch_wavelets
 
+The full documentation is also available `here`__.
+
+__ http://pytorch-wavelets.readthedocs.io/
+
 This package provides support for computing the 2D discrete wavelet and 
 the 2d dual-tree complex wavelet transforms, their inverses, and passing 
 gradients through both using pytorch.
@@ -26,7 +30,7 @@ it. Later versions will be released on PyPi but the docs need to updated first::
 
     $ git clone https://github.com/fbcotter/pytorch_wavelets
     $ cd pytorch_wavelets
-    $ python setup.py install # (or pip install .)
+    $ pip install .
 
 (Although the `develop` command may be more useful if you intend to perform any
 significant modification to the library.) A test suite is provided so that you

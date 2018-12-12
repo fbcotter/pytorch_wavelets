@@ -6,13 +6,25 @@ from pytorch_wavelets import DTCWTForward, DTCWTInverse
 import datasets
 import torch
 import py3nvml
-PRECISION_DECIMAL = 3
+from contextlib import contextmanager
+PRECISION_FLOAT = 3
+PRECISION_DOUBLE = 7
 
 HAVE_GPU = torch.cuda.is_available()
 if HAVE_GPU:
     dev = torch.device('cuda')
 else:
     dev = torch.device('cpu')
+
+
+@contextmanager
+def set_double_precision():
+    old_prec = torch.get_default_dtype()
+    try:
+        torch.set_default_dtype(torch.float64)
+        yield
+    finally:
+        torch.set_default_dtype(old_prec)
 
 
 def setup():
@@ -77,26 +89,59 @@ def test_odd_rows_and_cols():
 ])
 def test_fwd(J, o_before_c):
     X = 100*np.random.randn(3, 5, 100, 100)
+    Xt = torch.tensor(X, dtype=torch.get_default_dtype(), device=dev)
     xfm = DTCWTForward(J=J, o_before_c=o_before_c).to(dev)
-    Yl, Yh = xfm(torch.tensor(X, dtype=torch.float32, device=dev))
+    Yl, Yh = xfm(Xt)
     f1 = Transform2d_np()
     yl, yh = f1.forward(X, nlevels=J)
 
     np.testing.assert_array_almost_equal(
-        Yl.cpu(), yl, decimal=PRECISION_DECIMAL)
+        Yl.cpu(), yl, decimal=PRECISION_FLOAT)
     for i in range(len(yh)):
         if o_before_c:
             np.testing.assert_array_almost_equal(
                 Yh[i][...,0].cpu().transpose(2,1), yh[i].real,
-                decimal=PRECISION_DECIMAL)
+                decimal=PRECISION_FLOAT)
             np.testing.assert_array_almost_equal(
                 Yh[i][...,1].cpu().transpose(2,1), yh[i].imag,
-                decimal=PRECISION_DECIMAL)
+                decimal=PRECISION_FLOAT)
         else:
             np.testing.assert_array_almost_equal(
-                Yh[i][...,0].cpu(), yh[i].real, decimal=PRECISION_DECIMAL)
+                Yh[i][...,0].cpu(), yh[i].real, decimal=PRECISION_FLOAT)
             np.testing.assert_array_almost_equal(
-                Yh[i][...,1].cpu(), yh[i].imag, decimal=PRECISION_DECIMAL)
+                Yh[i][...,1].cpu(), yh[i].imag, decimal=PRECISION_FLOAT)
+
+
+@pytest.mark.parametrize("J, o_before_c", [
+    (1,False),(1,True),(2, False), (2,True),
+    (3, False),(3, True),(4, False), (4, True),
+    (5, False), (5, True)
+])
+def test_fwd_double(J, o_before_c):
+    with set_double_precision():
+        X = 100*np.random.randn(3, 5, 100, 100)
+        Xt = torch.tensor(X, dtype=torch.get_default_dtype(), device=dev)
+        xfm = DTCWTForward(J=J, o_before_c=o_before_c).to(dev)
+        Yl, Yh = xfm(Xt)
+    assert Yl.dtype == torch.float64
+    f1 = Transform2d_np()
+    yl, yh = f1.forward(X, nlevels=J)
+
+    np.testing.assert_array_almost_equal(
+        Yl.cpu(), yl, decimal=PRECISION_DOUBLE)
+    for i in range(len(yh)):
+        if o_before_c:
+            np.testing.assert_array_almost_equal(
+                Yh[i][...,0].cpu().transpose(2,1), yh[i].real,
+                decimal=PRECISION_DOUBLE)
+            np.testing.assert_array_almost_equal(
+                Yh[i][...,1].cpu().transpose(2,1), yh[i].imag,
+                decimal=PRECISION_DOUBLE)
+        else:
+            np.testing.assert_array_almost_equal(
+                Yh[i][...,0].cpu(), yh[i].real, decimal=PRECISION_DOUBLE)
+            np.testing.assert_array_almost_equal(
+                Yh[i][...,1].cpu(), yh[i].imag, decimal=PRECISION_DOUBLE)
 
 
 @pytest.mark.parametrize("J, o_before_c", [
@@ -114,7 +159,7 @@ def test_fwd_skip_hps(J, o_before_c):
     yl, yh = f1.forward(X, nlevels=J)
 
     np.testing.assert_array_almost_equal(
-        Yl.cpu(), yl, decimal=PRECISION_DECIMAL)
+        Yl.cpu(), yl, decimal=PRECISION_FLOAT)
     for j in range(J):
         if hps[j]:
             assert Yh[j].shape == torch.Size([0])
@@ -122,15 +167,15 @@ def test_fwd_skip_hps(J, o_before_c):
             if o_before_c:
                 np.testing.assert_array_almost_equal(
                     Yh[j][...,0].cpu().transpose(2,1), yh[j].real,
-                    decimal=PRECISION_DECIMAL)
+                    decimal=PRECISION_FLOAT)
                 np.testing.assert_array_almost_equal(
                     Yh[j][...,1].cpu().transpose(2,1), yh[j].imag,
-                    decimal=PRECISION_DECIMAL)
+                    decimal=PRECISION_FLOAT)
             else:
                 np.testing.assert_array_almost_equal(
-                    Yh[j][...,0].cpu(), yh[j].real, decimal=PRECISION_DECIMAL)
+                    Yh[j][...,0].cpu(), yh[j].real, decimal=PRECISION_FLOAT)
                 np.testing.assert_array_almost_equal(
-                    Yh[j][...,1].cpu(), yh[j].imag, decimal=PRECISION_DECIMAL)
+                    Yh[j][...,1].cpu(), yh[j].imag, decimal=PRECISION_FLOAT)
 
 
 @pytest.mark.parametrize("scales", [
@@ -151,7 +196,7 @@ def test_fwd_include_scale(scales):
             assert Ys[j].shape == torch.Size([0])
         else:
             np.testing.assert_array_almost_equal(
-                Ys[j].cpu(), ys[j], decimal=PRECISION_DECIMAL)
+                Ys[j].cpu(), ys[j], decimal=PRECISION_FLOAT)
 
 
 @pytest.mark.parametrize("scales", [
@@ -197,7 +242,7 @@ def test_inv(J, o_before_c):
     x = f1.inverse(Yl, Yh1)
 
     np.testing.assert_array_almost_equal(
-        X.cpu(), x, decimal=PRECISION_DECIMAL)
+        X.cpu(), x, decimal=PRECISION_FLOAT)
 
 
 @pytest.mark.parametrize("J, o_before_c", [
@@ -236,9 +281,9 @@ def test_inv_skip_hps(J, o_before_c):
     x = f1.inverse(Yl, Yh1)
 
     np.testing.assert_array_almost_equal(
-        X.detach().cpu(), x, decimal=PRECISION_DECIMAL)
+        X.detach().cpu(), x, decimal=PRECISION_FLOAT)
     np.testing.assert_array_almost_equal(
-        X2.cpu(), x, decimal=PRECISION_DECIMAL)
+        X2.cpu(), x, decimal=PRECISION_FLOAT)
 
     # Test gradients are ok
     X.backward(torch.ones_like(X))
@@ -264,4 +309,4 @@ def test_end2end(biort, qshift, size, J):
     yl, yh = f_np.forward(im, nlevels=J)
     y2 = f_np.inverse(yl, yh)
 
-    np.testing.assert_array_almost_equal(y.cpu(), y2, decimal=PRECISION_DECIMAL)
+    np.testing.assert_array_almost_equal(y.cpu(), y2, decimal=PRECISION_FLOAT)

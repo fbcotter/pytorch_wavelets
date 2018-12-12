@@ -1,29 +1,9 @@
 from __future__ import absolute_import
 
-try:
-    import cupy
-    _HAVE_CUPY = True
-    @cupy.util.memoize(for_each_device=True)
-    def load_kernel(kernel_name, code, **kwargs):
-        code = Template(code).substitute(**kwargs)
-        kernel_code = cupy.cuda.compile_with_cache(code)
-        return kernel_code.get_function(kernel_name)
-except ImportError:
-    _HAVE_CUPY = False
-
 import torch
 import torch.nn.functional as F
-from torch.autograd import Function
 import numpy as np
-from pytorch_wavelets.utils import symm_pad
-from string import Template
-from collections import namedtuple
-import pkg_resources
-Stream = namedtuple('Stream', ['ptr'])
-
-CUDA_NUM_THREADS = 1024
-cuda_source = pkg_resources.resource_string(__name__, 'filters.cu')
-cuda_source = cuda_source.decode('utf-8')
+from pytorch_wavelets.utils import symm_pad_1d as symm_pad
 
 
 def as_column_vector(v):
@@ -52,7 +32,7 @@ def _as_row_tensor(h):
         h = torch.reshape(h, [1, -1])
     else:
         h = as_column_vector(h).T
-        h = torch.tensor(h, dtype=torch.float32)
+        h = torch.tensor(h, dtype=torch.get_default_dtype())
     return h
 
 
@@ -71,7 +51,7 @@ def _as_col_tensor(h):
         h = torch.reshape(h, [-1, 1])
     else:
         h = as_column_vector(h)
-        h = torch.tensor(h, dtype=torch.float32)
+        h = torch.tensor(h, dtype=torch.get_default_dtype())
     return h
 
 
@@ -84,7 +64,7 @@ def prep_filt(h, c, transpose=False):
     if transpose:
         h = h.transpose((0,1,3,2))
     h = np.copy(h)
-    return torch.tensor(h, dtype=torch.float32)
+    return torch.tensor(h, dtype=torch.get_default_dtype())
 
 
 def colfilter(X, h):

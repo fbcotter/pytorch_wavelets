@@ -163,7 +163,7 @@ def reflect(x, minx, maxx):
     return np.array(out, dtype=x.dtype)
 
 
-def symm_pad(l, m):
+def symm_pad_1d(l, m):
     """ Creates indices for symmetric padding. Works for 1-D.
 
     Inptus:
