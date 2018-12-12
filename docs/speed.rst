@@ -34,9 +34,9 @@ for the forward transform.
 A two layer inverse transform takes: 2.24 (conv) + 5.9 (overhead) totaling 8.1ms, again slightly longer than the 6.9ms
 for the forward transform.
 
-A single layer end to end transform takes 2.86ms (conv) + 5.8ms (overhead) = 8.6ms ≈ 3.7 (forward) + 4.1 (inverse).
+A single layer end to end transform takes 2.86ms (conv) + 5.8ms (overhead) = 8.6ms :math:`\approx` 3.7 (forward) + 4.1 (inverse).
 
-Similarly, a two layer end to end transform takes 4.4ms (conv) + 10.4ms (overhead) = 14.8ms ≈ 6.9 (forward) + 8.1 
+Similarly, a two layer end to end transform takes 4.4ms (conv) + 10.4ms (overhead) = 14.8ms :math:`\approx` 6.9 (forward) + 8.1 
 (inverse).
 
 If we use the `near_sym_b` filters for layer 1 (13 and 19 taps), the overhead doesn't increase, but the time taken to do
