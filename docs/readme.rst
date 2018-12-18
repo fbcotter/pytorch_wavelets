@@ -103,6 +103,24 @@ It is possible to pass gradients through the forward and backward transforms.
 All you need to do is ensure that the input to each has the required_grad
 attribute set to true.
 
+Speed Tests
+~~~~~~~~~~~
+We compare doing the dtcwt with the python package and doing the dwt with
+PyWavelets to doing both in pytorch_wavelets, using a GTX1080. The numpy methods
+were run on a 14 core Xeon Phi machine using intel's parallel python. For the
+dtwcwt we use the `near_sym_a` filters for the first scale and the `qshift_a`
+filters for subsequent scales. For the dwt we use the `db4` filters.
+
+For a fixed input size, but varying the number of scales (from 1 to 4) we have
+the following speeds (averaged over 5 runs):
+
+.. image:: scale.png
+
+For an input size with height and width 512 by 512, we also vary the batch size
+for a 3 scale transform. The resulting speeds were:
+
+.. image:: batchsize.png
+
 
 Provenance
 ``````````

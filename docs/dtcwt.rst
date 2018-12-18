@@ -91,3 +91,124 @@ centre spatial value to 1 for each of the orientations at the third scale. I.e.:
         yh[2][0,0,b,4,4,ri] = 0
     # Can now plot the output
 
+Advanced Options
+----------------
+There is a whole host of advanced options for calculating the DTCWT. The above
+example shows the use case that will work most of the time. However, here are
+some more ways the DTCWT can be done:
+
+Custom Biorthogonal and Qshift Filters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Rather than specifying the type of filter for the layer 1 (biort), and layer 2+
+(qshift) transforms, you can provide the filters directly. They should be given
+as a tuple of array-like objects. For the biorthogonal filters, this is
+a 2-tuple of low and highpass filters. For the qshift filters, this will be
+a 4-tuple of low for tree a, low for tree b, high for tree a and high for tree
+b filters.
+
+E.g.:
+
+.. code:: python
+  
+  from pytorch_wavelets import DTCWTForward
+  from pytorch_wavelets.dtcwt.coeffs import biort
+  # The standard style
+  xfm1 = DTCWTForward(biort='near_sym_a', J=1)
+  # Get our own filters, here we reverse the standard filters so they 
+  # still have the right properties, only changing the phase
+  h0o, _, h1o, _ = biort('near_sym_a')
+  xfm2 = DTCWTForward(biort=(h0o[::-1], h1o[::-1]), J=1)
+
+Note that you must be careful when doing this, as the filters are designed to
+have the correct phase properties, so any changes will likely result in a loss
+of the quarter shift and hence the shift invariant properties of the transform.
+
+Skipping Highpasses
+~~~~~~~~~~~~~~~~~~~
+There is the option to not calculate the bandpass outputs at given scales. This
+can speed up the transform if you know that there is very little useful content
+in some areas of the frequency space. To do this, you can give a list of
+booleans to the `skip_hps` parameter (if it is a single boolean, that is then
+used for all the scales). The first value corresponds to the first
+scale highpass outputs, and a value of true means do not calculate them.
+
+E.g.:
+
+.. code:: python
+
+  from pytorch_wavelets import DTCWTForward
+  xfm = DTCWTForward(J=3, skip_hps=[True, False, False])
+  yl, yh = xfm(torch.randn(1, 1, 64, 64))
+  print(yh[0].shape)
+  >>> torch.Size([0])
+  print(yh[1].shape)
+  >>> torch.Size([1, 1, 6, 16, 16, 2])
+
+Naturally, the inverse transform happily accepts tensors with 0 shape (or even
+`None`'s) and sets that level to be all zeros.
+
+Changing the output shape
+~~~~~~~~~~~~~~~~~~~~~~~~~
+By default the highpass outputs have an extra 2 dimensions, one at the end for
+complex values, and one after the channel dimension, for the 6 orientations.
+E.g. an input of shape of :math:`(N, C_{in}, H_{in}, W_{in})` will have bandpass 
+coefficients with shapes :math:`list(N, C_{in}, 6, H_{in}'', W_{in}'', 2)`,
+(we've put dashes next to the height and width as they will change with scale). 
+
+You can swap the channel and orientation dimension with the `o_before_c`
+parameter, in which case the bandpass outputs will have shape 
+:math:`list(N, 6, C_{in}, H_{in}'', W_{in}'', 2)`.
+
+Including all the lowpasses
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In case you want to get all the intermediate lowpasses, you can with the
+`include_scale` parameter. This works a bit like the `skip_hps` where you can
+provide a single boolean to apply it to all the scales, or a list of booleans to
+fine tune which lowpasses you want.
+
+If any of the value in `include_scale` is true, then the transform output will
+change, and the lowpass will be a tuple.
+
+E.g.
+
+.. code:: python
+
+  from pytorch_wavelets import DTCWTForward
+  xfm1 = DTCWTForward(J=3)
+  xfm2 = DTCWTForward(J=3, include_scale=True)
+  xfm3 = DTCWTForward(J=3, include_scale=[False, True, True])
+  x = torch.randn(1, 1, 64, 64)
+  yl, yh = xfm1(x)
+  print(yl.shape)
+  >>> torch.Size([1, 1, 16, 16])
+  # Now do xfm2 which will give back all scales
+  yl, yh = xfm2(x)
+  for l in yl:
+    print(yl.shape)
+  >>> torch.Size([1, 1, 64, 64]) 
+  >>> torch.Size([1, 1, 32, 32]) 
+  >>> torch.Size([1, 1, 16, 16]) 
+  # Now do xfm3 which will give back the last two scales
+  yl, yh = xfm3(x)
+  for l in yl:
+    print(yl.shape)
+  >>> torch.Size([0]) 
+  >>> torch.Size([1, 1, 32, 32]) 
+  >>> torch.Size([1, 1, 16, 16]) 
+
+Note that to do the inverse transform, you have to give the final lowpass
+output. You can provide None to indicate it's all zeros, but you cannot provide
+all the intermediate lowpasses.
+
+Downsampling the lowpass
+~~~~~~~~~~~~~~~~~~~~~~~~
+Because of the dual tree nature of the DTCWT, the lowpass comes out at twice the
+resolution you would expect it to. You can downsample the output by setting this
+parameter to true. It simply takes every second sample and is included for
+convenience only.
+
+  
+
+
+  
+

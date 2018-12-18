@@ -3,6 +3,7 @@ import pytest
 import numpy as np
 from Transform2d_np import Transform2d as Transform2d_np
 from pytorch_wavelets import DTCWTForward, DTCWTInverse
+from pytorch_wavelets.dtcwt.coeffs import biort as _biort, qshift as _qshift
 import datasets
 import torch
 import py3nvml
@@ -299,14 +300,85 @@ def test_inv_skip_hps(J, o_before_c):
 ])
 def test_end2end(biort, qshift, size, J):
     im = np.random.randn(5,6,*size).astype('float32')
-    xfm = DTCWTForward(J=J).to(dev)
-    Yl, Yh = xfm(torch.tensor(im, dtype=torch.float32, device=dev))
-    ifm = DTCWTInverse(J=J).to(dev)
+    imt = torch.tensor(im, dtype=torch.float32, requires_grad=True, device=dev)
+    xfm = DTCWTForward(J=J, biort=biort, qshift=qshift).to(dev)
+    Yl, Yh = xfm(imt)
+    ifm = DTCWTInverse(J=J, biort=biort, qshift=qshift).to(dev)
     y = ifm((Yl, Yh))
 
     # Compare with numpy results
-    f_np = Transform2d_np(biort=biort,qshift=qshift)
+    f_np = Transform2d_np(biort=biort, qshift=qshift)
     yl, yh = f_np.forward(im, nlevels=J)
     y2 = f_np.inverse(yl, yh)
 
-    np.testing.assert_array_almost_equal(y.cpu(), y2, decimal=PRECISION_FLOAT)
+    np.testing.assert_array_almost_equal(y.detach().cpu(), y2, decimal=PRECISION_FLOAT)
+
+    # Test gradients are ok
+    y.backward(torch.ones_like(y))
+
+
+# Test gradients
+@pytest.mark.parametrize("biort,qshift,size,J", [
+    ('antonini','qshift_a', (128,128), 3),
+    ('antonini','qshift_a', (64,64), 3),
+    ('legall','qshift_a', (240,240), 4),
+    ('near_sym_a','qshift_c', (100, 100), 2),
+    ('near_sym_b','qshift_d', (120, 120), 3),
+])
+def test_gradients_fwd(biort, qshift, size, J):
+    """ Gradient of forward function should be inverse function with filters
+    swapped """
+    im = np.random.randn(5,6,*size).astype('float32')
+    imt = torch.tensor(im, dtype=torch.float32, requires_grad=True, device=dev)
+    xfm = DTCWTForward(biort=biort, qshift=qshift, J=J).to(dev)
+    h0o, g0o, h1o, g1o = _biort(biort)
+    h0a, h0b, g0a, g0b, h1a, h1b, g1a, g1b = _qshift(qshift)
+    xfm_grad = DTCWTInverse(J=J, biort=(h0o[::-1], h1o[::-1]),
+                            qshift=(h0a[::-1], h0b[::-1], h1a[::-1], h1b[::-1])
+                            ).to(dev)
+    Yl, Yh = xfm(imt)
+    Ylg = torch.randn(*Yl.shape, device=dev)
+    Yl.backward(Ylg, retain_graph=True)
+    ref = xfm_grad((Ylg, [None,]*J))
+    np.testing.assert_array_almost_equal(imt.grad.detach().cpu(), ref.cpu())
+    for j, y in enumerate(Yh):
+        imt.grad.zero_()
+        g = torch.randn(*y.shape, device=dev)
+        y.backward(g, retain_graph=True)
+        hps = [None,] * J
+        hps[j] = g
+        ref = xfm_grad((torch.zeros_like(Yl), hps))
+        np.testing.assert_array_almost_equal(imt.grad.detach().cpu(), ref.cpu())
+
+
+@pytest.mark.parametrize("biort,qshift,size,J", [
+    ('antonini','qshift_a', (128,128), 3),
+    ('antonini','qshift_a', (64,64), 3),
+    ('legall','qshift_a', (240,240), 4),
+    ('near_sym_a','qshift_c', (100, 100), 2),
+    ('near_sym_b','qshift_d', (120, 120), 3),
+])
+def test_gradients_inv(biort, qshift, size, J):
+    """ Gradient of forward function should be inverse function with filters
+    swapped """
+    im = np.random.randn(5,6,*size).astype('float32')
+    imt = torch.tensor(im, dtype=torch.float32, device=dev)
+    ifm = DTCWTInverse(biort=biort, qshift=qshift, J=J).to(dev)
+    h0o, g0o, h1o, g1o = _biort(biort)
+    h0a, h0b, g0a, g0b, h1a, h1b, g1a, g1b = _qshift(qshift)
+    ifm_grad = DTCWTForward(J=J, biort=(g0o[::-1], g1o[::-1]),
+                            qshift=(g0a[::-1], g0b[::-1], g1a[::-1], g1b[::-1])
+                            ).to(dev)
+    yl, yh = ifm_grad(imt)
+    g = torch.randn(*imt.shape, device=dev)
+    ylv = torch.randn(*yl.shape, requires_grad=True, device=dev)
+    yhv = [torch.randn(*h.shape, requires_grad=True, device=dev) for h in yh]
+    Y = ifm((ylv, yhv))
+    Y.backward(g)
+
+    # Check the lowpass gradient is the same
+    ref_lp, ref_bp = ifm_grad(g)
+    np.testing.assert_array_almost_equal(ylv.grad.detach().cpu(), ref_lp.cpu())
+    # check the bandpasses are the same
+    for y, ref in zip(yhv, ref_bp):
+        np.testing.assert_array_almost_equal(y.grad.detach().cpu(), ref.cpu())

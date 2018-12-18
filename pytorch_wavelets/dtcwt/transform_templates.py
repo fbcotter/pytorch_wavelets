@@ -38,6 +38,10 @@ level1_hps_bwd = """# Level 1 backward (time reversed biorthogonal analysis filt
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
             else:
                 grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            if ctx.extra_rows:
+                grad_input = grad_input[:,:,:-1]
+            if ctx.extra_cols:
+                grad_input = grad_input[:,:,:,:-1]
             """
 
 level2plus_fwd = """# Level {j} forward (quater shift analysis filters)
@@ -130,14 +134,18 @@ class xfm{J}{scale}(Function):
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
+        ctx.extra_rows = 0
+        ctx.extra_cols = 0
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
         # extend X
         if r % 2 != 0:
             input = torch.cat((input, input[:,:,-1:]), dim=2)
+            ctx.extra_rows = 1
         if c % 2 != 0:
             input = torch.cat((input, input[:,:,:,-1:]), dim=3)
+            ctx.extra_cols = 1
 
         {level1}
         {level2plus}Yl = LoLo
@@ -239,7 +247,6 @@ level2plus_bwd_inv = """# Level {j} inverse gradient - same as fwd transform
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[{j}]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -250,7 +257,8 @@ level2plus_bwd_inv = """# Level {j} inverse gradient - same as fwd transform
                 deg45, deg135 = q2c(HiHi)
                 deg75, deg105 = q2c(HiLo)
                 grad_yh{j} = torch.stack(
-                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)"""
+                    [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)"""
 
 ifm = """
 class ifm{J}(Function):

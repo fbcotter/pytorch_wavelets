@@ -84,14 +84,18 @@ class xfm1scale(Function):
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
+        ctx.extra_rows = 0
+        ctx.extra_cols = 0
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
         # extend X
         if r % 2 != 0:
             input = torch.cat((input, input[:,:,-1:]), dim=2)
+            ctx.extra_rows = 1
         if c % 2 != 0:
             input = torch.cat((input, input[:,:,:,-1:]), dim=3)
+            ctx.extra_cols = 1
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
@@ -147,6 +151,10 @@ class xfm1scale(Function):
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
             else:
                 grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            if ctx.extra_rows:
+                grad_input = grad_input[:,:,:-1]
+            if ctx.extra_cols:
+                grad_input = grad_input[:,:,:,:-1]
             
 
         return (grad_input,) + (None,) * 9
@@ -164,14 +172,18 @@ class xfm1(Function):
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
+        ctx.extra_rows = 0
+        ctx.extra_cols = 0
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
         # extend X
         if r % 2 != 0:
             input = torch.cat((input, input[:,:,-1:]), dim=2)
+            ctx.extra_rows = 1
         if c % 2 != 0:
             input = torch.cat((input, input[:,:,:,-1:]), dim=3)
+            ctx.extra_cols = 1
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
@@ -227,6 +239,10 @@ class xfm1(Function):
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
             else:
                 grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            if ctx.extra_rows:
+                grad_input = grad_input[:,:,:-1]
+            if ctx.extra_cols:
+                grad_input = grad_input[:,:,:,:-1]
             
 
         return (grad_input,) + (None,) * 9
@@ -327,7 +343,6 @@ class ifm2(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[2]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -339,6 +354,7 @@ class ifm2(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh2 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[0]:
                 grad_yl = LoLo
 
@@ -357,14 +373,18 @@ class xfm2scale(Function):
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
+        ctx.extra_rows = 0
+        ctx.extra_cols = 0
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
         # extend X
         if r % 2 != 0:
             input = torch.cat((input, input[:,:,-1:]), dim=2)
+            ctx.extra_rows = 1
         if c % 2 != 0:
             input = torch.cat((input, input[:,:,:,-1:]), dim=3)
+            ctx.extra_cols = 1
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
@@ -471,6 +491,10 @@ class xfm2scale(Function):
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
             else:
                 grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            if ctx.extra_rows:
+                grad_input = grad_input[:,:,:-1]
+            if ctx.extra_cols:
+                grad_input = grad_input[:,:,:,:-1]
             
 
         return (grad_input,) + (None,) * 9
@@ -488,14 +512,18 @@ class xfm2(Function):
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
+        ctx.extra_rows = 0
+        ctx.extra_cols = 0
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
         # extend X
         if r % 2 != 0:
             input = torch.cat((input, input[:,:,-1:]), dim=2)
+            ctx.extra_rows = 1
         if c % 2 != 0:
             input = torch.cat((input, input[:,:,:,-1:]), dim=3)
+            ctx.extra_cols = 1
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
@@ -600,6 +628,10 @@ class xfm2(Function):
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
             else:
                 grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            if ctx.extra_rows:
+                grad_input = grad_input[:,:,:-1]
+            if ctx.extra_cols:
+                grad_input = grad_input[:,:,:,:-1]
             
 
         return (grad_input,) + (None,) * 9
@@ -727,7 +759,6 @@ class ifm3(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[2]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -739,6 +770,7 @@ class ifm3(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh2 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             # Level 3 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -747,7 +779,6 @@ class ifm3(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[3]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -759,6 +790,7 @@ class ifm3(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh3 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[0]:
                 grad_yl = LoLo
 
@@ -777,14 +809,18 @@ class xfm3scale(Function):
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
+        ctx.extra_rows = 0
+        ctx.extra_cols = 0
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
         # extend X
         if r % 2 != 0:
             input = torch.cat((input, input[:,:,-1:]), dim=2)
+            ctx.extra_rows = 1
         if c % 2 != 0:
             input = torch.cat((input, input[:,:,:,-1:]), dim=3)
+            ctx.extra_cols = 1
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
@@ -942,6 +978,10 @@ class xfm3scale(Function):
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
             else:
                 grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            if ctx.extra_rows:
+                grad_input = grad_input[:,:,:-1]
+            if ctx.extra_cols:
+                grad_input = grad_input[:,:,:,:-1]
             
 
         return (grad_input,) + (None,) * 9
@@ -959,14 +999,18 @@ class xfm3(Function):
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
+        ctx.extra_rows = 0
+        ctx.extra_cols = 0
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
         # extend X
         if r % 2 != 0:
             input = torch.cat((input, input[:,:,-1:]), dim=2)
+            ctx.extra_rows = 1
         if c % 2 != 0:
             input = torch.cat((input, input[:,:,:,-1:]), dim=3)
+            ctx.extra_cols = 1
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
@@ -1120,6 +1164,10 @@ class xfm3(Function):
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
             else:
                 grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            if ctx.extra_rows:
+                grad_input = grad_input[:,:,:-1]
+            if ctx.extra_cols:
+                grad_input = grad_input[:,:,:,:-1]
             
 
         return (grad_input,) + (None,) * 9
@@ -1274,7 +1322,6 @@ class ifm4(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[2]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -1286,6 +1333,7 @@ class ifm4(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh2 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             # Level 3 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -1294,7 +1342,6 @@ class ifm4(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[3]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -1306,6 +1353,7 @@ class ifm4(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh3 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             # Level 4 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -1314,7 +1362,6 @@ class ifm4(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[4]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -1326,6 +1373,7 @@ class ifm4(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh4 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[0]:
                 grad_yl = LoLo
 
@@ -1344,14 +1392,18 @@ class xfm4scale(Function):
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
+        ctx.extra_rows = 0
+        ctx.extra_cols = 0
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
         # extend X
         if r % 2 != 0:
             input = torch.cat((input, input[:,:,-1:]), dim=2)
+            ctx.extra_rows = 1
         if c % 2 != 0:
             input = torch.cat((input, input[:,:,:,-1:]), dim=3)
+            ctx.extra_cols = 1
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
@@ -1560,6 +1612,10 @@ class xfm4scale(Function):
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
             else:
                 grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            if ctx.extra_rows:
+                grad_input = grad_input[:,:,:-1]
+            if ctx.extra_cols:
+                grad_input = grad_input[:,:,:,:-1]
             
 
         return (grad_input,) + (None,) * 9
@@ -1577,14 +1633,18 @@ class xfm4(Function):
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
+        ctx.extra_rows = 0
+        ctx.extra_cols = 0
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
         # extend X
         if r % 2 != 0:
             input = torch.cat((input, input[:,:,-1:]), dim=2)
+            ctx.extra_rows = 1
         if c % 2 != 0:
             input = torch.cat((input, input[:,:,:,-1:]), dim=3)
+            ctx.extra_cols = 1
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
@@ -1787,6 +1847,10 @@ class xfm4(Function):
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
             else:
                 grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            if ctx.extra_rows:
+                grad_input = grad_input[:,:,:-1]
+            if ctx.extra_cols:
+                grad_input = grad_input[:,:,:,:-1]
             
 
         return (grad_input,) + (None,) * 9
@@ -1968,7 +2032,6 @@ class ifm5(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[2]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -1980,6 +2043,7 @@ class ifm5(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh2 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             # Level 3 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -1988,7 +2052,6 @@ class ifm5(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[3]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -2000,6 +2063,7 @@ class ifm5(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh3 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             # Level 4 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -2008,7 +2072,6 @@ class ifm5(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[4]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -2020,6 +2083,7 @@ class ifm5(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh4 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             # Level 5 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -2028,7 +2092,6 @@ class ifm5(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[5]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -2040,6 +2103,7 @@ class ifm5(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh5 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[0]:
                 grad_yl = LoLo
 
@@ -2058,14 +2122,18 @@ class xfm5scale(Function):
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
+        ctx.extra_rows = 0
+        ctx.extra_cols = 0
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
         # extend X
         if r % 2 != 0:
             input = torch.cat((input, input[:,:,-1:]), dim=2)
+            ctx.extra_rows = 1
         if c % 2 != 0:
             input = torch.cat((input, input[:,:,:,-1:]), dim=3)
+            ctx.extra_cols = 1
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
@@ -2325,6 +2393,10 @@ class xfm5scale(Function):
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
             else:
                 grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            if ctx.extra_rows:
+                grad_input = grad_input[:,:,:-1]
+            if ctx.extra_cols:
+                grad_input = grad_input[:,:,:,:-1]
             
 
         return (grad_input,) + (None,) * 9
@@ -2342,14 +2414,18 @@ class xfm5(Function):
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
+        ctx.extra_rows = 0
+        ctx.extra_cols = 0
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
         # extend X
         if r % 2 != 0:
             input = torch.cat((input, input[:,:,-1:]), dim=2)
+            ctx.extra_rows = 1
         if c % 2 != 0:
             input = torch.cat((input, input[:,:,:,-1:]), dim=3)
+            ctx.extra_cols = 1
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
@@ -2601,6 +2677,10 @@ class xfm5(Function):
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
             else:
                 grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            if ctx.extra_rows:
+                grad_input = grad_input[:,:,:-1]
+            if ctx.extra_cols:
+                grad_input = grad_input[:,:,:,:-1]
             
 
         return (grad_input,) + (None,) * 9
@@ -2809,7 +2889,6 @@ class ifm6(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[2]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -2821,6 +2900,7 @@ class ifm6(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh2 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             # Level 3 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -2829,7 +2909,6 @@ class ifm6(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[3]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -2841,6 +2920,7 @@ class ifm6(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh3 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             # Level 4 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -2849,7 +2929,6 @@ class ifm6(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[4]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -2861,6 +2940,7 @@ class ifm6(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh4 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             # Level 5 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -2869,7 +2949,6 @@ class ifm6(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[5]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -2881,6 +2960,7 @@ class ifm6(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh5 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             # Level 6 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -2889,7 +2969,6 @@ class ifm6(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[6]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -2901,6 +2980,7 @@ class ifm6(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh6 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[0]:
                 grad_yl = LoLo
 
@@ -2919,14 +2999,18 @@ class xfm6scale(Function):
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
+        ctx.extra_rows = 0
+        ctx.extra_cols = 0
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
         # extend X
         if r % 2 != 0:
             input = torch.cat((input, input[:,:,-1:]), dim=2)
+            ctx.extra_rows = 1
         if c % 2 != 0:
             input = torch.cat((input, input[:,:,:,-1:]), dim=3)
+            ctx.extra_cols = 1
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
@@ -3237,6 +3321,10 @@ class xfm6scale(Function):
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
             else:
                 grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            if ctx.extra_rows:
+                grad_input = grad_input[:,:,:-1]
+            if ctx.extra_cols:
+                grad_input = grad_input[:,:,:,:-1]
             
 
         return (grad_input,) + (None,) * 9
@@ -3254,14 +3342,18 @@ class xfm6(Function):
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
+        ctx.extra_rows = 0
+        ctx.extra_cols = 0
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
         # extend X
         if r % 2 != 0:
             input = torch.cat((input, input[:,:,-1:]), dim=2)
+            ctx.extra_rows = 1
         if c % 2 != 0:
             input = torch.cat((input, input[:,:,:,-1:]), dim=3)
+            ctx.extra_cols = 1
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
@@ -3562,6 +3654,10 @@ class xfm6(Function):
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
             else:
                 grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            if ctx.extra_rows:
+                grad_input = grad_input[:,:,:-1]
+            if ctx.extra_cols:
+                grad_input = grad_input[:,:,:,:-1]
             
 
         return (grad_input,) + (None,) * 9
@@ -3797,7 +3893,6 @@ class ifm7(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[2]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -3809,6 +3904,7 @@ class ifm7(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh2 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             # Level 3 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -3817,7 +3913,6 @@ class ifm7(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[3]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -3829,6 +3924,7 @@ class ifm7(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh3 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             # Level 4 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -3837,7 +3933,6 @@ class ifm7(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[4]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -3849,6 +3944,7 @@ class ifm7(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh4 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             # Level 5 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -3857,7 +3953,6 @@ class ifm7(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[5]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -3869,6 +3964,7 @@ class ifm7(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh5 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             # Level 6 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -3877,7 +3973,6 @@ class ifm7(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[6]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -3889,6 +3984,7 @@ class ifm7(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh6 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             # Level 7 inverse gradient - same as fwd transform
             # but with time-reverse quater shift synthesis filters
             r, c = LoLo.shape[2:]
@@ -3897,7 +3993,6 @@ class ifm7(Function):
             if c % 4 != 0:
                 LoLo = torch.cat((LoLo[:,:,:,0:1], LoLo, LoLo[:,:,:,-1:]), dim=3)
             Lo = rowdfilt(LoLo, g0b_t, g0a_t)
-            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[7]:
                 Hi = rowdfilt(LoLo, g1b_t, g1a_t, highpass=True)
                 LoHi = coldfilt(Lo, g1b_t, g1a_t, highpass=True)
@@ -3909,6 +4004,7 @@ class ifm7(Function):
                 deg75, deg105 = q2c(HiLo)
                 grad_yh7 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
+            LoLo = coldfilt(Lo, g0b_t, g0a_t)
             if ctx.needs_input_grad[0]:
                 grad_yl = LoLo
 
@@ -3927,14 +4023,18 @@ class xfm7scale(Function):
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
+        ctx.extra_rows = 0
+        ctx.extra_cols = 0
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
         # extend X
         if r % 2 != 0:
             input = torch.cat((input, input[:,:,-1:]), dim=2)
+            ctx.extra_rows = 1
         if c % 2 != 0:
             input = torch.cat((input, input[:,:,:,-1:]), dim=3)
+            ctx.extra_cols = 1
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
@@ -4296,6 +4396,10 @@ class xfm7scale(Function):
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
             else:
                 grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            if ctx.extra_rows:
+                grad_input = grad_input[:,:,:-1]
+            if ctx.extra_cols:
+                grad_input = grad_input[:,:,:,:-1]
             
 
         return (grad_input,) + (None,) * 9
@@ -4313,14 +4417,18 @@ class xfm7(Function):
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
+        ctx.extra_rows = 0
+        ctx.extra_cols = 0
         batch, ch, r, c = input.shape
 
         # If the row/col count of X is not divisible by 2 then we need to
         # extend X
         if r % 2 != 0:
             input = torch.cat((input, input[:,:,-1:]), dim=2)
+            ctx.extra_rows = 1
         if c % 2 != 0:
             input = torch.cat((input, input[:,:,:,-1:]), dim=3)
+            ctx.extra_cols = 1
 
         # Level 1 forward (biorthogonal analysis filters)
         Lo = rowfilter(input, h0o)
@@ -4670,6 +4778,10 @@ class xfm7(Function):
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
             else:
                 grad_input = rowfilter(colfilter(ll, h0o_t), h0o_t)
+            if ctx.extra_rows:
+                grad_input = grad_input[:,:,:-1]
+            if ctx.extra_cols:
+                grad_input = grad_input[:,:,:,:-1]
             
 
         return (grad_input,) + (None,) * 9
