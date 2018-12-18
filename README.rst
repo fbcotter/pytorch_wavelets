@@ -35,13 +35,13 @@ For a fixed input size, but varying the number of scales (from 1 to 4) we have
 the following speeds (averaged over 5 runs):
 
 .. image:: docs/scale.png
-    :width: 500px
+    :width: 300px
 
 For an input size with height and width 512 by 512, we also vary the batch size
 for a 3 scale transform. The resulting speeds were:
 
 .. image:: docs/batchsize.png
-    :width: 500px
+    :width: 300px
 
 Installation
 ````````````
