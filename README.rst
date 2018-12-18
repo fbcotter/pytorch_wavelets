@@ -36,14 +36,14 @@ the following speeds (averaged over 5 runs):
 
 .. raw:: html
 
-    <img src="docs/scale.png" width="400px">
+    <img src="docs/scale.png" width="700px">
 
 For an input size with height and width 512 by 512, we also vary the batch size
 for a 3 scale transform. The resulting speeds were:
 
 .. raw:: html
 
-    <img src="docs/batchsize.png" width="500px">
+    <img src="docs/batchsize.png" width="700px">
 
 Installation
 ````````````
