@@ -1,0 +1,47 @@
+Type Time (%) Time (ms) Calls       Avg       Min       Max                                               Name
+GPU activities:    58.55    19.611    15  1.3074ms  222.34us  2.9199ms  void cudnn::detail::dgrad_engine<float, int=12...
+GPU activities:    21.23    7.1117    15  474.12us  81.441us  1.0630ms             maxwell_scudnn_128x32_relu_interior_nn
+GPU activities:     6.35    2.1283     4  532.09us     992ns  2.1251ms                                 [CUDA memcpy HtoD]
+GPU activities:     3.26    1.0933    15  72.886us  13.792us  160.83us  void SpatialReflectionPadding_updateOutput<flo...
+GPU activities:     3.02    1.0122    30  33.741us  2.4960us  112.23us  void kernelPointwiseApply2<CopyOp<float, float...
+GPU activities:     2.84   0.95003     5  190.01us  189.86us  190.15us  void kernelPointwiseApply2<CopyOp<float, float...
+GPU activities:     2.19    0.7331    20  36.654us  3.3280us  107.81us  void kernelPointwiseApply2<CopyOp<float, float...
+GPU activities:     1.37    0.4586    15  30.573us  5.0560us  68.192us  void scalePackedTensor_kernel<float, float>(cu...
+GPU activities:     1.04   0.34679    10  34.678us  16.448us  53.025us  void kernelPointwiseApply2<CopyOp<float, float...
+GPU activities:     0.09  0.030624    15  2.0410us  1.1840us  3.5200us  cudnn::maxwell::gemm::computeOffsetsKernel(cud...
+GPU activities:     0.04  0.012768    10  1.2760us  1.0880us  1.6000us                                 [CUDA memcpy DtoD]
+GPU activities:     0.01  0.004416     4  1.1040us     960ns  1.4400us                                      [CUDA memset]
+         Total:    99.99   33.4928   158                                                                                 
+Total (no mem):     93.6   31.3518   144                                                                                 
+     API calls:    99.63   5487.44    16  342.97ms  9.8870us  5.48069s                                         cudaMalloc
+     API calls:      0.1    5.4775     2  2.7388ms  2.7230ms  2.7546ms                            cudaGetDeviceProperties
+     API calls:      0.1     5.474   185  29.589us     210ns  1.2388ms                               cuDeviceGetAttribute
+     API calls:     0.05    2.4984    13  192.19us  15.069us  2.2086ms                                    cudaMemcpyAsync
+     API calls:     0.04      1.95   140  13.928us  7.8030us  44.984us                                         cudaLaunch
+     API calls:     0.03    1.8672     1  1.8672ms  1.8672ms  1.8672ms                                      cudaHostAlloc
+     API calls:     0.01   0.69775  1636     426ns     342ns  10.152us                                      cudaGetDevice
+     API calls:     0.01     0.563     2  281.50us  264.64us  298.36us                                    cuDeviceGetName
+     API calls:     0.01   0.44713     2  223.57us  221.28us  225.85us                                   cuDeviceTotalMem
+     API calls:     0.01   0.34745   712     487ns     373ns  5.4210us                                      cudaSetDevice
+     API calls:        0   0.21447     8  26.809us  19.275us  68.410us                          cudaStreamCreateWithFlags
+     API calls:        0   0.13264   650     204ns     148ns  4.0090us                                  cudaSetupArgument
+     API calls:        0   0.10536     3  35.121us  6.4970us  91.879us                              cudaStreamSynchronize
+     API calls:        0  0.096104    30  3.2030us  1.9490us  6.9970us                                    cudaBindTexture
+     API calls:        0  0.079885     4  19.971us  19.573us  20.819us                       cudaStreamCreateWithPriority
+     API calls:        0  0.049697   195     254ns     145ns  1.8140us                                   cudaGetLastError
+     API calls:        0  0.036291   140     259ns     178ns  1.0980us                                  cudaConfigureCall
+     API calls:        0  0.031806    15  2.1200us  1.8630us  3.0940us                                    cudaEventRecord
+     API calls:        0  0.031119    28  1.1110us     593ns  5.1990us                           cudaEventCreateWithFlags
+     API calls:        0  0.030176    30  1.0050us     586ns  1.7860us                                  cudaUnbindTexture
+     API calls:        0  0.030121     4  7.5300us  3.7800us  13.846us                                    cudaMemsetAsync
+     API calls:        0  0.023373     1  23.373us  23.373us  23.373us                                         cudaMemcpy
+     API calls:        0  0.012758    27     472ns     354ns  1.3290us                             cudaDeviceGetAttribute
+     API calls:        0  0.006026    14     430ns     160ns  1.5680us                                 cudaGetDeviceCount
+     API calls:        0   0.00296     1  2.9600us  2.9600us  2.9600us                           cudaHostGetDevicePointer
+     API calls:        0  0.002657     4     664ns     197ns  1.8570us                                   cuDeviceGetCount
+     API calls:        0  0.002502     2  1.2510us  1.0180us  1.4840us                                           cudaFree
+     API calls:        0  0.002115     1  2.1150us  2.1150us  2.1150us                                             cuInit
+     API calls:        0  0.001718     3     572ns     222ns     904ns                                        cuDeviceGet
+     API calls:        0   0.00113     1  1.1300us  1.1300us  1.1300us                   cudaDeviceGetStreamPriorityRange
+     API calls:        0   0.00105     1  1.0500us  1.0500us  1.0500us                                 cuDriverGetVersion
+         Total:    99.99   5507.66  3871

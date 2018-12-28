@@ -1,0 +1,27 @@
+Traceback (most recent call last):
+  File "profile.py", line 1, in <module>
+    import torch
+  File "/scratch/fbc23/.pyenv/versions/intelpython3/lib/python3.6/site-packages/torch/__init__.py", line 42, in <module>
+    import numpy as _np
+  File "/scratch/fbc23/.pyenv/versions/intelpython3/lib/python3.6/site-packages/numpy/__init__.py", line 142, in <module>
+    from . import add_newdocs
+  File "/scratch/fbc23/.pyenv/versions/intelpython3/lib/python3.6/site-packages/numpy/add_newdocs.py", line 13, in <module>
+    from numpy.lib import add_newdoc
+  File "/scratch/fbc23/.pyenv/versions/intelpython3/lib/python3.6/site-packages/numpy/lib/__init__.py", line 8, in <module>
+    from .type_check import *
+  File "/scratch/fbc23/.pyenv/versions/intelpython3/lib/python3.6/site-packages/numpy/lib/type_check.py", line 11, in <module>
+    import numpy.core.numeric as _nx
+  File "/scratch/fbc23/.pyenv/versions/intelpython3/lib/python3.6/site-packages/numpy/core/__init__.py", line 103, in <module>
+    from numpy.testing._private.pytesttester import PytestTester
+  File "/scratch/fbc23/.pyenv/versions/intelpython3/lib/python3.6/site-packages/numpy/testing/__init__.py", line 10, in <module>
+    from unittest import TestCase
+  File "/scratch/fbc23/.pyenv/versions/intelpython3/lib/python3.6/unittest/__init__.py", line 59, in <module>
+    from .case import (TestCase, FunctionTestCase, SkipTest, skip, skipIf,
+  File "<frozen importlib._bootstrap>", line 971, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 955, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 665, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 674, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 779, in get_code
+  File "<frozen importlib._bootstrap_external>", line 487, in _compile_bytecode
+KeyboardInterrupt
+======== Error: Application returned non-zero code 1

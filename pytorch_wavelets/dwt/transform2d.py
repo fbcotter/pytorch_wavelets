@@ -11,20 +11,28 @@ class DWTForward(nn.Module):
 
     Args:
         J (int): Number of levels of decomposition
-        w (str or pywt.Wavelet): Which wavelet to use
+        wave (str or pywt.Wavelet): Which wavelet to use. Can be a string to
+            pass to pywt.Wavelet constructor, can also be a pywt.Wavelet class,
+            or can be a two tuple of array-like objects for the analysis low and
+            high pass filters.
         C: deprecated, will be removed in future
+        downsample (bool): true to downsample the output (as you would expect)
     """
-    def __init__(self, C=None, J=1, wave='db1'):
+    def __init__(self, C=None, J=1, wave='db1', downsample=True):
         super().__init__()
         if C is not None:
             warnings.warn('C parameter is deprecated. do not need to pass it '
                           'anymore.')
-        self.wave = wave
-        w = pywt.Wavelet(wave)
-        ll = np.outer(w.dec_lo, w.dec_lo)
-        lh = np.outer(w.dec_hi, w.dec_lo)
-        hl = np.outer(w.dec_lo, w.dec_hi)
-        hh = np.outer(w.dec_hi, w.dec_hi)
+        if isinstance(wave, str):
+            wave = pywt.Wavelet(wave)
+        if isinstance(wave, pywt.Wavelet):
+            h0, h1 = wave.dec_lo, wave.dec_hi
+        else:
+            h0, h1 = wave[0], wave[1]
+        ll = np.outer(h0, h0)
+        lh = np.outer(h1, h0)
+        hl = np.outer(h0, h1)
+        hh = np.outer(h1, h1)
         filts = np.stack([ll[None,::-1,::-1], lh[None,::-1,::-1],
                           hl[None,::-1,::-1], hh[None,::-1,::-1]],
                          axis=0)
@@ -33,8 +41,12 @@ class DWTForward(nn.Module):
         self.weight = nn.Parameter(
             torch.tensor(filts).to(torch.get_default_dtype()),
             requires_grad=False)
-        self.sz = 2*(len(w.dec_lo) // 2 - 1)
+        self.sz = 2*(len(h0) // 2 - 1)
         self.J = J
+        if downsample:
+            self.stride = 2
+        else:
+            self.stride = 1
 
     def forward(self, x):
         """ Forward pass of the DWT.
@@ -75,7 +87,7 @@ class DWTForward(nn.Module):
             else:
                 yl = F.pad(yl, (sz, sz, sz, sz), mode='reflect')
 
-            y = F.conv2d(yl, filters, groups=C, stride=2)
+            y = F.conv2d(yl, filters, groups=C, stride=self.stride)
             y = y.reshape((y.shape[0], C, 4, y.shape[-2], y.shape[-1]))
             yl = y[:,:,0].contiguous()
             yh.append(y[:,:,1:].contiguous())
@@ -87,7 +99,7 @@ class DWTInverse(nn.Module):
     """ Performs a 2d DWT Inverse reconstruction of an image
 
     Args:
-        w (str or pywt.Wavelet): Which wavelet to use
+        wave (str or pywt.Wavelet): Which wavelet to use
         C: deprecated, will be removed in future
     """
     def __init__(self, C=None, wave='db1'):
@@ -95,12 +107,16 @@ class DWTInverse(nn.Module):
         if C is not None:
             warnings.warn('C parameter is deprecated. do not need to pass it '
                           'anymore.')
-        self.wave = wave
-        w = pywt.Wavelet(wave)
-        ll = np.outer(w.rec_lo, w.rec_lo)
-        lh = np.outer(w.rec_hi, w.rec_lo)
-        hl = np.outer(w.rec_lo, w.rec_hi)
-        hh = np.outer(w.rec_hi, w.rec_hi)
+        if isinstance(wave, str):
+            wave = pywt.Wavelet(wave)
+        if isinstance(wave, pywt.Wavelet):
+            g0, g1 = wave.rec_lo, wave.rec_hi
+        else:
+            g0, g1 = wave[0], wave[1]
+        ll = np.outer(g0, g0)
+        lh = np.outer(g1, g0)
+        hl = np.outer(g0, g1)
+        hh = np.outer(g1, g1)
         filts = np.stack([ll[None,], lh[None,],
                           hl[None,], hh[None,]],
                          axis=0)
@@ -108,7 +124,7 @@ class DWTInverse(nn.Module):
         self.weight = nn.Parameter(
             torch.tensor(filts).to(torch.get_default_dtype()),
             requires_grad=False)
-        self.s = 2*(len(w.dec_lo) // 2 - 1)
+        self.s = 2*(len(g0) // 2 - 1)
 
     def forward(self, coeffs):
         """
