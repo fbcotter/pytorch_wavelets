@@ -1,5 +1,6 @@
 import torch
 from pytorch_wavelets import DTCWTForward, DTCWTInverse
+from pytorch_wavelets.dwt.lowlevel import cplxdual2D
 import argparse
 import py3nvml
 import torch.nn.functional as F
@@ -12,6 +13,8 @@ parser.add_argument('--ref', action='store_true',
                     help='Compare to doing the DTCWT with ffts')
 parser.add_argument('-c', '--convolution', action='store_true',
                     help='Profile an 11x11 convolution')
+parser.add_argument('--fb', action='store_true',
+                    help='Do the 4 fb implementation of the dtcwt')
 parser.add_argument('-f', '--forward', action='store_true',
                     help='Only do forward transform (default is fwd and inv)')
 parser.add_argument('-i', '--inverse', action='store_true',
@@ -85,6 +88,11 @@ def reference_fftconv(size, J, no_grad=False, dev='cuda'):
         Y.backward(torch.ones_like(Y))
 
 
+def selesnick_dwt(size, J, no_grad=False, dev='cuda'):
+    x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
+    lows, w = cplxdual2D(x, J)
+
+
 if __name__ == "__main__":
     args = parser.parse_args()
     py3nvml.grab_gpus(1)
@@ -99,6 +107,9 @@ if __name__ == "__main__":
     elif args.convolution:
         print('Running 11x11 convolution')
         reference_conv(size, args.no_grad, args.device)
+    elif args.fb:
+        print('Running 4 dwts')
+        selesnick_dwt(size, args.j, args.no_grad, args.device)
     else:
         if args.forward:
             print('Running forward transform')

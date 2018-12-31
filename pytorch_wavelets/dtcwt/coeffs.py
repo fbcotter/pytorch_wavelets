@@ -32,6 +32,13 @@ def _load_from_file(basename, varnames):
 
 
 def biort(name):
+    """ Deprecated. Use :py::func:`pytorch_wavelets.dtcwt.coeffs.level1`
+    Instead
+    """
+    return level1(name)
+
+
+def level1(name):
     """Load level 1 wavelet by name.
 
     :param name: a string specifying the wavelet family name
@@ -41,6 +48,7 @@ def biort(name):
     Name           Wavelet
     =============  ============================================
     antonini       Antonini 9,7 tap filters.
+    farras         Farras 8,8 tap filters
     legall         LeGall 5,3 tap filters.
     near_sym_a     Near-Symmetric 5,7 tap filters.
     near_sym_b     Near-Symmetric 13,19 tap filters.
@@ -61,6 +69,8 @@ def biort(name):
     """
     if name == 'near_sym_b_bp':
         return _load_from_file(name, ('h0o', 'g0o', 'h1o', 'g1o', 'h2o', 'g2o'))
+    elif name == 'farras':
+        return _load_from_file(name, ('h0a', 'h0b', 'h1a', 'h1b'))
     else:
         return _load_from_file(name, ('h0o', 'g0o', 'h1o', 'g1o'))
 

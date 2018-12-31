@@ -35,9 +35,9 @@ def setup():
     S = loadmat('cplx.mat')
 
 
-def test_afb2d_a():
-    y1 = lowlevel.afb2d_a(x1, af, d=2)
-    y2 = lowlevel.afb2d_a(x2, af.transpose(3,2), d=3)
+def test_afb1d_periodic():
+    y1 = lowlevel.afb1d_periodic(x1, af, d=2)
+    y2 = lowlevel.afb1d_periodic(x2, af.transpose(3,2), d=3)
     np.testing.assert_array_almost_equal(y1[0,0], lo1)
     np.testing.assert_array_almost_equal(y1[0,1], hi1)
     np.testing.assert_array_almost_equal(y2[0,0], lo2)
@@ -45,19 +45,19 @@ def test_afb2d_a():
 
 
 @pytest.mark.skipif(not HAVE_GPU, reason='Need a gpu to test cuda')
-def test_afb2d_a_gpu():
-    y1 = lowlevel.afb2d_a(x1.cuda(), af.cuda(), d=2)
-    y2 = lowlevel.afb2d_a(x2.cuda(), af.transpose(3,2).cuda(), d=3)
+def test_afb1d_periodic_gpu():
+    y1 = lowlevel.afb1d_periodic(x1.cuda(), af.cuda(), d=2)
+    y2 = lowlevel.afb1d_periodic(x2.cuda(), af.transpose(3,2).cuda(), d=3)
     np.testing.assert_array_almost_equal(y1[0,0].cpu(), lo1)
     np.testing.assert_array_almost_equal(y1[0,1].cpu(), hi1)
     np.testing.assert_array_almost_equal(y2[0,0].cpu(), lo2)
     np.testing.assert_array_almost_equal(y2[0,1].cpu(), hi2)
 
-def test_afb2d_a_channels():
+def test_afb1d_periodic_channels():
     z = torch.cat((x1, 2*x1), dim=1)
-    y1 = lowlevel.afb2d_a(z, af, d=2)
+    y1 = lowlevel.afb1d_periodic(z, af, d=2)
     z = torch.cat((x2, 2*x2), dim=1)
-    y2 = lowlevel.afb2d_a(z, af.transpose(3,2), d=3)
+    y2 = lowlevel.afb1d_periodic(z, af.transpose(3,2), d=3)
 
     np.testing.assert_array_almost_equal(y1[0,0], lo1)
     np.testing.assert_array_almost_equal(y1[0,1], hi1)
