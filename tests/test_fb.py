@@ -11,7 +11,7 @@ HAVE_GPU = torch.cuda.is_available()
 
 
 def setup():
-    global af, x1, x2, lo1, hi1, lo2, hi2
+    global af, x1, x2, lo1, hi1, lo2, hi2, h0, h1
     with np.load('afb2d_a.npz') as f:
         x1 = torch.tensor(f['x1']).reshape(1,1,32,16)
         x2 = torch.tensor(f['x2']).reshape(1,1,16,32)
@@ -22,6 +22,10 @@ def setup():
         # Reverse the order as pytorch does correlation not convolution
         af = np.copy(f['af'][:,::-1])
         af = torch.tensor(af).reshape(2,1,10,1)
+        h0 = np.copy(f['af'][0,::-1])
+        h0 = torch.tensor(h0).reshape(1,1,10,1)
+        h1 = np.copy(f['af'][1,::-1])
+        h1 = torch.tensor(h1).reshape(1,1,10,1)
 
     global x, ll, lh, hl, hh
     with np.load('afb2d.npz') as f:
@@ -36,8 +40,8 @@ def setup():
 
 
 def test_afb1d_periodic():
-    y1 = lowlevel.afb1d_periodic(x1, af, d=2)
-    y2 = lowlevel.afb1d_periodic(x2, af.transpose(3,2), d=3)
+    y1 = lowlevel.afb1d_periodic(x1, h0, h1, dim=2)
+    y2 = lowlevel.afb1d_periodic(x2, h0, h1, dim=3)
     np.testing.assert_array_almost_equal(y1[0,0], lo1)
     np.testing.assert_array_almost_equal(y1[0,1], hi1)
     np.testing.assert_array_almost_equal(y2[0,0], lo2)
@@ -46,8 +50,8 @@ def test_afb1d_periodic():
 
 @pytest.mark.skipif(not HAVE_GPU, reason='Need a gpu to test cuda')
 def test_afb1d_periodic_gpu():
-    y1 = lowlevel.afb1d_periodic(x1.cuda(), af.cuda(), d=2)
-    y2 = lowlevel.afb1d_periodic(x2.cuda(), af.transpose(3,2).cuda(), d=3)
+    y1 = lowlevel.afb1d_periodic(x1.cuda(), h0.cuda(), h1.cuda(), dim=2)
+    y2 = lowlevel.afb1d_periodic(x2.cuda(), h0.cuda(), h1.cuda(), dim=3)
     np.testing.assert_array_almost_equal(y1[0,0].cpu(), lo1)
     np.testing.assert_array_almost_equal(y1[0,1].cpu(), hi1)
     np.testing.assert_array_almost_equal(y2[0,0].cpu(), lo2)
@@ -55,9 +59,9 @@ def test_afb1d_periodic_gpu():
 
 def test_afb1d_periodic_channels():
     z = torch.cat((x1, 2*x1), dim=1)
-    y1 = lowlevel.afb1d_periodic(z, af, d=2)
+    y1 = lowlevel.afb1d_periodic(z, h0, h1, dim=2)
     z = torch.cat((x2, 2*x2), dim=1)
-    y2 = lowlevel.afb1d_periodic(z, af.transpose(3,2), d=3)
+    y2 = lowlevel.afb1d_periodic(z, h0, h1, dim=3)
 
     np.testing.assert_array_almost_equal(y1[0,0], lo1)
     np.testing.assert_array_almost_equal(y1[0,1], hi1)
@@ -70,7 +74,7 @@ def test_afb1d_periodic_channels():
 
 
 def test_afb2d():
-    y = lowlevel.afb2d(x, af, af)
+    y = lowlevel.afb2d(x, h0, h1, h0, h1, mode='periodic', split=False)
     np.testing.assert_array_almost_equal(y[0,0], ll)
     np.testing.assert_array_almost_equal(y[0,1], lh)
     np.testing.assert_array_almost_equal(y[0,2], hl)
@@ -79,7 +83,7 @@ def test_afb2d():
 
 def test_afb2d_channels():
     z = torch.cat((x, -1*x), dim=1)
-    y = lowlevel.afb2d(z, af, af)
+    y = lowlevel.afb2d(z, h0, h1, h0, h1, mode='periodic', split=False)
     np.testing.assert_array_almost_equal(y[0,0], ll)
     np.testing.assert_array_almost_equal(y[0,1], lh)
     np.testing.assert_array_almost_equal(y[0,2], hl)

@@ -3,10 +3,67 @@ import torch.nn as nn
 from numpy import ndarray
 import warnings
 
-from pytorch_wavelets.dtcwt.coeffs import biort as _biort, qshift as _qshift
+from pytorch_wavelets.dtcwt.coeffs import level1 as _level1, qshift as _qshift
 from pytorch_wavelets.dtcwt.lowlevel import prep_filt
 from pytorch_wavelets.dtcwt import transform_funcs as tf
 
+
+def cplxdual2D(x, J, level1='farras', qshift='qshift_a', mode='periodic'):
+    """ Do a complex dtcwt
+
+    Returns:
+        lows: lowpass outputs from each of the 4 trees. Is a 2x2 list of lists
+        w: bandpass outputs from each of the 4 trees. Is a list of lists, with
+        shape [J][2][2][3]. Initially the 3 outputs are the lh, hl and hh from
+        each of the 4 trees. After doing sums and differences though, they
+        become the real and imaginary parts for the 6 orientations. In
+        particular:
+            first index - indexes over scales
+            second index - 0 = real, 1 = imaginary
+            third and fourth indices:
+            1,2 = 15 degrees
+            2,3 = 45 degrees
+            1,1 = 75 degrees
+            2,1 = 105 degrees
+            1,3 = 135 degrees
+            2,2 = 165 degrees
+    """
+    x = x/2
+    # Get the filters
+    h0a1, h0b1, h1a1, h1b1 = _level1(level1)
+    h0a, h0b, _, _, h1a, h1b, _, _ = _qshift(qshift)
+
+    Faf = ((h0a1, h1a1), (h0b1, h1b1))
+    af = ((h0a, h1a), (h0b, h1b))
+
+    # Do 4 fully decimated dwts
+    w = [[[None for _ in range(2)] for _ in range(2)] for j in range(J)]
+    lows = [[None for _ in range(2)] for _ in range(2)]
+    for m in range(2):
+        for n in range(2):
+            # Do the first level transform with the first level filters
+            ll, (lh, hl, hh) = afb2d(x, Faf[m][0], Faf[m][1], Faf[n][0], Faf[n][1], mode=mode)
+            w[0][m][n] = [hl, lh, hh]
+
+            # Do the second+ level transform with the second level filters
+            for j in range(1,J):
+                ll, (lh, hl, hh) = afb2d(ll, af[m][0], af[m][1], af[n][0], af[n][1], mode=mode)
+                w[j][m][n] = [hl, lh, hh]
+            lows[m][n] = ll
+
+    # Convert the quads into real and imaginary parts
+    for j in range(J):
+        for l in range(3):
+            w[j][0][0][l], w[j][1][1][l] = pm(w[j][0][0][l], w[j][1][1][l])
+            w[j][0][1][l], w[j][1][0][l] = pm(w[j][0][1][l], w[j][1][0][l])
+
+    return lows, w
+
+
+def pm(a, b):
+    u = (a + b)/np.sqrt(2)
+    v = (a - b)/np.sqrt(2)
+    return u, v
 
 class DTCWTForward(nn.Module):
     """ Performs a 2d DTCWT Forward decomposition of an image

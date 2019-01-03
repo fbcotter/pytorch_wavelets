@@ -68,17 +68,19 @@ def prep_file(file):
     with open(file, 'r') as f:
         data = f.readlines()
 
+    header = data[0].split('command: ')[1]
     for i, l in enumerate(data):
         if i >= 3:
             data[i] = ';'.join([l[:16], l[17:25], l[26:35], l[36:45],
                               l[46:55], l[56:65], l[66:75], l[76:]])
     data = ''.join(data[4:])
-    return data
+    return data, header
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    data = prep_file(args.file)
+    data, header = prep_file(args.file)
     df = pandify(data)
     with open(args.file, 'w') as f:
+        f.write(header)
         f.write(df.to_string(index=False))
 
