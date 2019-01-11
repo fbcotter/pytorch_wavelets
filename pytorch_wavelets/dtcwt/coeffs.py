@@ -21,7 +21,7 @@ def _load_from_file(basename, varnames):
     except KeyError:
         with resource_stream('pytorch_wavelets.dtcwt.data', basename + '.npz') as f:
             mat = dict(load(f))
-        COEFF_CACHE[basename] = mat
+        #  COEFF_CACHE[basename] = mat
 
     try:
         return tuple(mat[k] for k in varnames)
@@ -35,10 +35,10 @@ def biort(name):
     """ Deprecated. Use :py::func:`pytorch_wavelets.dtcwt.coeffs.level1`
     Instead
     """
-    return level1(name)
+    return level1(name, compact=True)
 
 
-def level1(name):
+def level1(name, compact=False):
     """Load level 1 wavelet by name.
 
     :param name: a string specifying the wavelet family name
@@ -67,12 +67,14 @@ def level1(name):
         :py:func:`pytorch_wavelets.dtcwt.coeffs.qshift` wavelet.
 
     """
-    if name == 'near_sym_b_bp':
-        return _load_from_file(name, ('h0o', 'g0o', 'h1o', 'g1o', 'h2o', 'g2o'))
-    elif name == 'farras':
-        return _load_from_file(name, ('h0a', 'h0b', 'h1a', 'h1b'))
+    if compact:
+        if name == 'near_sym_b_bp':
+            return _load_from_file(name, ('h0o', 'g0o', 'h1o', 'g1o', 'h2o', 'g2o'))
+        else:
+            return _load_from_file(name, ('h0o', 'g0o', 'h1o', 'g1o'))
     else:
-        return _load_from_file(name, ('h0o', 'g0o', 'h1o', 'g1o'))
+        return _load_from_file(name, ('h0a', 'h0b', 'g0a', 'g0b', 'h1a', 'h1b',
+                                      'g1a', 'g1b'))
 
 
 def qshift(name):

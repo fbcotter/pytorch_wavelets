@@ -205,7 +205,8 @@ def afb2d(x, filts, mode='zero', split=True):
     if len(filts) == 2:
         h0, h1 = filts
         if True in tensorize:
-            h0_col, h1_col, h0_row, h1_row = prep_filt_afb2d(h0, h1)
+            h0_col, h1_col, h0_row, h1_row = prep_filt_afb2d(
+                h0, h1, device=x.device)
         else:
             h0_col = h0
             h0_row = h0.transpose(2,3)
@@ -213,7 +214,8 @@ def afb2d(x, filts, mode='zero', split=True):
             h1_row = h1.transpose(2,3)
     elif len(filts) == 4:
         if True in tensorize:
-            h0_col, h1_col, h0_row, h1_row = prep_filt_afb2d(*filts)
+            h0_col, h1_col, h0_row, h1_row = prep_filt_afb2d(
+                *filts, device=x.device)
         else:
             h0_col, h1_col, h0_row, h1_row = filts
     else:
@@ -224,7 +226,7 @@ def afb2d(x, filts, mode='zero', split=True):
 
     s = ll_hl_lh_hh.shape
     y = ll_hl_lh_hh.reshape(s[0], C, 4, s[-2], s[-1])
-    yl, yh = y[:,:,0], y[:,:,1:]
+    yl, yh = y[:,:,:1], y[:,:,1:]
 
     return yl.contiguous(), yh.contiguous()
 
@@ -255,6 +257,7 @@ def afb2d_nonsep(x, filts, mode='zero'):
         else:
             filts = prep_filt_afb2d_nonsep(
                 filts[0], filts[1], filts[2], filts[3], device=x.device)
+    Nf = filts.shape[0]
     f = torch.cat([filts]*C, dim=0)
     Ly = f.shape[2]
     Lx = f.shape[3]
@@ -299,9 +302,9 @@ def afb2d_nonsep(x, filts, mode='zero'):
     else:
         raise ValueError("Unkown pad type: {}".format(mode))
 
-    y = y.reshape((y.shape[0], C, 4, y.shape[-2], y.shape[-1]))
-    yl = y[:,:,0].contiguous()
-    yh = y[:,:,1:].contiguous()
+    y = y.reshape((y.shape[0], C, Nf, y.shape[-2], y.shape[-1]))
+    yl = y[:,:,:Nf//4].contiguous()
+    yh = y[:,:,Nf//4:].contiguous()
     return yl, yh
 
 

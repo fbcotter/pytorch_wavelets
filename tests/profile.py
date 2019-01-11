@@ -4,6 +4,10 @@ import argparse
 import py3nvml
 import torch.nn.functional as F
 import pytorch_wavelets.dwt.transform2d as dwt
+import pytorch_wavelets.dwt.lowlevel as lowlevel
+import pytorch_wavelets.dtcwt.lowlevel2 as lowlevel2
+from pytorch_wavelets.dtcwt.coeffs import level1, qshift
+from pytorch_wavelets.dtcwt.transform2d import cplxdual2D
 
 parser = argparse.ArgumentParser(
     'Profile the forward and inverse dtcwt in pytorch')
@@ -67,7 +71,7 @@ def end_to_end(size, no_grad, J, no_hp=False, dev='cuda'):
 def reference_conv(size, no_grad=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
     w = torch.randn(10,1,11,11).to(dev)
-    y = F.conv2d(x, w, padding=5, groups=10)
+    y = F.conv2d(x, w, padding=5, groups=1)
     if not no_grad:
         y.backward(torch.ones_like(y))
     return y
@@ -106,7 +110,28 @@ def separable_dwt(size, J, no_grad=False, dev='cuda'):
 
 def selesnick_dtcwt(size, J, no_grad=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
-    #  lows, w = cplxdual2D(x, J, qshift='qshift_06', mode='zero')
+    lows, w = cplxdual2D(x, J, qshift='qshift_06', mode='zero')
+
+def test_dtcwt(size, J, no_grad=False, dev='cuda'):
+    x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
+    h0a, h0b, _, _, h1a, h1b, _, _ = level1('farras')
+    filts = lowlevel2.prep_filt_quad_afb2d_nonsep(
+        h0a, h1a, h0a, h1a,
+        h0a, h1a, h0b, h1b,
+        h0b, h1b, h0a, h1a,
+        h0b, h1b, h0b, h1b, device=dev)
+    for j in range(3):
+        yl, yh = lowlevel.afb2d_nonsep(x, filts, mode='zero')
+        x = yl.reshape(yl.shape[0], -1, yl.shape[-2], yl.shape[-1])
+
+def test_dtcwt2(size, J, no_grad=False, dev='cuda'):
+    x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
+    h0a, h0b, _, _, h1a, h1b, _, _ = level1('farras')
+    cols, rows = lowlevel2.prep_filt_quad_afb2d(h0a, h1a, h0b, h1b, device=dev)
+    for j in range(3):
+        yl, yh = lowlevel2.quad_afb2d(x, cols, rows, mode='zero')
+        x = yl.reshape(yl.shape[0], -1, yl.shape[-2], yl.shape[-1])
+    y = x[0]
 
 
 if __name__ == "__main__":
@@ -133,6 +158,7 @@ if __name__ == "__main__":
     elif args.fb:
         print('Running 4 dwts')
         selesnick_dtcwt(size, args.j, args.no_grad, args.device)
+        #  test_dtcwt2(size, args.j, no_grad=args.no_grad, dev=args.device)
     else:
         if args.forward:
             print('Running forward transform')

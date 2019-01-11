@@ -19,10 +19,16 @@ class DWTSeparableForward(nn.Module):
         if isinstance(wave, str):
             wave = pywt.Wavelet(wave)
         if isinstance(wave, pywt.Wavelet):
-            h0, h1 = wave.dec_lo, wave.dec_hi
+            h0_col, h1_col = wave.dec_lo, wave.dec_hi
+            h0_row, h1_row = h0_col, h1_col
         else:
-            h0, h1 = wave[0], wave[1]
-        filts = lowlevel.prep_filt_afb2d(h0, h1)
+            if len(wave) == 2:
+                h0_col, h1_col = wave[0], wave[1]
+                h0_row, h1_row = h0_col, h1_col
+            elif len(wave) == 4:
+                h0_col, h1_col = wave[0], wave[1]
+                h0_row, h1_row = wave[2], wave[3]
+        filts = lowlevel.prep_filt_afb2d(h0_col, h1_col, h0_row, h1_row)
         self.h0_col = nn.Parameter(filts[0], requires_grad=False)
         self.h1_col = nn.Parameter(filts[1], requires_grad=False)
         self.h0_row = nn.Parameter(filts[2], requires_grad=False)
@@ -70,10 +76,16 @@ class DWTSeparableInverse(nn.Module):
         if isinstance(wave, str):
             wave = pywt.Wavelet(wave)
         if isinstance(wave, pywt.Wavelet):
-            g0, g1 = wave.rec_lo, wave.rec_hi
+            g0_col, g1_col = wave.rec_lo, wave.rec_hi
+            g0_row, g1_row = g0_col, g1_col
         else:
-            g0, g1 = wave[0], wave[1]
-        filts = lowlevel.prep_filt_sfb2d(g0, g1)
+            if len(wave) == 2:
+                g0_col, g1_col = wave[0], wave[1]
+                g0_row, g1_row = g0_col, g1_col
+            elif len(wave) == 4:
+                g0_col, g1_col = wave[0], wave[1]
+                g0_row, g1_row = wave[2], wave[3]
+        filts = lowlevel.prep_filt_sfb2d(g0_col, g1_col, g0_row, g1_row)
         self.g0_col = nn.Parameter(filts[0], requires_grad=False)
         self.g1_col = nn.Parameter(filts[1], requires_grad=False)
         self.g0_row = nn.Parameter(filts[2], requires_grad=False)
@@ -129,10 +141,16 @@ class DWTForward(nn.Module):
         if isinstance(wave, str):
             wave = pywt.Wavelet(wave)
         if isinstance(wave, pywt.Wavelet):
-            h0, h1 = wave.dec_lo, wave.dec_hi
+            h0_col, h1_col = wave.dec_lo, wave.dec_hi
+            h0_row, h1_row = h0_col, h1_col
         else:
-            h0, h1 = wave[0], wave[1]
-        filts = lowlevel.prep_filt_afb2d_nonsep(h0, h1)
+            if len(wave) == 2:
+                h0_col, h1_col = wave[0], wave[1]
+                h0_row, h1_row = h0_col, h1_col
+            elif len(wave) == 4:
+                h0_col, h1_col = wave[0], wave[1]
+                h0_row, h1_row = wave[2], wave[3]
+        filts = lowlevel.prep_filt_afb2d_nonsep(h0_col, h1_col, h0_row, h1_row)
         self.weight = nn.Parameter(filts, requires_grad=False)
         self.J = J
         self.mode = mode
@@ -179,10 +197,16 @@ class DWTInverse(nn.Module):
         if isinstance(wave, str):
             wave = pywt.Wavelet(wave)
         if isinstance(wave, pywt.Wavelet):
-            g0, g1 = wave.rec_lo, wave.rec_hi
+            g0_col, g1_col = wave.rec_lo, wave.rec_hi
+            g0_row, g1_row = g0_col, g1_col
         else:
-            g0, g1 = wave[0], wave[1]
-        filts = lowlevel.prep_filt_sfb2d_nonsep(g0, g1)
+            if len(wave) == 2:
+                g0_col, g1_col = wave[0], wave[1]
+                g0_row, g1_row = g0_col, g1_col
+            elif len(wave) == 4:
+                g0_col, g1_col = wave[0], wave[1]
+                g0_row, g1_row = wave[2], wave[3]
+        filts = lowlevel.prep_filt_sfb2d_nonsep(g0_col, g1_col, g0_row, g1_row)
         self.weight = nn.Parameter(filts, requires_grad=False)
         self.mode = mode
 
