@@ -235,7 +235,7 @@ def rowifilt(X, ha, hb, highpass=False):
     return Y
 
 
-def q2c(y):
+def q2c(y, dim=-1):
     """
     Convert from quads in y to complex numbers in z.
     """
@@ -251,10 +251,10 @@ def q2c(y):
     a, b = y[:,:, 0::2, 0::2], y[:,:, 0::2, 1::2]
     c, d = y[:,:, 1::2, 0::2], y[:,:, 1::2, 1::2]
 
-    return torch.stack((a-d, b+c), dim=-1), torch.stack((a+d, b-c), dim=-1)
+    return torch.stack((a-d, b+c), dim=dim), torch.stack((a+d, b-c), dim=dim)
 
 
-def c2q(w1, w2):
+def c2q(w1, w2, dim=-1):
     """
     Scale by gain and convert from complex w(:,:,1:2) to real quad-numbers
     in z.
@@ -267,16 +267,28 @@ def c2q(w1, w2):
      C----D     Re   Im of w(:,:,2)
 
     """
-
-    # Input has shape [batch, ch, r, c, 2]
-    ch, r, c, _ = w1.shape[1:]
     # shape will be:
     #   x1   x2
     #   x3   x4
-    x1 = w1[...,0] + w2[...,0]
-    x2 = w1[...,1] + w2[...,1]
-    x3 = w1[...,1] - w2[...,1]
-    x4 = -w1[...,0] + w2[...,0]
+    if w1.shape[dim] != 2:
+        raise ValueError("Wrong dimension specified for c2q. Need to specify "
+                         "the dimension with real and imaginary components")
+
+    r = torch.tensor(0)
+    i = torch.tensor(1)
+    x1 = torch.index_select(w1, dim, r) + torch.index_select(w2, dim, r)
+    x2 = torch.index_select(w1, dim, i) + torch.index_select(w2, dim, i)
+    x3 = torch.index_select(w1, dim, i) - torch.index_select(w2, dim, i)
+    x4 = -torch.index_select(w1, dim, r) + torch.index_select(w2, dim, r)
+    x1 = x1.squeeze(dim)
+    x2 = x2.squeeze(dim)
+    x3 = x3.squeeze(dim)
+    x4 = x4.squeeze(dim)
+
+    # Get the shape of the tensor excluding the real/imagniary part
+    s = list(w1.shape)
+    del s[dim]
+    b, ch, r, c = s
 
     # Stack 2 inputs of shape [batch, ch, r, c] to [batch, ch, r, 2, c]
     x_rows1 = torch.stack((x1, x3), dim=-2)

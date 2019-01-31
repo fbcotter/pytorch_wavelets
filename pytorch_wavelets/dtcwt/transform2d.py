@@ -7,12 +7,13 @@ from pytorch_wavelets.dtcwt.coeffs import level1 as _level1, qshift as _qshift, 
 from pytorch_wavelets.dtcwt.lowlevel import prep_filt
 from pytorch_wavelets.dtcwt import transform_funcs as tf
 from pytorch_wavelets.dwt.transform2d import DWTForward, DWTInverse
-from pytorch_wavelets.dwt.lowlevel import afb2d as afb2d, sfb2d_nonsep as sfb2d
-from pytorch_wavelets.dwt.lowlevel import prep_filt_afb2d
+from pytorch_wavelets.dwt.lowlevel import afb2d, sfb2d_nonsep as sfb2d
+from pytorch_wavelets.dwt.lowlevel import prep_filt_afb2d, prep_filt_sfb2d_nonsep as prep_filt_sfb2d
 import numpy as np
 
 
-def cplxdual2D(x, J, level1='farras', qshift='qshift_a', mode='periodic'):
+def cplxdual2D(x, J, level1='farras', qshift='qshift_a', mode='periodization',
+               mag=False):
     """ Do a complex dtcwt
 
     Returns:
@@ -37,8 +38,6 @@ def cplxdual2D(x, J, level1='farras', qshift='qshift_a', mode='periodic'):
     h0a1, h0b1, _, _, h1a1, h1b1, _, _ = _level1(level1)
     h0a, h0b, _, _, h1a, h1b, _, _ = _qshift(qshift)
 
-    Faf = ((h0a1, h1a1), (h0b1, h1b1))
-    af = ((h0a, h1a), (h0b, h1b))
     Faf = ((prep_filt_afb2d(h0a1, h1a1, h0a1, h1a1, device=x.device),
             prep_filt_afb2d(h0a1, h1a1, h0b1, h1b1, device=x.device)),
            (prep_filt_afb2d(h0b1, h1b1, h0a1, h1a1, device=x.device),
@@ -78,12 +77,61 @@ def cplxdual2D(x, J, level1='farras', qshift='qshift_a', mode='periodic'):
         deg45r, deg135i = pm(w[j][0][1][2], w[j][1][0][2])
         yhr = torch.stack((deg15r, deg45r, deg75r, deg105r, deg135r, deg165r), dim=1)
         yhi = torch.stack((deg15i, deg45i, deg75i, deg105i, deg135i, deg165i), dim=1)
-        yh[j] = torch.stack((yhr, yhi), dim=-1)
-        #  for l in range(3):
-            #  w[j][0][0][l], w[j][1][1][l] = pm(w[j][0][0][l], w[j][1][1][l])
-            #  w[j][0][1][l], w[j][1][0][l] = pm(w[j][0][1][l], w[j][1][0][l])
+        if mag:
+            yh[j] = torch.sqrt(yhr**2 + yhi**2 + 0.01) - np.sqrt(0.01)
+        else:
+            yh[j] = torch.stack((yhr, yhi), dim=-1)
 
     return lows, yh
+
+
+def icplxdual2D(yl, yh, level1='farras', qshift='qshift_a', mode='periodization'):
+    # Get the filters
+    _, _, g0a1, g0b1, _, _, g1a1, g1b1 = _level1(level1)
+    _, _, g0a, g0b, _, _, g1a, g1b = _qshift(qshift)
+
+    dev = yl[0][0].device
+    Faf = ((prep_filt_sfb2d(g0a1, g1a1, g0a1, g1a1, device=dev),
+            prep_filt_sfb2d(g0a1, g1a1, g0b1, g1b1, device=dev)),
+           (prep_filt_sfb2d(g0b1, g1b1, g0a1, g1a1, device=dev),
+            prep_filt_sfb2d(g0b1, g1b1, g0b1, g1b1, device=dev)))
+    af = ((prep_filt_sfb2d(g0a, g1a, g0a, g1a, device=dev),
+           prep_filt_sfb2d(g0a, g1a, g0b, g1b, device=dev)),
+          (prep_filt_sfb2d(g0b, g1b, g0a, g1a, device=dev),
+           prep_filt_sfb2d(g0b, g1b, g0b, g1b, device=dev)))
+
+    # Convert the highs back to subbands
+    J = len(yh)
+    w = [[[[None for i in range(3)] for j in range(2)] for k in range(2)] for l in range(J)]
+    for j in range(J):
+        w[j][0][0][0], w[j][1][1][0] = pm(yh[j][:,2,:,:,:,0], yh[j][:,3,:,:,:,1])
+        w[j][0][1][0], w[j][1][0][0] = pm(yh[j][:,3,:,:,:,0], yh[j][:,2,:,:,:,1])
+        w[j][0][0][1], w[j][1][1][1] = pm(yh[j][:,0,:,:,:,0], yh[j][:,5,:,:,:,1])
+        w[j][0][1][1], w[j][1][0][1] = pm(yh[j][:,5,:,:,:,0], yh[j][:,0,:,:,:,1])
+        w[j][0][0][2], w[j][1][1][2] = pm(yh[j][:,1,:,:,:,0], yh[j][:,4,:,:,:,1])
+        w[j][0][1][2], w[j][1][0][2] = pm(yh[j][:,4,:,:,:,0], yh[j][:,1,:,:,:,1])
+        w[j][0][0] = torch.stack(w[j][0][0], dim=2)
+        w[j][0][1] = torch.stack(w[j][0][1], dim=2)
+        w[j][1][0] = torch.stack(w[j][1][0], dim=2)
+        w[j][1][1] = torch.stack(w[j][1][1], dim=2)
+
+    y = None
+    for m in range(2):
+        for n in range(2):
+            lo = yl[m][n]
+            for j in range(J-1, 0, -1):
+                lo = sfb2d(lo, w[j][m][n], af[m][n], mode=mode)
+            lo = sfb2d(lo, w[0][m][n], Faf[m][n],  mode=mode)
+
+            # Add to the output
+            if y is None:
+                y = lo
+            else:
+                y = y + lo
+
+    # Normalize
+    y = y/2
+    return y
 
 
 def pm(a, b):
@@ -190,8 +238,6 @@ class DTCWTForward(nn.Module):
             not to calculate the bandpass outputs at the given scale.
             skip_hps[0] is for the first scale. Can be a single bool in which
             case that is applied to all scales.
-        o_before_c (bool): whether or not to put the orientations before the
-            channel dimension.
         include_scale (bool): If true, return the bandpass outputs. Can also be
             a list of length J specifying which lowpasses to return. I.e. if
             [False, True, True], the forward call will return the second and
@@ -199,21 +245,23 @@ class DTCWTForward(nn.Module):
             transform.
         downsample (bool): If true, subsample the output lowpass (to match the
             bandpass output sizes)
-        C: deprecated, will be removed in future
+        o_dim (int): Which dimension to put the orientations in
+        ri_dim (int): which dimension to put the real and imaginary parts
     """
-    def __init__(self, C=None, biort='near_sym_a', qshift='qshift_a',
-                 J=3, skip_hps=False, o_before_c=False, include_scale=False,
-                 downsample=False):
+    def __init__(self, biort='near_sym_a', qshift='qshift_a',
+                 J=3, skip_hps=False, include_scale=False,
+                 downsample=False, o_dim=2, ri_dim=-1):
         super().__init__()
-        if C is not None:
-            warnings.warn('C parameter is deprecated. do not need to pass it '
-                          'anymore.')
+        if o_dim == ri_dim:
+            raise ValueError("Orientations and real/imaginary parts must be "
+                             "in different dimensions.")
 
         self.biort = biort
         self.qshift = qshift
-        self.o_before_c = o_before_c
         self.J = J
         self.downsample = downsample
+        self.o_dim = o_dim
+        self.ri_dim = ri_dim
         if isinstance(biort, str):
             h0o, _, h1o, _ = _biort(biort)
             self.h0o = torch.nn.Parameter(prep_filt(h0o, 1), False)
@@ -261,9 +309,8 @@ class DTCWTForward(nn.Module):
                 coefficients, otherwise will be just the final lowpass
                 coefficient of shape :math:`(N, C_{in}, H_{in}', W_{in}')`. Yh
                 will be a list of the complex bandpass coefficients of shape
-                :math:`list(N, C_{in}, 6, H_{in}'', W_{in}'', 2)`, or
-                :math:`list(N, 6, C_{in}, H_{in}'', W_{in}'', 2)` if o_before_c
-                was true.
+                :math:`list(N, C_{in}, 6, H_{in}'', W_{in}'', 2)`, or similar
+                shape depending on o_dim and ri_dim
 
         Note:
             :math:`H_{in}', W_{in}', H_{in}'', W_{in}''` are the shapes of a
@@ -271,7 +318,8 @@ class DTCWTForward(nn.Module):
         """
         coeffs = self.dtcwt_func.apply(
             x, self.h0o, self.h1o, self.h0a, self.h0b, self.h1a,
-            self.h1b, self.skip_hps, self.o_before_c, self.include_scale)
+            self.h1b, self.skip_hps, self.include_scale, self.o_dim,
+            self.ri_dim)
 
         if True in self.include_scale:
             if self.downsample:
@@ -299,19 +347,17 @@ class DTCWTInverse(nn.Module):
             also give a 4-tuple for the low tree a, low tree b, high tree a and
             high tree b filters directly.
         J (int): Number of levels of decomposition.
-        o_before_c (bool): whether or not to put the orientations before the
-            channel dimension.
-        C: deprecated, will be removed in future
+        o_dim (int):which dimension the orientations are in
+        ri_dim (int): which dimension to put th real and imaginary parts in
     """
 
-    def __init__(self, C=None, biort='near_sym_a', qshift='qshift_a', J=3,
-                 o_before_c=False):
+    def __init__(self, biort='near_sym_a', qshift='qshift_a', J=3,
+                 o_dim=2, ri_dim=-1):
         super().__init__()
-        if C is not None:
-            warnings.warn('C parameter is deprecated. do not need to pass it')
         self.biort = biort
         self.qshift = qshift
-        self.o_before_c = o_before_c
+        self.o_dim = o_dim
+        self.ri_dim = ri_dim
         self.J = J
         if isinstance(biort, str):
             _, g0o, _, g1o = _biort(biort)
@@ -341,9 +387,8 @@ class DTCWTInverse(nn.Module):
             coeffs (yl, yh): tuple of lowpass and bandpass coefficients, where:
                 yl is a tensor of shape :math:`(N, C_{in}, H_{in}', W_{in}')`
                 and yh is a list of  the complex bandpass coefficients of shape
-                :math:`list(N, C_{in}, 6, H_{in}'', W_{in}'', 2)`, or
-                :math:`list(N, 6, C_{in}, H_{in}'', W_{in}'', 2)` if o_before_c
-                was true.
+                :math:`list(N, C_{in}, 6, H_{in}'', W_{in}'', 2)`, or similar
+                depending on o_dim and ri_dim
 
         Returns:
             Reconstructed output
@@ -368,19 +413,14 @@ class DTCWTInverse(nn.Module):
         yl, yh = coeffs
         for s in yh:
             if s is not None and s.shape != torch.Size([0]):
-                if self.o_before_c:
-                    assert s.shape[1] == 6, "Inverse transform must have " \
-                        "input with 6 orientations"
-                    assert len(s.shape) == 6, "Bandpass inputs must have " \
-                        "shape (n, 6, c, h, w, 2)"
-                else:
-                    assert s.shape[2] == 6, "Inverse transform must have " \
-                        "input with 6 orientations"
-                    assert len(s.shape) == 6, "Bandpass inputs must have " \
-                        "shape (n, c, 6, h, w, 2)"
-                assert s.shape[-1] == 2, "Inputs must be complex with real " \
-                    "and imaginary parts in the last dimension"
+                assert s.shape[self.o_dim] == 6, "Inverse transform must " \
+                    "have input with 6 orientations"
+                assert len(s.shape) == 6, "Bandpass inputs must have " \
+                    "6 dimensions"
+                assert s.shape[self.ri_dim] == 2, "Inputs must be complex " \
+                    "with real and imaginary parts in the ri dimension"
+        assert len(yh) == self.J, "The input provided has more scales than J"
 
         return self.dtcwt_func.apply(
             yl, *yh, self.g0o, self.g1o, self.g0a, self.g0b, self.g1a, self.g1b,
-            self.o_before_c)
+            self.o_dim, self.ri_dim)

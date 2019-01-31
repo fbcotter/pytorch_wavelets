@@ -21,7 +21,7 @@ def _load_from_file(basename, varnames):
     except KeyError:
         with resource_stream('pytorch_wavelets.dtcwt.data', basename + '.npz') as f:
             mat = dict(load(f))
-        #  COEFF_CACHE[basename] = mat
+        COEFF_CACHE[basename] = mat
 
     try:
         return tuple(mat[k] for k in varnames)

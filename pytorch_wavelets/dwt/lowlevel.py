@@ -201,7 +201,7 @@ def afb2d(x, filts, mode='zero', split=True):
             half.
     """
     C = x.shape[1]
-    tensorize = [not isinstance(x, torch.Tensor) for x in filts]
+    tensorize = [not isinstance(f, torch.Tensor) for f in filts]
     if len(filts) == 2:
         h0, h1 = filts
         if True in tensorize:
@@ -380,9 +380,9 @@ def sfb2d_nonsep(ll, highs, filts, mode='zero'):
     # Check the filter inputs
     if isinstance(filts, (tuple, list)):
         if len(filts) == 2:
-            filts = prep_filt_afb2d_nonsep(filts[0], filts[1], device=ll.device)
+            filts = prep_filt_sfb2d_nonsep(filts[0], filts[1], device=ll.device)
         elif len(filts) == 4:
-            filts = prep_filt_afb2d_nonsep(
+            filts = prep_filt_sfb2d_nonsep(
                 filts[0], filts[1], filts[2], filts[3], device=ll.device)
         else:
             raise ValueError("Unkown form for input filts")

@@ -9,9 +9,9 @@ level1_fwd = """# Level 1 forward (biorthogonal analysis filters)
             LoHi = colfilter(Lo, h1o)
             HiLo = colfilter(Hi, h0o)
             HiHi = colfilter(Hi, h1o)
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
+            deg15, deg165 = q2c(LoHi, ctx.ri_dim)
+            deg45, deg135 = q2c(HiHi, ctx.ri_dim)
+            deg75, deg105 = q2c(HiLo, ctx.ri_dim)
             Yh1 = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
@@ -25,14 +25,16 @@ level1_fwd = """# Level 1 forward (biorthogonal analysis filters)
 
 level1_hps_bwd = """# Level 1 backward (time reversed biorthogonal analysis filters)
             if not ctx.skip_hps[0]:
-                if ctx.o_dim == 1:
-                    lh = c2q(grad_Yh1[:,0], grad_Yh1[:,5])
-                    hl = c2q(grad_Yh1[:,2], grad_Yh1[:,3])
-                    hh = c2q(grad_Yh1[:,1], grad_Yh1[:,4])
-                else:
-                    lh = c2q(grad_Yh1[:,:,0], grad_Yh1[:,:,5])
-                    hl = c2q(grad_Yh1[:,:,2], grad_Yh1[:,:,3])
-                    hh = c2q(grad_Yh1[:,:,1], grad_Yh1[:,:,4])
+                dev = grad_Yh1.device
+                deg15, deg165 = torch.unbind(torch.index_select(
+                    grad_Yh1, ctx.o_dim, torch.tensor([0, 5], device=dev)), dim=ctx.o_dim)
+                deg45, deg135 = torch.unbind(torch.index_select(
+                    grad_Yh1, ctx.o_dim, torch.tensor([1, 4], device=dev)), dim=ctx.o_dim)
+                deg75, deg105 = torch.unbind(torch.index_select(
+                    grad_Yh1, ctx.o_dim, torch.tensor([2, 3], device=dev)), dim=ctx.o_dim)
+                lh = c2q(deg15, deg165, ctx.ri_dim)
+                hl = c2q(deg75, deg105, ctx.ri_dim)
+                hh = c2q(deg45, deg135, ctx.ri_dim)
                 Hi = colfilter(hh, h1o_t) + colfilter(hl, h0o_t)
                 Lo = colfilter(lh, h1o_t) + colfilter(ll, h0o_t)
                 grad_input = rowfilter(Hi, h1o_t) + rowfilter(Lo, h0o_t)
@@ -58,9 +60,9 @@ level2plus_fwd = """# Level {j} forward (quater shift analysis filters)
             HiLo = coldfilt(Hi, h0b, h0a)
             HiHi = coldfilt(Hi, h1b, h1a, highpass=True)
 
-            deg15, deg165 = q2c(LoHi)
-            deg45, deg135 = q2c(HiHi)
-            deg75, deg105 = q2c(HiLo)
+            deg15, deg165 = q2c(LoHi, ctx.ri_dim)
+            deg45, deg135 = q2c(HiHi, ctx.ri_dim)
+            deg75, deg105 = q2c(HiLo, ctx.ri_dim)
             Yh{j} = torch.stack(
                 [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
         else:
@@ -74,14 +76,16 @@ level2plus_fwd = """# Level {j} forward (quater shift analysis filters)
 
 level2plus_bwd = """# Level {j} backward (time reversed quater shift analysis filters)
             if not ctx.skip_hps[{i}]:
-                if ctx.o_dim == 1:
-                    lh = c2q(grad_Yh{j}[:,0], grad_Yh{j}[:,5])
-                    hl = c2q(grad_Yh{j}[:,2], grad_Yh{j}[:,3])
-                    hh = c2q(grad_Yh{j}[:,1], grad_Yh{j}[:,4])
-                else:
-                    lh = c2q(grad_Yh{j}[:,:,0], grad_Yh{j}[:,:,5])
-                    hl = c2q(grad_Yh{j}[:,:,2], grad_Yh{j}[:,:,3])
-                    hh = c2q(grad_Yh{j}[:,:,1], grad_Yh{j}[:,:,4])
+                dev = grad_Yh{j}.device
+                deg15, deg165 = torch.unbind(torch.index_select(
+                    grad_Yh{j}, ctx.o_dim, torch.tensor([0, 5], device=dev)), dim=ctx.o_dim)
+                deg45, deg135 = torch.unbind(torch.index_select(
+                    grad_Yh{j}, ctx.o_dim, torch.tensor([1, 4], device=dev)), dim=ctx.o_dim)
+                deg75, deg105 = torch.unbind(torch.index_select(
+                    grad_Yh{j}, ctx.o_dim, torch.tensor([2, 3], device=dev)), dim=ctx.o_dim)
+                lh = c2q(deg15, deg165, ctx.ri_dim)
+                hl = c2q(deg75, deg105, ctx.ri_dim)
+                hh = c2q(deg45, deg135, ctx.ri_dim)
                 Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
                 Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
                 ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
@@ -91,14 +95,16 @@ level2plus_bwd = """# Level {j} backward (time reversed quater shift analysis fi
 """
 level2plus_bwd_scale = """# Level {j} backward (time reversed quater shift analysis filters)
             if not ctx.skip_hps[{i}]:
-                if ctx.o_dim == 1:
-                    lh = c2q(grad_Yh{j}[:,0], grad_Yh{j}[:,5])
-                    hl = c2q(grad_Yh{j}[:,2], grad_Yh{j}[:,3])
-                    hh = c2q(grad_Yh{j}[:,1], grad_Yh{j}[:,4])
-                else:
-                    lh = c2q(grad_Yh{j}[:,:,0], grad_Yh{j}[:,:,5])
-                    hl = c2q(grad_Yh{j}[:,:,2], grad_Yh{j}[:,:,3])
-                    hh = c2q(grad_Yh{j}[:,:,1], grad_Yh{j}[:,:,4])
+                dev = grad_Yh{j}.device
+                deg15, deg165 = torch.unbind(torch.index_select(
+                    grad_Yh{j}, ctx.o_dim, torch.tensor([0, 5], device=dev)), dim=ctx.o_dim)
+                deg45, deg135 = torch.unbind(torch.index_select(
+                    grad_Yh{j}, ctx.o_dim, torch.tensor([1, 4], device=dev)), dim=ctx.o_dim)
+                deg75, deg105 = torch.unbind(torch.index_select(
+                    grad_Yh{j}, ctx.o_dim, torch.tensor([2, 3], device=dev)), dim=ctx.o_dim)
+                lh = c2q(deg15, deg165, ctx.ri_dim)
+                hl = c2q(deg75, deg105, ctx.ri_dim)
+                hh = c2q(deg45, deg135, ctx.ri_dim)
                 Hi = colifilt(hh, h1b_t, h1a_t, True) + colifilt(hl, h0b_t, h0a_t)
                 Lo = colifilt(lh, h1b_t, h1a_t, True) + colifilt(ll, h0b_t, h0a_t)
                 ll = rowifilt(Hi, h1b_t, h1a_t, True) + rowifilt(Lo, h0b_t, h0a_t)
@@ -125,12 +131,12 @@ xfm = """
 class xfm{J}{scale}(Function):
 
     @staticmethod
-    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b, skip_hps, o_before_c, include_scale):
+    def forward(ctx, input, h0o, h1o, h0a, h0b, h1a, h1b, skip_hps, include_scale, o_dim, ri_dim):
         ctx.save_for_backward(h0o, h1o, h0a, h0b, h1a, h1b)
-        if o_before_c:
-            ctx.o_dim = 1
-        else:
-            ctx.o_dim = 2
+        ctx.o_dim = (o_dim % 6)
+        ctx.ri_dim = (ri_dim % 6)
+        if ctx.o_dim < ctx.ri_dim:
+            ctx.ri_dim -= 1
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
@@ -176,14 +182,16 @@ class xfm{J}{scale}(Function):
 ## Inverse Templates
 level1_hps_fwd_inv = """# Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
-            {checkshape}if ctx.o_dim == 1:
-                lh = c2q(yh1[:,0], yh1[:,5])
-                hl = c2q(yh1[:,2], yh1[:,3])
-                hh = c2q(yh1[:,1], yh1[:,4])
-            else:
-                lh = c2q(yh1[:,:,0], yh1[:,:,5])
-                hl = c2q(yh1[:,:,2], yh1[:,:,3])
-                hh = c2q(yh1[:,:,1], yh1[:,:,4])
+            {checkshape}dev = yh1.device
+            deg15, deg165 = torch.unbind(torch.index_select(
+                yh1, ctx.o_dim, torch.tensor([0, 5], device=dev)), dim=ctx.o_dim)
+            deg45, deg135 = torch.unbind(torch.index_select(
+                yh1, ctx.o_dim, torch.tensor([1, 4], device=dev)), dim=ctx.o_dim)
+            deg75, deg105 = torch.unbind(torch.index_select(
+                yh1, ctx.o_dim, torch.tensor([2, 3], device=dev)), dim=ctx.o_dim)
+            lh = c2q(deg15, deg165, ctx.ri_dim)
+            hl = c2q(deg75, deg105, ctx.ri_dim)
+            hh = c2q(deg45, deg135, ctx.ri_dim)
             Hi = colfilter(hh, g1o) + colfilter(hl, g0o)
             if ll is not None and ll.shape != torch.Size([0]):
                 Lo = colfilter(lh, g1o) + colfilter(ll, g0o)
@@ -204,23 +212,25 @@ level1_hps_bwd_inv = """if ctx.needs_input_grad[1]:
                 LoHi = colfilter(Lo, g1o_t)
                 HiLo = colfilter(Hi, g0o_t)
                 HiHi = colfilter(Hi, g1o_t)
-                deg15, deg165 = q2c(LoHi)
-                deg45, deg135 = q2c(HiHi)
-                deg75, deg105 = q2c(HiLo)
+                deg15, deg165 = q2c(LoHi, ctx.ri_dim)
+                deg45, deg135 = q2c(HiHi, ctx.ri_dim)
+                deg75, deg105 = q2c(HiLo, ctx.ri_dim)
                 grad_yh1 = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
 """
 
 level2plus_fwd_inv = """# Level {j} inverse transform with quater shift synthesis filters
         if yh{j} is not None and yh{j}.shape != torch.Size([0]):
-            {checkshape}if ctx.o_dim == 1:
-                lh = c2q(yh{j}[:,0], yh{j}[:,5])
-                hl = c2q(yh{j}[:,2], yh{j}[:,3])
-                hh = c2q(yh{j}[:,1], yh{j}[:,4])
-            else:
-                lh = c2q(yh{j}[:,:,0], yh{j}[:,:,5])
-                hl = c2q(yh{j}[:,:,2], yh{j}[:,:,3])
-                hh = c2q(yh{j}[:,:,1], yh{j}[:,:,4])
+            {checkshape}dev = yh{j}.device
+            deg15, deg165 = torch.unbind(torch.index_select(
+                yh{j}, ctx.o_dim, torch.tensor([0, 5], device=dev)), dim=ctx.o_dim)
+            deg45, deg135 = torch.unbind(torch.index_select(
+                yh{j}, ctx.o_dim, torch.tensor([1, 4], device=dev)), dim=ctx.o_dim)
+            deg75, deg105 = torch.unbind(torch.index_select(
+                yh{j}, ctx.o_dim, torch.tensor([2, 3], device=dev)), dim=ctx.o_dim)
+            lh = c2q(deg15, deg165, ctx.ri_dim)
+            hl = c2q(deg75, deg105, ctx.ri_dim)
+            hh = c2q(deg45, deg135, ctx.ri_dim)
             Hi = colifilt(hh, g1b, g1a, True) + colifilt(hl, g0b, g0a)
             if ll is not None and ll.shape != torch.Size([0]):
                 Lo = colifilt(lh, g1b, g1a, True) + colifilt(ll, g0b, g0a)
@@ -253,9 +263,9 @@ level2plus_bwd_inv = """# Level {j} inverse gradient - same as fwd transform
                 HiLo = coldfilt(Hi, g0b_t, g0a_t)
                 HiHi = coldfilt(Hi, g1b_t, g1a_t, highpass=True)
 
-                deg15, deg165 = q2c(LoHi)
-                deg45, deg135 = q2c(HiHi)
-                deg75, deg105 = q2c(HiLo)
+                deg15, deg165 = q2c(LoHi, ctx.ri_dim)
+                deg45, deg135 = q2c(HiHi, ctx.ri_dim)
+                deg75, deg105 = q2c(HiLo, ctx.ri_dim)
                 grad_yh{j} = torch.stack(
                     [deg15, deg45, deg75, deg105, deg135, deg165], dim=ctx.o_dim)
             LoLo = coldfilt(Lo, g0b_t, g0a_t)"""
@@ -264,12 +274,12 @@ ifm = """
 class ifm{J}(Function):
 
     @staticmethod
-    def forward(ctx, yl, {yh_in}, g0o, g1o, g0a, g0b, g1a, g1b, o_before_c):
+    def forward(ctx, yl, {yh_in}, g0o, g1o, g0a, g0b, g1a, g1b, o_dim, ri_dim):
         ctx.save_for_backward(g0o, g1o, g0a, g0b, g1a, g1b)
-        if o_before_c:
-            ctx.o_dim = 1
-        else:
-            ctx.o_dim = 2
+        ctx.o_dim = (o_dim % 6)
+        ctx.ri_dim = (ri_dim % 6)
+        if ctx.o_dim < ctx.ri_dim:
+            ctx.ri_dim -= 1
         ll = yl
         {level2plus}{level1}
 
