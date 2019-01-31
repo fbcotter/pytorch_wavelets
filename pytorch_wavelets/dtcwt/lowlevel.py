@@ -274,8 +274,8 @@ def c2q(w1, w2, dim=-1):
         raise ValueError("Wrong dimension specified for c2q. Need to specify "
                          "the dimension with real and imaginary components")
 
-    r = torch.tensor(0)
-    i = torch.tensor(1)
+    r = torch.tensor(0, device=w1.device)
+    i = torch.tensor(1, device=w1.device)
     x1 = torch.index_select(w1, dim, r) + torch.index_select(w2, dim, r)
     x2 = torch.index_select(w1, dim, i) + torch.index_select(w2, dim, i)
     x3 = torch.index_select(w1, dim, i) - torch.index_select(w2, dim, i)

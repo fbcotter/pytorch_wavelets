@@ -115,13 +115,13 @@ level2plus_bwd_scale = """# Level {j} backward (time reversed quater shift analy
                 ll = (ll + grad_Ys{j2})/2
 """
 bwd_checkshape_hps = """r, c = ll.shape[2:]
-            r1, c1 = grad_Yh{j2}.shape[3:5]
+            r1, c1 = grad_Yh{j2}.shape[ctx.h_dim], grad_Yh{j2}.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
                 ll = ll[:,:,:,1:-1]"""
 bwd_checkshape_nohps = """r, c = ll.shape[2:]
-            r1, c1 = in_shape[3:5]
+            r1, c1 = in_shape[ctx.h_dim], in_shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -137,6 +137,19 @@ class xfm{J}{scale}(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
+
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
@@ -242,7 +255,7 @@ level2plus_fwd_inv = """# Level {j} inverse transform with quater shift synthesi
         """
 
 fwd_checkshape_hps = """r, c = ll.shape[2:]
-            r1, c1 = yh{j}.shape[3:5]
+            r1, c1 = yh{j}.shape[ctx.h_dim], yh{j}.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -280,6 +293,19 @@ class ifm{J}(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        # Get the height and width dimensions
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
         ll = yl
         {level2plus}{level1}
 

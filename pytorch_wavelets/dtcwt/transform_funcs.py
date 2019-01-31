@@ -14,6 +14,19 @@ class ifm1(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        # Get the height and width dimensions
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
         ll = yl
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
@@ -83,6 +96,19 @@ class xfm1scale(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
+
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
@@ -173,6 +199,19 @@ class xfm1(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
+
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
@@ -263,6 +302,19 @@ class ifm2(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        # Get the height and width dimensions
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
         ll = yl
         # Level 2 inverse transform with quater shift synthesis filters
         if yh2 is not None and yh2.shape != torch.Size([0]):
@@ -288,7 +340,7 @@ class ifm2(Function):
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh1.shape[3:5]
+            r1, c1 = yh1.shape[ctx.h_dim], yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -380,6 +432,19 @@ class xfm2scale(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
+
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
@@ -480,7 +545,7 @@ class xfm2scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh1.shape[3:5]
+            r1, c1 = grad_Yh1.shape[ctx.h_dim], grad_Yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -523,6 +588,19 @@ class xfm2(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
+
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
@@ -623,7 +701,7 @@ class xfm2(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh1.shape[3:5]
+            r1, c1 = grad_Yh1.shape[ctx.h_dim], grad_Yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -664,6 +742,19 @@ class ifm3(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        # Get the height and width dimensions
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
         ll = yl
         # Level 3 inverse transform with quater shift synthesis filters
         if yh3 is not None and yh3.shape != torch.Size([0]):
@@ -690,7 +781,7 @@ class ifm3(Function):
         # Level 2 inverse transform with quater shift synthesis filters
         if yh2 is not None and yh2.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh2.shape[3:5]
+            r1, c1 = yh2.shape[ctx.h_dim], yh2.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -717,7 +808,7 @@ class ifm3(Function):
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh1.shape[3:5]
+            r1, c1 = yh1.shape[ctx.h_dim], yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -830,6 +921,19 @@ class xfm3scale(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
+
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
@@ -957,7 +1061,7 @@ class xfm3scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh2.shape[3:5]
+            r1, c1 = grad_Yh2.shape[ctx.h_dim], grad_Yh2.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -983,7 +1087,7 @@ class xfm3scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh1.shape[3:5]
+            r1, c1 = grad_Yh1.shape[ctx.h_dim], grad_Yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -1026,6 +1130,19 @@ class xfm3(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
+
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
@@ -1153,7 +1270,7 @@ class xfm3(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh2.shape[3:5]
+            r1, c1 = grad_Yh2.shape[ctx.h_dim], grad_Yh2.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -1177,7 +1294,7 @@ class xfm3(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh1.shape[3:5]
+            r1, c1 = grad_Yh1.shape[ctx.h_dim], grad_Yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -1218,6 +1335,19 @@ class ifm4(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        # Get the height and width dimensions
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
         ll = yl
         # Level 4 inverse transform with quater shift synthesis filters
         if yh4 is not None and yh4.shape != torch.Size([0]):
@@ -1244,7 +1374,7 @@ class ifm4(Function):
         # Level 3 inverse transform with quater shift synthesis filters
         if yh3 is not None and yh3.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh3.shape[3:5]
+            r1, c1 = yh3.shape[ctx.h_dim], yh3.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -1272,7 +1402,7 @@ class ifm4(Function):
         # Level 2 inverse transform with quater shift synthesis filters
         if yh2 is not None and yh2.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh2.shape[3:5]
+            r1, c1 = yh2.shape[ctx.h_dim], yh2.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -1299,7 +1429,7 @@ class ifm4(Function):
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh1.shape[3:5]
+            r1, c1 = yh1.shape[ctx.h_dim], yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -1433,6 +1563,19 @@ class xfm4scale(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
+
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
@@ -1587,7 +1730,7 @@ class xfm4scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh3.shape[3:5]
+            r1, c1 = grad_Yh3.shape[ctx.h_dim], grad_Yh3.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -1613,7 +1756,7 @@ class xfm4scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh2.shape[3:5]
+            r1, c1 = grad_Yh2.shape[ctx.h_dim], grad_Yh2.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -1639,7 +1782,7 @@ class xfm4scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh1.shape[3:5]
+            r1, c1 = grad_Yh1.shape[ctx.h_dim], grad_Yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -1682,6 +1825,19 @@ class xfm4(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
+
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
@@ -1836,7 +1992,7 @@ class xfm4(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh3.shape[3:5]
+            r1, c1 = grad_Yh3.shape[ctx.h_dim], grad_Yh3.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -1860,7 +2016,7 @@ class xfm4(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh2.shape[3:5]
+            r1, c1 = grad_Yh2.shape[ctx.h_dim], grad_Yh2.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -1884,7 +2040,7 @@ class xfm4(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh1.shape[3:5]
+            r1, c1 = grad_Yh1.shape[ctx.h_dim], grad_Yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -1925,6 +2081,19 @@ class ifm5(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        # Get the height and width dimensions
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
         ll = yl
         # Level 5 inverse transform with quater shift synthesis filters
         if yh5 is not None and yh5.shape != torch.Size([0]):
@@ -1951,7 +2120,7 @@ class ifm5(Function):
         # Level 4 inverse transform with quater shift synthesis filters
         if yh4 is not None and yh4.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh4.shape[3:5]
+            r1, c1 = yh4.shape[ctx.h_dim], yh4.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -1979,7 +2148,7 @@ class ifm5(Function):
         # Level 3 inverse transform with quater shift synthesis filters
         if yh3 is not None and yh3.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh3.shape[3:5]
+            r1, c1 = yh3.shape[ctx.h_dim], yh3.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -2007,7 +2176,7 @@ class ifm5(Function):
         # Level 2 inverse transform with quater shift synthesis filters
         if yh2 is not None and yh2.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh2.shape[3:5]
+            r1, c1 = yh2.shape[ctx.h_dim], yh2.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -2034,7 +2203,7 @@ class ifm5(Function):
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh1.shape[3:5]
+            r1, c1 = yh1.shape[ctx.h_dim], yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -2189,6 +2358,19 @@ class xfm5scale(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
+
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
@@ -2370,7 +2552,7 @@ class xfm5scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh4.shape[3:5]
+            r1, c1 = grad_Yh4.shape[ctx.h_dim], grad_Yh4.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -2396,7 +2578,7 @@ class xfm5scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh3.shape[3:5]
+            r1, c1 = grad_Yh3.shape[ctx.h_dim], grad_Yh3.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -2422,7 +2604,7 @@ class xfm5scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh2.shape[3:5]
+            r1, c1 = grad_Yh2.shape[ctx.h_dim], grad_Yh2.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -2448,7 +2630,7 @@ class xfm5scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh1.shape[3:5]
+            r1, c1 = grad_Yh1.shape[ctx.h_dim], grad_Yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -2491,6 +2673,19 @@ class xfm5(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
+
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
@@ -2672,7 +2867,7 @@ class xfm5(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh4.shape[3:5]
+            r1, c1 = grad_Yh4.shape[ctx.h_dim], grad_Yh4.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -2696,7 +2891,7 @@ class xfm5(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh3.shape[3:5]
+            r1, c1 = grad_Yh3.shape[ctx.h_dim], grad_Yh3.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -2720,7 +2915,7 @@ class xfm5(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh2.shape[3:5]
+            r1, c1 = grad_Yh2.shape[ctx.h_dim], grad_Yh2.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -2744,7 +2939,7 @@ class xfm5(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh1.shape[3:5]
+            r1, c1 = grad_Yh1.shape[ctx.h_dim], grad_Yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -2785,6 +2980,19 @@ class ifm6(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        # Get the height and width dimensions
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
         ll = yl
         # Level 6 inverse transform with quater shift synthesis filters
         if yh6 is not None and yh6.shape != torch.Size([0]):
@@ -2811,7 +3019,7 @@ class ifm6(Function):
         # Level 5 inverse transform with quater shift synthesis filters
         if yh5 is not None and yh5.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh5.shape[3:5]
+            r1, c1 = yh5.shape[ctx.h_dim], yh5.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -2839,7 +3047,7 @@ class ifm6(Function):
         # Level 4 inverse transform with quater shift synthesis filters
         if yh4 is not None and yh4.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh4.shape[3:5]
+            r1, c1 = yh4.shape[ctx.h_dim], yh4.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -2867,7 +3075,7 @@ class ifm6(Function):
         # Level 3 inverse transform with quater shift synthesis filters
         if yh3 is not None and yh3.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh3.shape[3:5]
+            r1, c1 = yh3.shape[ctx.h_dim], yh3.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -2895,7 +3103,7 @@ class ifm6(Function):
         # Level 2 inverse transform with quater shift synthesis filters
         if yh2 is not None and yh2.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh2.shape[3:5]
+            r1, c1 = yh2.shape[ctx.h_dim], yh2.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -2922,7 +3130,7 @@ class ifm6(Function):
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh1.shape[3:5]
+            r1, c1 = yh1.shape[ctx.h_dim], yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -3098,6 +3306,19 @@ class xfm6scale(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
+
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
@@ -3306,7 +3527,7 @@ class xfm6scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh5.shape[3:5]
+            r1, c1 = grad_Yh5.shape[ctx.h_dim], grad_Yh5.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -3332,7 +3553,7 @@ class xfm6scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh4.shape[3:5]
+            r1, c1 = grad_Yh4.shape[ctx.h_dim], grad_Yh4.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -3358,7 +3579,7 @@ class xfm6scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh3.shape[3:5]
+            r1, c1 = grad_Yh3.shape[ctx.h_dim], grad_Yh3.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -3384,7 +3605,7 @@ class xfm6scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh2.shape[3:5]
+            r1, c1 = grad_Yh2.shape[ctx.h_dim], grad_Yh2.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -3410,7 +3631,7 @@ class xfm6scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh1.shape[3:5]
+            r1, c1 = grad_Yh1.shape[ctx.h_dim], grad_Yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -3453,6 +3674,19 @@ class xfm6(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
+
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
@@ -3661,7 +3895,7 @@ class xfm6(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh5.shape[3:5]
+            r1, c1 = grad_Yh5.shape[ctx.h_dim], grad_Yh5.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -3685,7 +3919,7 @@ class xfm6(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh4.shape[3:5]
+            r1, c1 = grad_Yh4.shape[ctx.h_dim], grad_Yh4.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -3709,7 +3943,7 @@ class xfm6(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh3.shape[3:5]
+            r1, c1 = grad_Yh3.shape[ctx.h_dim], grad_Yh3.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -3733,7 +3967,7 @@ class xfm6(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh2.shape[3:5]
+            r1, c1 = grad_Yh2.shape[ctx.h_dim], grad_Yh2.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -3757,7 +3991,7 @@ class xfm6(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh1.shape[3:5]
+            r1, c1 = grad_Yh1.shape[ctx.h_dim], grad_Yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -3798,6 +4032,19 @@ class ifm7(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        # Get the height and width dimensions
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
         ll = yl
         # Level 7 inverse transform with quater shift synthesis filters
         if yh7 is not None and yh7.shape != torch.Size([0]):
@@ -3824,7 +4071,7 @@ class ifm7(Function):
         # Level 6 inverse transform with quater shift synthesis filters
         if yh6 is not None and yh6.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh6.shape[3:5]
+            r1, c1 = yh6.shape[ctx.h_dim], yh6.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -3852,7 +4099,7 @@ class ifm7(Function):
         # Level 5 inverse transform with quater shift synthesis filters
         if yh5 is not None and yh5.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh5.shape[3:5]
+            r1, c1 = yh5.shape[ctx.h_dim], yh5.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -3880,7 +4127,7 @@ class ifm7(Function):
         # Level 4 inverse transform with quater shift synthesis filters
         if yh4 is not None and yh4.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh4.shape[3:5]
+            r1, c1 = yh4.shape[ctx.h_dim], yh4.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -3908,7 +4155,7 @@ class ifm7(Function):
         # Level 3 inverse transform with quater shift synthesis filters
         if yh3 is not None and yh3.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh3.shape[3:5]
+            r1, c1 = yh3.shape[ctx.h_dim], yh3.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -3936,7 +4183,7 @@ class ifm7(Function):
         # Level 2 inverse transform with quater shift synthesis filters
         if yh2 is not None and yh2.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh2.shape[3:5]
+            r1, c1 = yh2.shape[ctx.h_dim], yh2.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -3963,7 +4210,7 @@ class ifm7(Function):
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
             r, c = ll.shape[2:]
-            r1, c1 = yh1.shape[3:5]
+            r1, c1 = yh1.shape[ctx.h_dim], yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -4160,6 +4407,19 @@ class xfm7scale(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
+
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
@@ -4395,7 +4655,7 @@ class xfm7scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh6.shape[3:5]
+            r1, c1 = grad_Yh6.shape[ctx.h_dim], grad_Yh6.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -4421,7 +4681,7 @@ class xfm7scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh5.shape[3:5]
+            r1, c1 = grad_Yh5.shape[ctx.h_dim], grad_Yh5.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -4447,7 +4707,7 @@ class xfm7scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh4.shape[3:5]
+            r1, c1 = grad_Yh4.shape[ctx.h_dim], grad_Yh4.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -4473,7 +4733,7 @@ class xfm7scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh3.shape[3:5]
+            r1, c1 = grad_Yh3.shape[ctx.h_dim], grad_Yh3.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -4499,7 +4759,7 @@ class xfm7scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh2.shape[3:5]
+            r1, c1 = grad_Yh2.shape[ctx.h_dim], grad_Yh2.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -4525,7 +4785,7 @@ class xfm7scale(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh1.shape[3:5]
+            r1, c1 = grad_Yh1.shape[ctx.h_dim], grad_Yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -4568,6 +4828,19 @@ class xfm7(Function):
         ctx.ri_dim = (ri_dim % 6)
         if ctx.o_dim < ctx.ri_dim:
             ctx.ri_dim -= 1
+        if ctx.o_dim >= 3 and ctx.ri_dim >= 3:
+            ctx.h_dim = 2
+        elif ctx.o_dim >= 4 or ctx.ri_dim >= 4:
+            ctx.h_dim = 3
+        else:
+            ctx.h_dim = 4
+        if ctx.o_dim >= 4 and ctx.ri_dim >= 4:
+            ctx.w_dim = 3
+        elif ctx.o_dim >=4 or ctx.ri_dim >= 4:
+            ctx.w_dim = 4
+        else:
+            ctx.w_dim = 5
+
         ctx.in_shape = input.shape
         ctx.skip_hps = skip_hps
         ctx.include_scale = include_scale
@@ -4803,7 +5076,7 @@ class xfm7(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh6.shape[3:5]
+            r1, c1 = grad_Yh6.shape[ctx.h_dim], grad_Yh6.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -4827,7 +5100,7 @@ class xfm7(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh5.shape[3:5]
+            r1, c1 = grad_Yh5.shape[ctx.h_dim], grad_Yh5.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -4851,7 +5124,7 @@ class xfm7(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh4.shape[3:5]
+            r1, c1 = grad_Yh4.shape[ctx.h_dim], grad_Yh4.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -4875,7 +5148,7 @@ class xfm7(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh3.shape[3:5]
+            r1, c1 = grad_Yh3.shape[ctx.h_dim], grad_Yh3.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -4899,7 +5172,7 @@ class xfm7(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh2.shape[3:5]
+            r1, c1 = grad_Yh2.shape[ctx.h_dim], grad_Yh2.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
@@ -4923,7 +5196,7 @@ class xfm7(Function):
             else:
                 ll = rowifilt(colifilt(Lo, h0b_t, h0a_t), h0b_t, h0a_t)
             r, c = ll.shape[2:]
-            r1, c1 = grad_Yh1.shape[3:5]
+            r1, c1 = grad_Yh1.shape[ctx.h_dim], grad_Yh1.shape[ctx.w_dim]
             if r != r1 * 2:
                 ll = ll[:,:,1:-1]
             if c != c1 * 2:
