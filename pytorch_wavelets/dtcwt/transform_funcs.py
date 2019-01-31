@@ -84,7 +84,7 @@ class ifm1(Function):
             if ctx.needs_input_grad[0]:
                 grad_yl = LoLo
 
-        return (grad_yl, grad_yh1) + (None,) * 7
+        return (grad_yl, grad_yh1) + (None,) * 8
 
 
 class xfm1scale(Function):
@@ -187,7 +187,7 @@ class xfm1scale(Function):
                 grad_input = grad_input[:,:,:,:-1]
             
 
-        return (grad_input,) + (None,) * 9
+        return (grad_input,) + (None,) * 10
 
 
 class xfm1(Function):
@@ -290,7 +290,7 @@ class xfm1(Function):
                 grad_input = grad_input[:,:,:,:-1]
             
 
-        return (grad_input,) + (None,) * 9
+        return (grad_input,) + (None,) * 10
 
 
 class ifm2(Function):
@@ -420,7 +420,7 @@ class ifm2(Function):
             if ctx.needs_input_grad[0]:
                 grad_yl = LoLo
 
-        return (grad_yl, grad_yh1, grad_yh2) + (None,) * 7
+        return (grad_yl, grad_yh1, grad_yh2) + (None,) * 8
 
 
 class xfm2scale(Function):
@@ -576,7 +576,7 @@ class xfm2scale(Function):
                 grad_input = grad_input[:,:,:,:-1]
             
 
-        return (grad_input,) + (None,) * 9
+        return (grad_input,) + (None,) * 10
 
 
 class xfm2(Function):
@@ -730,7 +730,7 @@ class xfm2(Function):
                 grad_input = grad_input[:,:,:,:-1]
             
 
-        return (grad_input,) + (None,) * 9
+        return (grad_input,) + (None,) * 10
 
 
 class ifm3(Function):
@@ -909,7 +909,7 @@ class ifm3(Function):
             if ctx.needs_input_grad[0]:
                 grad_yl = LoLo
 
-        return (grad_yl, grad_yh1, grad_yh2, grad_yh3) + (None,) * 7
+        return (grad_yl, grad_yh1, grad_yh2, grad_yh3) + (None,) * 8
 
 
 class xfm3scale(Function):
@@ -1118,7 +1118,7 @@ class xfm3scale(Function):
                 grad_input = grad_input[:,:,:,:-1]
             
 
-        return (grad_input,) + (None,) * 9
+        return (grad_input,) + (None,) * 10
 
 
 class xfm3(Function):
@@ -1323,7 +1323,7 @@ class xfm3(Function):
                 grad_input = grad_input[:,:,:,:-1]
             
 
-        return (grad_input,) + (None,) * 9
+        return (grad_input,) + (None,) * 10
 
 
 class ifm4(Function):
@@ -1551,7 +1551,7 @@ class ifm4(Function):
             if ctx.needs_input_grad[0]:
                 grad_yl = LoLo
 
-        return (grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4) + (None,) * 7
+        return (grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4) + (None,) * 8
 
 
 class xfm4scale(Function):
@@ -1813,7 +1813,7 @@ class xfm4scale(Function):
                 grad_input = grad_input[:,:,:,:-1]
             
 
-        return (grad_input,) + (None,) * 9
+        return (grad_input,) + (None,) * 10
 
 
 class xfm4(Function):
@@ -2069,7 +2069,7 @@ class xfm4(Function):
                 grad_input = grad_input[:,:,:,:-1]
             
 
-        return (grad_input,) + (None,) * 9
+        return (grad_input,) + (None,) * 10
 
 
 class ifm5(Function):
@@ -2346,7 +2346,7 @@ class ifm5(Function):
             if ctx.needs_input_grad[0]:
                 grad_yl = LoLo
 
-        return (grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, grad_yh5) + (None,) * 7
+        return (grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, grad_yh5) + (None,) * 8
 
 
 class xfm5scale(Function):
@@ -2661,7 +2661,7 @@ class xfm5scale(Function):
                 grad_input = grad_input[:,:,:,:-1]
             
 
-        return (grad_input,) + (None,) * 9
+        return (grad_input,) + (None,) * 10
 
 
 class xfm5(Function):
@@ -2968,7 +2968,7 @@ class xfm5(Function):
                 grad_input = grad_input[:,:,:,:-1]
             
 
-        return (grad_input,) + (None,) * 9
+        return (grad_input,) + (None,) * 10
 
 
 class ifm6(Function):
@@ -3294,7 +3294,7 @@ class ifm6(Function):
             if ctx.needs_input_grad[0]:
                 grad_yl = LoLo
 
-        return (grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, grad_yh5, grad_yh6) + (None,) * 7
+        return (grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, grad_yh5, grad_yh6) + (None,) * 8
 
 
 class xfm6scale(Function):
@@ -3662,7 +3662,7 @@ class xfm6scale(Function):
                 grad_input = grad_input[:,:,:,:-1]
             
 
-        return (grad_input,) + (None,) * 9
+        return (grad_input,) + (None,) * 10
 
 
 class xfm6(Function):
@@ -4020,7 +4020,7 @@ class xfm6(Function):
                 grad_input = grad_input[:,:,:,:-1]
             
 
-        return (grad_input,) + (None,) * 9
+        return (grad_input,) + (None,) * 10
 
 
 class ifm7(Function):
@@ -4395,7 +4395,7 @@ class ifm7(Function):
             if ctx.needs_input_grad[0]:
                 grad_yl = LoLo
 
-        return (grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, grad_yh5, grad_yh6, grad_yh7) + (None,) * 7
+        return (grad_yl, grad_yh1, grad_yh2, grad_yh3, grad_yh4, grad_yh5, grad_yh6, grad_yh7) + (None,) * 8
 
 
 class xfm7scale(Function):
@@ -4816,7 +4816,7 @@ class xfm7scale(Function):
                 grad_input = grad_input[:,:,:,:-1]
             
 
-        return (grad_input,) + (None,) * 9
+        return (grad_input,) + (None,) * 10
 
 
 class xfm7(Function):
@@ -5225,5 +5225,5 @@ class xfm7(Function):
                 grad_input = grad_input[:,:,:,:-1]
             
 
-        return (grad_input,) + (None,) * 9
+        return (grad_input,) + (None,) * 10
 

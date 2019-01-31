@@ -188,7 +188,7 @@ class xfm{J}{scale}(Function):
             {level2plusbwd}
             {level1bwd}
 
-        return (grad_input,) + (None,) * 9
+        return (grad_input,) + (None,) * 10
 
 """
 
@@ -330,7 +330,7 @@ class ifm{J}(Function):
             {level2plusbwd}if ctx.needs_input_grad[0]:
                 grad_yl = LoLo
 
-        return (grad_yl, {grad_yh_ret}) + (None,) * 7
+        return (grad_yl, {grad_yh_ret}) + (None,) * 8
 
 """
 
