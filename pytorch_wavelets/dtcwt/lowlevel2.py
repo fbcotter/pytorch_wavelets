@@ -1,8 +1,16 @@
+""" This module was part of an attempt to speed up the DTCWT. The code was
+ultimately slower than the original implementation, but it is a nice
+reference point for doing a DTCWT directly as 4 separate DWTs.
+"""
 import torch
 import torch.nn.functional as F
 import numpy as np
 from pytorch_wavelets.dwt.lowlevel import roll, mypad
 import pywt
+from pytorch_wavelets.dwt.transform2d import DWTForward, DWTInverse
+from pytorch_wavelets.dwt.lowlevel import afb2d, sfb2d_nonsep as sfb2d
+from pytorch_wavelets.dwt.lowlevel import prep_filt_afb2d, prep_filt_sfb2d_nonsep as prep_filt_sfb2d
+from pytorch_wavelets.dtcwt.coeffs import level1 as _level1, qshift as _qshift, biort as _biort
 
 
 def prep_filt_quad_afb2d_nonsep(
@@ -58,9 +66,7 @@ def prep_filt_quad_afb2d_nonsep(
 
 def prep_filt_quad_afb2d(h0a, h1a, h0b, h1b, device=None):
     """
-    Prepares the filters to be of the right form for the afb2d_nonsep function.
-    In particular, makes 2d point spread functions, and mirror images them in
-    preparation to do torch.conv2d.
+    Prepares the filters to be of the right form for the quad_afb2d function.
 
     Inputs:
         h0_col (array-like): low pass column filter bank
@@ -109,7 +115,7 @@ def prep_filt_quad_afb2d(h0a, h1a, h0b, h1b, device=None):
     return cols, rows
 
 
-def quad_afb2d(x, cols, rows, mode='zero', split=True):
+def quad_afb2d(x, cols, rows, mode='zero', split=True, stride=2):
     """ Does a single level 2d wavelet decomposition of an input. Does separate
     row and column filtering by two calls to
     :py:func:`pytorch_wavelets.dwt.lowlevel.afb1d`
@@ -142,7 +148,7 @@ def quad_afb2d(x, cols, rows, mode='zero', split=True):
         N2 = x.shape[2] // 2
         x = roll(x, -L2, dim=2)
         pad = (L-1, 0)
-        lohi = F.conv2d(x, cols, padding=pad, stride=(2,1), groups=C)
+        lohi = F.conv2d(x, cols, padding=pad, stride=(stride,1), groups=C)
         lohi[:,:,:L2] = lohi[:,:,:L2] + lohi[:,:,N2:N2+L2]
         lohi = lohi[:,:,:N2]
 
@@ -154,7 +160,7 @@ def quad_afb2d(x, cols, rows, mode='zero', split=True):
         N2 = x.shape[3] // 2
         lohi = roll(lohi, -L2, dim=3)
         pad = (0, L-1)
-        w = F.conv2d(lohi, rows, padding=pad, stride=(1,2), groups=8*C)
+        w = F.conv2d(lohi, rows, padding=pad, stride=(1,stride), groups=8*C)
         w[:,:,:,:L2] = w[:,:,:,:L2] + w[:,:,:,N2:N2+L2]
         w = w[:,:,:,:N2]
     elif mode == 'zero':
@@ -171,7 +177,7 @@ def quad_afb2d(x, cols, rows, mode='zero', split=True):
             x = F.pad(x, (0, 0, 0, 1))
         pad = (p//2, 0)
         # Calculate the high and lowpass
-        lohi = F.conv2d(x, cols, padding=pad, stride=(2,1), groups=C)
+        lohi = F.conv2d(x, cols, padding=pad, stride=(stride,1), groups=C)
 
         # Do row filtering
         N = lohi.shape[3]
@@ -181,7 +187,7 @@ def quad_afb2d(x, cols, rows, mode='zero', split=True):
         if p % 2 == 1:
             lohi = F.pad(lohi, (0, 1, 0, 0))
         pad = (0, p//2)
-        w = F.conv2d(lohi, rows, padding=pad, stride=(1,2), groups=8*C)
+        w = F.conv2d(lohi, rows, padding=pad, stride=(1,stride), groups=8*C)
     elif mode == 'symmetric' or mode == 'reflect':
         # Do column filtering
         N = x.shape[2]
@@ -189,7 +195,7 @@ def quad_afb2d(x, cols, rows, mode='zero', split=True):
         outsize = pywt.dwt_coeff_len(N, L, mode=mode)
         p = 2 * (outsize - 1) - N + L
         x = mypad(x, pad=(0, 0, p//2, (p+1)//2), mode=mode)
-        lohi = F.conv2d(x, cols, stride=(2,1), groups=C)
+        lohi = F.conv2d(x, cols, stride=(stride,1), groups=C)
 
         # Do row filtering
         N = lohi.shape[3]
@@ -197,43 +203,31 @@ def quad_afb2d(x, cols, rows, mode='zero', split=True):
         outsize = pywt.dwt_coeff_len(N, L, mode=mode)
         p = 2 * (outsize - 1) - N + L
         lohi = mypad(lohi, pad=(p//2, (p+1)//2, 0, 0), mode=mode)
-        w = F.conv2d(lohi, rows, stride=(1,2), groups=8*C)
+        w = F.conv2d(lohi, rows, stride=(1,stride), groups=8*C)
     else:
         raise ValueError("Unkown pad type: {}".format(mode))
 
-    #  y = w.view((w.shape[0], C, 4, 4, w.shape[-2], w.shape[-1]))
-    yl = w[:,::4]
-    yh = None
+    y = w.view((w.shape[0], C, 4, 4, w.shape[-2], w.shape[-1]))
+    yl = y[:,:,:,0]
+    yh = y[:,:,:,1:]
+    deg75r, deg105i = pm(yh[:,:,0,0], yh[:,:,3,0])
+    deg105r, deg75i = pm(yh[:,:,1,0], yh[:,:,2,0])
+    deg15r, deg165i = pm(yh[:,:,0,1], yh[:,:,3,1])
+    deg165r, deg15i = pm(yh[:,:,1,1], yh[:,:,2,1])
+    deg135r, deg45i = pm(yh[:,:,0,2], yh[:,:,3,2])
+    deg45r, deg135i = pm(yh[:,:,1,2], yh[:,:,2,2])
+    yhr = torch.stack((deg15r, deg45r, deg75r, deg105r, deg135r, deg165r), dim=1)
+    yhi = torch.stack((deg15i, deg45i, deg75i, deg105i, deg135i, deg165i), dim=1)
+    yh = torch.stack((yhr, yhi), dim=-1)
 
-    #  yl = y[:,:,:,0]
-    #  yh = y[:,:,:,1:]
-    #  yl = w[:,:,:4*C]
-    #  yh = w[:,:,4*C:]
-
-
-    #  deg75r, deg105i = pm(yh[:,:,0,0], yh[:,:,3,0])
-    #  deg105r, deg75i = pm(yh[:,:,1,0], yh[:,:,2,0])
-    #  deg15r, deg165i = pm(yh[:,:,0,1], yh[:,:,3,1])
-    #  deg165r, deg15i = pm(yh[:,:,1,1], yh[:,:,2,1])
-    #  deg135r, deg45i = pm(yh[:,:,0,2], yh[:,:,3,2])
-    #  deg45r, deg135i = pm(yh[:,:,1,2], yh[:,:,2,2])
-    #  yhr = torch.stack((deg15r, deg45r, deg75r, deg105r, deg135r, deg165r), dim=1)
-    #  yhi = torch.stack((deg15i, deg45i, deg75i, deg105i, deg135i, deg165i), dim=1)
-    #  yh = torch.stack((yhr, yhi), dim=-1)
-    #  yl_rowa = torch.stack((yl[:,:,1], yl[:,:,0]), dim=-1)
-    #  yl_rowb = torch.stack((yl[:,:,3], yl[:,:,2]), dim=-1)
-    #  yl_rowa = yl_rowa.view(yl.shape[0], C, yl.shape[-2], yl.shape[-1]*2)
-    #  yl_rowb = yl_rowb.view(yl.shape[0], C, yl.shape[-2], yl.shape[-1]*2)
-    #  z = torch.stack((yl_rowb, yl_rowa), dim=-2)
-    #  yl = z.view(yl.shape[0], C, yl.shape[-2]*2, yl.shape[-1]*2)
+    yl_rowa = torch.stack((yl[:,:,1], yl[:,:,0]), dim=-1)
+    yl_rowb = torch.stack((yl[:,:,3], yl[:,:,2]), dim=-1)
+    yl_rowa = yl_rowa.view(yl.shape[0], C, yl.shape[-2], yl.shape[-1]*2)
+    yl_rowb = yl_rowb.view(yl.shape[0], C, yl.shape[-2], yl.shape[-1]*2)
+    z = torch.stack((yl_rowb, yl_rowa), dim=-2)
+    yl = z.view(yl.shape[0], C, yl.shape[-2]*2, yl.shape[-1]*2)
 
     return yl.contiguous(), yh
-
-
-def pm(a, b):
-    u = (a + b)/np.sqrt(2)
-    v = (a - b)/np.sqrt(2)
-    return u, v
 
 
 def quad_afb2d_nonsep(x, filts, mode='zero'):
@@ -305,3 +299,136 @@ def quad_afb2d_nonsep(x, filts, mode='zero'):
     yh = y[:,:,1:].contiguous()
     return yl, yh
 
+
+def cplxdual2D(x, J, level1='farras', qshift='qshift_a', mode='periodization',
+               mag=False):
+    """ Do a complex dtcwt
+
+    Returns:
+        lows: lowpass outputs from each of the 4 trees. Is a 2x2 list of lists
+        w: bandpass outputs from each of the 4 trees. Is a list of lists, with
+        shape [J][2][2][3]. Initially the 3 outputs are the lh, hl and hh from
+        each of the 4 trees. After doing sums and differences though, they
+        become the real and imaginary parts for the 6 orientations. In
+        particular:
+            first index - indexes over scales
+            second index - 0 = real, 1 = imaginary
+            third and fourth indices:
+            0,1 = 15 degrees
+            1,2 = 45 degrees
+            0,0 = 75 degrees
+            1,0 = 105 degrees
+            0,2 = 135 degrees
+            1,1 = 165 degrees
+    """
+    x = x/2
+    # Get the filters
+    h0a1, h0b1, _, _, h1a1, h1b1, _, _ = _level1(level1)
+    h0a, h0b, _, _, h1a, h1b, _, _ = _qshift(qshift)
+
+    Faf = ((prep_filt_afb2d(h0a1, h1a1, h0a1, h1a1, device=x.device),
+            prep_filt_afb2d(h0a1, h1a1, h0b1, h1b1, device=x.device)),
+           (prep_filt_afb2d(h0b1, h1b1, h0a1, h1a1, device=x.device),
+            prep_filt_afb2d(h0b1, h1b1, h0b1, h1b1, device=x.device)))
+    af = ((prep_filt_afb2d(h0a, h1a, h0a, h1a, device=x.device),
+           prep_filt_afb2d(h0a, h1a, h0b, h1b, device=x.device)),
+          (prep_filt_afb2d(h0b, h1b, h0a, h1a, device=x.device),
+           prep_filt_afb2d(h0b, h1b, h0b, h1b, device=x.device)))
+
+    # Do 4 fully decimated dwts
+    w = [[[None for _ in range(2)] for _ in range(2)] for j in range(J)]
+    lows = [[None for _ in range(2)] for _ in range(2)]
+    for m in range(2):
+        for n in range(2):
+            # Do the first level transform with the first level filters
+            #  ll, bands = afb2d(x, (Faf[m][0], Faf[m][1], Faf[n][0], Faf[n][1]), mode=mode)
+            ll, bands = afb2d(x, Faf[m][n], mode=mode)
+            w[0][m][n] = [bands[:,:,1], bands[:,:,0], bands[:,:,2]]
+            ll = ll[:,:,0]
+
+            # Do the second+ level transform with the second level filters
+            for j in range(1,J):
+                #  ll, bands = afb2d(ll, (af[m][0], af[m][1], af[n][0], af[n][1]), mode=mode)
+                ll, bands = afb2d(ll, af[m][n], mode=mode)
+                w[j][m][n] = [bands[:,:,1], bands[:,:,0], bands[:,:,2]]
+                ll = ll[:,:,0]
+            lows[m][n] = ll
+
+    # Convert the quads into real and imaginary parts
+    yh = [None,] * J
+    for j in range(J):
+        deg75r, deg105i = pm(w[j][0][0][0], w[j][1][1][0])
+        deg105r, deg75i = pm(w[j][0][1][0], w[j][1][0][0])
+        deg15r, deg165i = pm(w[j][0][0][1], w[j][1][1][1])
+        deg165r, deg15i = pm(w[j][0][1][1], w[j][1][0][1])
+        deg135r, deg45i = pm(w[j][0][0][2], w[j][1][1][2])
+        deg45r, deg135i = pm(w[j][0][1][2], w[j][1][0][2])
+        yhr = torch.stack((deg15r, deg45r, deg75r, deg105r, deg135r, deg165r), dim=1)
+        yhi = torch.stack((deg15i, deg45i, deg75i, deg105i, deg135i, deg165i), dim=1)
+        if mag:
+            yh[j] = torch.sqrt(yhr**2 + yhi**2 + 0.01) - np.sqrt(0.01)
+        else:
+            yh[j] = torch.stack((yhr, yhi), dim=-1)
+
+    return lows, yh
+
+
+def icplxdual2D(yl, yh, level1='farras', qshift='qshift_a', mode='periodization'):
+    # Get the filters
+    _, _, g0a1, g0b1, _, _, g1a1, g1b1 = _level1(level1)
+    _, _, g0a, g0b, _, _, g1a, g1b = _qshift(qshift)
+
+    dev = yl[0][0].device
+    Faf = ((prep_filt_sfb2d(g0a1, g1a1, g0a1, g1a1, device=dev),
+            prep_filt_sfb2d(g0a1, g1a1, g0b1, g1b1, device=dev)),
+           (prep_filt_sfb2d(g0b1, g1b1, g0a1, g1a1, device=dev),
+            prep_filt_sfb2d(g0b1, g1b1, g0b1, g1b1, device=dev)))
+    af = ((prep_filt_sfb2d(g0a, g1a, g0a, g1a, device=dev),
+           prep_filt_sfb2d(g0a, g1a, g0b, g1b, device=dev)),
+          (prep_filt_sfb2d(g0b, g1b, g0a, g1a, device=dev),
+           prep_filt_sfb2d(g0b, g1b, g0b, g1b, device=dev)))
+
+    # Convert the highs back to subbands
+    J = len(yh)
+    w = [[[[None for i in range(3)] for j in range(2)] for k in range(2)] for l in range(J)]
+    for j in range(J):
+        w[j][0][0][0], w[j][1][1][0] = pm(yh[j][:,2,:,:,:,0],
+                                          yh[j][:,3,:,:,:,1])
+        w[j][0][1][0], w[j][1][0][0] = pm(yh[j][:,3,:,:,:,0],
+                                          yh[j][:,2,:,:,:,1])
+        w[j][0][0][1], w[j][1][1][1] = pm(yh[j][:,0,:,:,:,0],
+                                          yh[j][:,5,:,:,:,1])
+        w[j][0][1][1], w[j][1][0][1] = pm(yh[j][:,5,:,:,:,0],
+                                          yh[j][:,0,:,:,:,1])
+        w[j][0][0][2], w[j][1][1][2] = pm(yh[j][:,1,:,:,:,0],
+                                          yh[j][:,4,:,:,:,1])
+        w[j][0][1][2], w[j][1][0][2] = pm(yh[j][:,4,:,:,:,0],
+                                          yh[j][:,1,:,:,:,1])
+        w[j][0][0] = torch.stack(w[j][0][0], dim=2)
+        w[j][0][1] = torch.stack(w[j][0][1], dim=2)
+        w[j][1][0] = torch.stack(w[j][1][0], dim=2)
+        w[j][1][1] = torch.stack(w[j][1][1], dim=2)
+
+    y = None
+    for m in range(2):
+        for n in range(2):
+            lo = yl[m][n]
+            for j in range(J-1, 0, -1):
+                lo = sfb2d(lo, w[j][m][n], af[m][n], mode=mode)
+            lo = sfb2d(lo, w[0][m][n], Faf[m][n], mode=mode)
+
+            # Add to the output
+            if y is None:
+                y = lo
+            else:
+                y = y + lo
+
+    # Normalize
+    y = y/2
+    return y
+
+
+def pm(a, b):
+    u = (a + b)/np.sqrt(2)
+    v = (a - b)/np.sqrt(2)
+    return u, v
