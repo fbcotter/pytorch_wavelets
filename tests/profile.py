@@ -3,6 +3,7 @@ from pytorch_wavelets import DTCWTForward, DTCWTInverse
 import argparse
 import py3nvml
 import torch.nn.functional as F
+import torch.nn as nn
 import pytorch_wavelets.dwt.transform2d as dwt
 import pytorch_wavelets.dwt.lowlevel as lowlevel
 import pytorch_wavelets.dtcwt.lowlevel2 as lowlevel2
@@ -35,13 +36,15 @@ parser.add_argument('--device', default='cuda', choices=['cuda', 'cpu'],
 parser.add_argument('--batch', default=16, type=int,
                     help='Number of images in parallel')
 
+ICIP = True
 
 def forward(size, no_grad, J, no_hp=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
-    xfm = DTCWTForward(J=J, skip_hps=no_hp).to(dev)
+    xfm = DTCWTForward(J=J, skip_hps=no_hp, o_dim=1).to(dev)
     Yl, Yh = xfm(x)
     if not no_grad:
         Yl.backward(torch.ones_like(Yl))
+    return Yl, Yh
 
 
 def inverse(size, no_grad, J, no_hp=False, dev='cuda'):
@@ -110,7 +113,8 @@ def separable_dwt(size, J, no_grad=False, dev='cuda'):
 
 def selesnick_dtcwt(size, J, no_grad=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
-    lows, w = cplxdual2D(x, J, qshift='qshift_06', mode='zero')
+    yl, yh = cplxdual2D(x, J, qshift='qshift_06', mode='zero')
+    return yl, yh
 
 def test_dtcwt(size, J, no_grad=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
@@ -128,19 +132,20 @@ def test_dtcwt2(size, J, no_grad=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
     h0a, h0b, _, _, h1a, h1b, _, _ = level1('farras')
     cols, rows = lowlevel2.prep_filt_quad_afb2d(h0a, h1a, h0b, h1b, device=dev)
+    yh = []
     for j in range(3):
-        yl, yh = lowlevel2.quad_afb2d(x, cols, rows, mode='zero')
-        x = yl.reshape(yl.shape[0], -1, yl.shape[-2], yl.shape[-1])
-    y = x[0]
+        x, y = lowlevel2.quad_afb2d(x, cols, rows, mode='zero')
+        yh.append(y)
+    return x, yh
 
 
 if __name__ == "__main__":
     args = parser.parse_args()
     py3nvml.grab_gpus(1)
     if args.size > 0:
-        size = (args.batch, 1, args.size, args.size)
+        size = (args.batch, 5, args.size, args.size)
     else:
-        size = (args.batch, 1, 128, 128)
+        size = (args.batch, 5, 128, 128)
 
     if args.ref:
         print('Running dtcwt with FFTs')
@@ -157,15 +162,23 @@ if __name__ == "__main__":
             nonseparable_dwt(size, args.j, args.no_grad, args.device)
     elif args.fb:
         print('Running 4 dwts')
-        selesnick_dtcwt(size, args.j, args.no_grad, args.device)
-        #  test_dtcwt2(size, args.j, no_grad=args.no_grad, dev=args.device)
+        #  yl, yh = selesnick_dtcwt(size, args.j, args.no_grad, args.device)
+        yl, yh = test_dtcwt2(size, args.j, no_grad=args.no_grad, dev=args.device)
     else:
         if args.forward:
             print('Running forward transform')
-            forward(size, args.no_grad, args.j, args.no_hp, args.device)
+            yl, yh = forward(size, args.no_grad, args.j, args.no_hp, args.device)
         elif args.inverse:
             print('Running inverse transform')
             inverse(size, args.no_grad, args.j, args.no_hp, args.device)
         else:
             print('Running end to end')
             end_to_end(size, args.no_grad, args.j, args.no_hp, args.device)
+
+    if ICIP:
+        n, _, c, h, w, _ = yh[0].shape
+        mag = torch.sqrt(yh[0][...,0] **2 + yh[0][...,1]**2 +0.01) - 0.1
+        mag = mag.view(n, 6*c, h, w)
+        gain1 = nn.Conv2d(6*c, c, 3, padding=1).cuda()
+        y = gain1(mag)
+

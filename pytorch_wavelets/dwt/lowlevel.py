@@ -62,7 +62,7 @@ def afb1d(x, h0, h1, mode='zero', dim=-1):
         x (tensor): 4D input with the last two dimensions the spatial input
         af (tensor) - analysis low and highpass filters. Should have shape
         (2, 1, h, 1) or (2, 1, 1, w).
-        d (int) - dimension of filtering. d=2 is for a vertical filter (called
+        dim (int) - dimension of filtering. d=2 is for a vertical filter (called
         column filtering but filters across the rows). d=3 is for a horizontal
         filter, (called row filtering but filters across the columns).
 
@@ -181,7 +181,7 @@ def sfb1d(lo, hi, g0, g1, mode='zero', dim=-1):
     return y
 
 
-def afb2d(x, filts, mode='zero', split=True):
+def afb2d(x, filts, mode='zero'):
     """ Does a single level 2d wavelet decomposition of an input. Does separate
     row and column filtering by two calls to
     :py:func:`pytorch_wavelets.dwt.lowlevel.afb1d`
@@ -199,6 +199,9 @@ def afb2d(x, filts, mode='zero', split=True):
             padding to use. If periodization, the output size will be half the
             input size.  Otherwise, the output size will be slightly larger than
             half.
+
+    Returns:
+        y: Tensor of shape (N, C, 4, H, W)
     """
     C = x.shape[1]
     tensorize = [not isinstance(f, torch.Tensor) for f in filts]
@@ -222,13 +225,9 @@ def afb2d(x, filts, mode='zero', split=True):
         raise ValueError("Unknown form for input filts")
 
     lohi = afb1d(x, h0_row, h1_row, mode=mode, dim=3)
-    ll_hl_lh_hh = afb1d(lohi, h0_col, h1_col, mode=mode, dim=2)
+    y = afb1d(lohi, h0_col, h1_col, mode=mode, dim=2)
 
-    s = ll_hl_lh_hh.shape
-    y = ll_hl_lh_hh.reshape(s[0], C, 4, s[-2], s[-1])
-    yl, yh = y[:,:,:1], y[:,:,1:]
-
-    return yl.contiguous(), yh.contiguous()
+    return y
 
 
 def afb2d_nonsep(x, filts, mode='zero'):
@@ -245,6 +244,9 @@ def afb2d_nonsep(x, filts, mode='zero'):
             padding to use. If periodization, the output size will be half the
             input size.  Otherwise, the output size will be slightly larger than
             half.
+
+    Returns:
+        y: Tensor of shape (N, C, 4, H, W)
     """
     C = x.shape[1]
     Ny = x.shape[2]
@@ -257,7 +259,6 @@ def afb2d_nonsep(x, filts, mode='zero'):
         else:
             filts = prep_filt_afb2d_nonsep(
                 filts[0], filts[1], filts[2], filts[3], device=x.device)
-    Nf = filts.shape[0]
     f = torch.cat([filts]*C, dim=0)
     Ly = f.shape[2]
     Lx = f.shape[3]
@@ -302,20 +303,19 @@ def afb2d_nonsep(x, filts, mode='zero'):
     else:
         raise ValueError("Unkown pad type: {}".format(mode))
 
-    y = y.reshape((y.shape[0], C, Nf, y.shape[-2], y.shape[-1]))
-    yl = y[:,:,:Nf//4].contiguous()
-    yh = y[:,:,Nf//4:].contiguous()
-    return yl, yh
+    return y
 
 
-def sfb2d(lo, highs, filts, mode='zero'):
+def sfb2d(ll, lh, hl, hh, filts, mode='zero'):
     """ Does a single level 2d wavelet reconstruction of wavelet coefficients.
     Does separate row and column filtering by two calls to
     :py:func:`pytorch_wavelets.dwt.lowlevel.sfb1d`
 
     Inputs:
-        lo (torch.Tensor): lowpass coefficients
-        highs (torch.Tensor): Highpasses of shape (N, C, 3, H, W)
+        ll (torch.Tensor): lowpass coefficients
+        lh (torch.Tensor): horizontal coefficients
+        hl (torch.Tensor): vertical coefficients
+        hh (torch.Tensor): diagonal coefficients
         filts (list of ndarray or torch.Tensor): If a list of tensors has been
             given, this function assumes they are in the right form (the form
             returned by
@@ -346,21 +346,20 @@ def sfb2d(lo, highs, filts, mode='zero'):
     else:
         raise ValueError("Unknown form for input filts")
 
-    highs = torch.unbind(highs, dim=2)
-    lo = sfb1d(lo, highs[0], g0_col, g1_col, mode=mode, dim=2)
-    hi = sfb1d(highs[1], highs[2], g0_col, g1_col, mode=mode, dim=2)
+    lo = sfb1d(ll, lh, g0_col, g1_col, mode=mode, dim=2)
+    hi = sfb1d(hl, hh, g0_col, g1_col, mode=mode, dim=2)
     y = sfb1d(lo, hi, g0_row, g1_row, mode=mode, dim=3)
 
     return y
 
 
-def sfb2d_nonsep(ll, highs, filts, mode='zero'):
+def sfb2d_nonsep(coeffs, filts, mode='zero'):
     """ Does a single level 2d wavelet reconstruction of wavelet coefficients.
     Does not do separable filtering.
 
     Inputs:
-        lo (torch.Tensor): lowpass coefficients
-        highs (torch.Tensor): Highpasses of shape (N, C, 3, H, W)
+        coeffs (torch.Tensor): tensor of coefficients of shape (N, C, 4, H, W)
+            where the third dimension indexes across the (ll, lh, hl, hh) bands.
         filts (list of ndarray or torch.Tensor): If a list of tensors has been
             given, this function assumes they are in the right form (the form
             returned by
@@ -373,25 +372,25 @@ def sfb2d_nonsep(ll, highs, filts, mode='zero'):
             input size.  Otherwise, the output size will be slightly larger than
             half.
     """
-    C = ll.shape[1]
-    Ny = ll.shape[2]
-    Nx = ll.shape[3]
+    C = coeffs.shape[1]
+    Ny = coeffs.shape[-2]
+    Nx = coeffs.shape[-1]
 
-    # Check the filter inputs
+    # Check the filter inputs - should be in the form of a torch tensor, but if
+    # not, tensorize it here.
     if isinstance(filts, (tuple, list)):
         if len(filts) == 2:
-            filts = prep_filt_sfb2d_nonsep(filts[0], filts[1], device=ll.device)
+            filts = prep_filt_sfb2d_nonsep(filts[0], filts[1], device=coeffs.device)
         elif len(filts) == 4:
             filts = prep_filt_sfb2d_nonsep(
-                filts[0], filts[1], filts[2], filts[3], device=ll.device)
+                filts[0], filts[1], filts[2], filts[3], device=coeffs.device)
         else:
             raise ValueError("Unkown form for input filts")
     f = torch.cat([filts]*C, dim=0)
     Ly = f.shape[2]
     Lx = f.shape[3]
 
-    x = torch.cat((ll[:,:,None], highs), dim=2).reshape(
-        ll.shape[0], 4*ll.shape[1], ll.shape[-2], ll.shape[-1])
+    x = coeffs.reshape(coeffs.shape[0], -1, coeffs.shape[-2], coeffs.shape[-1])
     if mode == 'periodization' or mode == 'per':
         ll = F.conv_transpose2d(x, f, groups=C, stride=2)
         ll[:,:,:Ly-2] += ll[:,:,2*Ny:2*Ny+Ly-2]
@@ -534,8 +533,12 @@ def prep_filt_afb2d(h0_col, h1_col, h0_row=None, h1_row=None, device=None):
     t = torch.get_default_dtype()
     if h0_row is None:
         h0_row = h0_col
+    else:
+        h0_row = np.array(h0_row[::-1]).ravel()
     if h1_row is None:
         h1_row = h1_col
+    else:
+        h1_row = np.array(h1_row[::-1]).ravel()
     h0_col = torch.tensor(h0_col, device=device, dtype=t).reshape((1,1,-1,1))
     h1_col = torch.tensor(h1_col, device=device, dtype=t).reshape((1,1,-1,1))
     h0_row = torch.tensor(h0_row, device=device, dtype=t).reshape((1,1,1,-1))

@@ -156,12 +156,12 @@ def test_fwd_skip_hps(J, o_dim):
             assert Yh[j].shape == torch.Size([0])
         else:
             for l in range(6):
-                ours_r = np.take(Yh[i][...,0].cpu().numpy(), l, o_dim)
-                ours_i = np.take(Yh[i][...,1].cpu().numpy(), l, o_dim)
+                ours_r = np.take(Yh[j][...,0].cpu().numpy(), l, o_dim)
+                ours_i = np.take(Yh[j][...,1].cpu().numpy(), l, o_dim)
                 np.testing.assert_array_almost_equal(
-                    ours_r, yh[i][:,:,l].real, decimal=PRECISION_DOUBLE)
+                    ours_r, yh[j][:,:,l].real, decimal=PRECISION_FLOAT)
                 np.testing.assert_array_almost_equal(
-                    ours_i, yh[i][:,:,l].imag, decimal=PRECISION_DOUBLE)
+                    ours_i, yh[j][:,:,l].imag, decimal=PRECISION_FLOAT)
 
 
 @pytest.mark.parametrize("scales", [

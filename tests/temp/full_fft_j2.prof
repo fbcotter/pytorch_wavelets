@@ -1,7 +1,0 @@
-usage: Profile the forward and inverse dtcwt in pytorch [-h] [--no_grad]
-                                                        [--ref] [-c] [-f] [-i]
-                                                        [-j J] [--no_hp]
-                                                        [-s SIZE]
-                                                        [--device {cuda,cpu}]
-Profile the forward and inverse dtcwt in pytorch: error: unrecognized arguments: -ref
-======== Error: Application returned non-zero code 2

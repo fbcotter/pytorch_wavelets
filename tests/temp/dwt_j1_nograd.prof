@@ -1,5 +1,0 @@
-usage: Profile the dwt [-h] [-f] [-j J] [-s SIZE] [--device {cuda,cpu}]
-                       [--wave WAVE]
-                       {torch,numpy} {dwt,dtcwt}
-Profile the dwt: error: unrecognized arguments: --no_grad
-======== Error: Application returned non-zero code 2
