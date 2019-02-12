@@ -1,10 +1,16 @@
 2D Wavelet Transforms in Pytorch
 ================================
 
-|Build Status|
+|build-status| |docs|
 
-.. |Build Status| image:: https://travis-ci.org/fbcotter/pytorch_wavelets.png?branch=master
+.. |build-status| image:: https://travis-ci.org/fbcotter/pytorch_wavelets.png?branch=master
+    :alt: build status
+    :scale: 100%
     :target: https://travis-ci.org/fbcotter/pytorch_wavelets
+
+.. |docs| image:: https://readthedocs.org/projects/pytorch-wavelets/badge/?version=latest
+    :target: https://pytorch-wavelets.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
 
 The full documentation is also available `here`__.
 
@@ -17,9 +23,9 @@ gradients through both using pytorch.
 The implementation is designed to be used with batches of multichannel images.
 We use the standard pytorch implementation of having 'NCHW' data format.
 
-New in version 0.1.0
+New in version 1.0.0
 ~~~~~~~~~~~~~~~~~~~~
-Version 0.1.0 has now added support for separable DWT calculation, and more
+Version 1.0.0 has now added support for separable DWT calculation, and more
 padding schemes, such as symmetric, zero and periodization.
 
 Also, no longer need to specify the number of channels when creating the wavelet
