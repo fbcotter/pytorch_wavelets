@@ -4,13 +4,20 @@ DWT in Pytorch Wavelets
 While pytorch_wavelets was initially built as a repo to do the dual tree wavelet
 transform efficiently in pytorch, I have also built a thin wrapper over
 PyWavelets, allowing the calculation of the 2D-DWT in pytorch on a GPU on
-a batch of images. As mentioned in the introduction, it has two drawbacks at
-this stage:
+a batch of images. 
 
-- Uses reflection padding instead of symmetric padding for the DWT
-- Doesn't compute the DWT separably, instead uses the full `N x N` kernel. This
-  means will give slightly different results around the borders of the image to
-  the PyWavelets implementation (but perfect reconstruction will still work).
+Older versions did the DWT non separably. As of v1.0.0 we now
+have code to do it separably. The old non-separable code is still there and is
+surprisingly sometimes faster. You can test the two out to see which is better
+for you by changing the `separable` flag in the DWT/IDWT constructor.
+
+The DWT/IDWT now supports most of the padding schemes that PyWavelets uses. In
+particular:
+
+- symmetric padding
+- reflection padding
+- zero padding
+- periodization 
 
 You can see the source `here <_modules/pytorch_wavelets/dwt/transform2d.html#DWTForward>`_. 
 It is pretty minimal and should be clear what is going on.
@@ -54,8 +61,8 @@ Example
 
     import torch
     from pytorch_wavelets import DWTForward, DWTInverse # (or import DWT, IDWT)
-    xfm = DWTForward(J=3, wave='db3')  # Accepts all wave types available to PyWavelets
-    ifm = DWTInverse(wave='db3')
+    xfm = DWTForward(J=3, mode='zero', wave='db3')  # Accepts all wave types available to PyWavelets
+    ifm = DWTInverse(mode='zero', wave='db3')
     X = torch.randn(10,5,64,64)
     Yl, Yh = xfm(X) 
     print(Yl.shape)

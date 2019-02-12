@@ -17,11 +17,13 @@ gradients through both using pytorch.
 The implementation is designed to be used with batches of multichannel images.
 We use the standard pytorch implementation of having 'NCHW' data format.
 
-This repo originally was only for the use of the DTCWT, but I have added some DWT support. This is still in development,
-and has the following known issues:
+New in version 0.1.0
+~~~~~~~~~~~~~~~~~~~~
+Version 0.1.0 has now added support for separable DWT calculation, and more
+padding schemes, such as symmetric, zero and periodization.
 
-- Uses reflection padding instead of symmetric padding for the DWT
-- Doesn't compute the DWT separably, instead uses the full `N x N` kernel.
+Also, no longer need to specify the number of channels when creating the wavelet
+transform classes.
 
 Speed Tests
 ~~~~~~~~~~~
@@ -63,13 +65,16 @@ may verify the code works on your system::
 
 Example Use
 ```````````
-For the DWT - note that the highpass output has an extra dimension, in which we stack the (lh, hl, hh) coefficients:
+For the DWT - note that the highpass output has an extra dimension, in which we
+stack the (lh, hl, hh) coefficients.  Also note that the Yh output has the
+finest detail coefficients first, and the coarsest last (the opposite to
+PyWavelets).
 
 .. code:: python
 
     import torch
     from pytorch_wavelets import DWTForward, DWTInverse
-    xfm = DWTForward(C=5, J=3, wave='db3')
+    xfm = DWTForward(J=3, wave='db3', mode='zero')
     X = torch.randn(10,5,64,64)
     Yl, Yh = xfm(X) 
     print(Yl.shape)
@@ -80,7 +85,7 @@ For the DWT - note that the highpass output has an extra dimension, in which we 
     >>> torch.Size([10, 5, 3, 19, 19])
     print(Yh[2].shape)
     >>> torch.Size([10, 5, 3, 12, 12])
-    ifm = DWTInverse(C=5, wave='db3')
+    ifm = DWTInverse(wave='db3', mode='zero')
     Y = ifm((Yl, Yh))
 
 For the DTCWT:
@@ -105,9 +110,6 @@ For the DTCWT:
 
 Some initial notes:
 
-- You need to specify the number of channels and the number of scales for both
-  the forward and inverse transform. Make sure they are the same! The same goes
-  for the filter types used.
 - Yh returned is a tuple. There are 2 extra dimensions - the first comes between
   the channel dimension of the input and the row dimension. This is the
   6 orientations of the DTCWT. The second is the final dimension, which is the
@@ -122,10 +124,10 @@ cuda calling:
 
     import torch
     from pytorch_wavelets import DTCWTForward, DTCWTInverse
-    xfm = DTCWTForward(C=5, J=3, biort='near_sym_b', qshift='qshift_b').cuda()
+    xfm = DTCWTForward(J=3, biort='near_sym_b', qshift='qshift_b').cuda()
     X = torch.randn(10,5,64,64).cuda()
     Yl, Yh = xfm(X) 
-    ifm = DTCWTInverse(C=5, J=3, biort='near_sym_b', qshift='qshift_b').cuda()
+    ifm = DTCWTInverse(J=3, biort='near_sym_b', qshift='qshift_b').cuda()
     Y = ifm((Yl, Yh))
 
 The automated tests cannot test the gpu functionality, but do check cpu running.

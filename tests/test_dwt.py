@@ -5,6 +5,8 @@ from pytorch_wavelets import DWTForward, DWTInverse
 import torch
 from contextlib import contextmanager
 
+PRECISION_FLOAT = 3
+PRECISION_DOUBLE = 7
 
 HAVE_GPU = torch.cuda.is_available()
 if HAVE_GPU:
@@ -232,3 +234,136 @@ def test_commutativity(wave, J, j):
         (ya+yb).detach().cpu(), yab.detach().cpu(), decimal=4)
     np.testing.assert_array_almost_equal(
         (yc+yb).detach().cpu(), ybc.detach().cpu(), decimal=4)
+
+
+@pytest.mark.parametrize("wave, J, mode, sep_fwd, sep_inv", [
+    ('db1', 1, 'zero', False, False),
+    ('db1', 3, 'zero', False, False),
+    ('db3', 1, 'symmetric', False, False),
+    ('db3', 2, 'reflect', False, False),
+    ('db2', 3, 'periodization', False, False),
+    ('db4', 2, 'zero', False, False),
+    ('db3', 3, 'symmetric', False, False),
+    ('bior2.4', 2, 'periodization', False, False),
+    ('db1', 1, 'zero', True, True),
+    ('db1', 3, 'zero', True, True),
+    ('db3', 1, 'symmetric', True, True),
+    ('db3', 2, 'reflect', False, True),
+    ('db2', 3, 'periodization', True, False),
+    ('db4', 2, 'zero', False, True),
+    ('db3', 3, 'symmetric', True, False),
+    ('bior2.4', 2, 'periodization', False, True)
+])
+def test_ok(wave, J, mode, sep_fwd, sep_inv):
+    x = torch.randn(5, 4, 64, 64).to(dev)
+    dwt = DWTForward(J=J, wave=wave, mode=mode, separable=sep_fwd).to(dev)
+    iwt = DWTInverse(wave=wave, mode=mode, separable=sep_inv).to(dev)
+    yl, yh = dwt(x)
+    x2 = iwt((yl, yh))
+    # Can have data errors sometimes
+    assert yl.is_contiguous()
+    for j in range(J):
+        assert yh[j].is_contiguous()
+    assert x2.is_contiguous()
+
+
+# Test gradients
+@pytest.mark.parametrize("wave, J, mode, sep_fwd, sep_inv", [
+    ('db1', 1, 'zero', False, False),
+    ('db1', 3, 'zero', False, False),
+    #  ('db3', 1, 'symmetric', False, False),
+    #  ('db3', 2, 'reflect', False, False),
+    ('db2', 3, 'periodization', False, False),
+    ('db4', 2, 'zero', False, False),
+    #  ('db3', 3, 'symmetric', False, False),
+    ('bior2.4', 2, 'periodization', False, False),
+    ('db1', 1, 'zero', True, True),
+    ('db1', 3, 'zero', True, True),
+    #  ('db3', 1, 'symmetric', True, True),
+    #  ('db3', 2, 'reflect', False, True),
+    ('db2', 3, 'periodization', True, False),
+    ('db4', 2, 'zero', False, True),
+    #  ('db3', 3, 'symmetric', True, False),
+    ('bior2.4', 2, 'periodization', False, True)
+])
+def test_gradients_fwd(wave, J, mode, sep_fwd, sep_inv):
+    """ Gradient of forward function should be inverse function with filters
+    swapped """
+    im = np.random.randn(5,6,128, 128).astype('float32')
+    imt = torch.tensor(im, dtype=torch.float32, requires_grad=True, device=dev)
+
+    wave = pywt.Wavelet(wave)
+    fwd_filts = (wave.dec_lo, wave.dec_hi)
+    inv_filts = (wave.dec_lo[::-1], wave.dec_hi[::-1])
+    dwt = DWTForward(J=J, wave=fwd_filts, mode=mode, separable=sep_fwd).to(dev)
+    iwt = DWTInverse(wave=inv_filts, mode=mode, separable=sep_inv).to(dev)
+
+    yl, yh = dwt(imt)
+
+    # Test the lowpass
+    ylg = torch.randn(*yl.shape, device=dev)
+    yl.backward(ylg, retain_graph=True)
+    zeros = [torch.zeros_like(yh[i]) for i in range(J)]
+    ref = iwt((ylg, zeros))
+    np.testing.assert_array_almost_equal(imt.grad.detach().cpu(), ref.cpu())
+
+    # Test the bandpass
+    for j, y in enumerate(yh):
+        imt.grad.zero_()
+        g = torch.randn(*y.shape, device=dev)
+        y.backward(g, retain_graph=True)
+        hps = [zeros[i] for i in range(J)]
+        hps[j] = g
+        ref = iwt((torch.zeros_like(yl), hps))
+        np.testing.assert_array_almost_equal(imt.grad.detach().cpu(), ref.cpu(),
+                                             decimal=PRECISION_FLOAT)
+
+# Test gradients
+@pytest.mark.parametrize("wave, J, mode, sep_fwd, sep_inv", [
+    ('db1', 1, 'zero', False, False),
+    ('db1', 3, 'zero', False, False),
+    #  ('db3', 1, 'symmetric', False, False),
+    #  ('db3', 2, 'reflect', False, False),
+    ('db2', 3, 'periodization', False, False),
+    ('db4', 2, 'zero', False, False),
+    #  ('db3', 3, 'symmetric', False, False),
+    ('bior2.4', 2, 'periodization', False, False),
+    ('db1', 1, 'zero', True, True),
+    ('db1', 3, 'zero', True, True),
+    #  ('db3', 1, 'symmetric', True, True),
+    #  ('db3', 2, 'reflect', False, True),
+    ('db2', 3, 'periodization', True, False),
+    ('db4', 2, 'zero', False, True),
+    #  ('db3', 3, 'symmetric', True, False),
+    ('bior2.4', 2, 'periodization', False, True)
+])
+def test_gradients_inv(wave, J, mode, sep_fwd, sep_inv):
+    """ Gradient of inverse function should be forward function with filters
+    swapped """
+    wave = pywt.Wavelet(wave)
+    fwd_filts = (wave.dec_lo, wave.dec_hi)
+    inv_filts = (wave.dec_lo[::-1], wave.dec_hi[::-1])
+    dwt = DWTForward(J=J, wave=fwd_filts, mode=mode, separable=sep_fwd).to(dev)
+    iwt = DWTInverse(wave=inv_filts, mode=mode, separable=sep_inv).to(dev)
+
+    # Get the shape of the pyramid
+    temp = torch.zeros(5,6,128,128).to(dev)
+    l, h = dwt(temp)
+    # Create our inputs
+    yl = torch.randn(*l.shape, requires_grad=True, device=dev)
+    yh = [torch.randn(*h[i].shape, requires_grad=True, device=dev) for i in range(J)]
+    y = iwt((yl, yh))
+
+    # Test the gradients
+    yg = torch.randn(*y.shape, device=dev)
+    y.backward(yg, retain_graph=True)
+    dyl, dyh = dwt(yg)
+
+    # test the lowpass
+    np.testing.assert_array_almost_equal(yl.grad.detach().cpu(), dyl.cpu(),
+                                         decimal=PRECISION_FLOAT)
+
+    # Test the bandpass
+    for j in range(J):
+        np.testing.assert_array_almost_equal(yh[j].grad.detach().cpu(), dyh[j].cpu(),
+                                             decimal=PRECISION_FLOAT)

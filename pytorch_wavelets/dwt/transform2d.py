@@ -138,12 +138,19 @@ class DWTInverse(nn.Module):
             :math:`H_{in}', W_{in}', H_{in}'', W_{in}''` denote the correctly
             downsampled shapes of the DWT pyramid.
 
+        Note:
+            Can have None for any of the highpass scales and will treat the
+            values as zeros (not in an efficient way though).
         """
         yl, yh = coeffs
         ll = yl
 
         # Do a multilevel inverse transform
         for h in yh[::-1]:
+            if h is None:
+                h = torch.zeros(ll.shape[0], ll.shape[1], 3, ll.shape[-2],
+                                ll.shape[-1], device=ll.device)
+
             # 'Unpad' added dimensions
             if ll.shape[-2] > h.shape[-2]:
                 ll = ll[...,:-1,:]

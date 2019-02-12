@@ -8,7 +8,6 @@ import pytorch_wavelets.dwt.transform2d as dwt
 import pytorch_wavelets.dwt.lowlevel as lowlevel
 import pytorch_wavelets.dtcwt.lowlevel2 as lowlevel2
 from pytorch_wavelets.dtcwt.coeffs import level1, qshift
-from pytorch_wavelets.dtcwt.transform2d import cplxdual2D
 
 parser = argparse.ArgumentParser(
     'Profile the forward and inverse dtcwt in pytorch')
@@ -36,7 +35,7 @@ parser.add_argument('--device', default='cuda', choices=['cuda', 'cpu'],
 parser.add_argument('--batch', default=16, type=int,
                     help='Number of images in parallel')
 
-ICIP = True
+ICIP = False
 
 def forward(size, no_grad, J, no_hp=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
@@ -44,7 +43,7 @@ def forward(size, no_grad, J, no_hp=False, dev='cuda'):
     Yl, Yh = xfm(x)
     if not no_grad:
         Yl.backward(torch.ones_like(Yl))
-    return Yl, Yh
+    return Yl.mean(), [y.mean() for y in Yh]
 
 
 def inverse(size, no_grad, J, no_hp=False, dev='cuda'):
@@ -99,22 +98,22 @@ def reference_fftconv(size, J, no_grad=False, dev='cuda'):
 
 def nonseparable_dwt(size, J, no_grad=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
-    xfm = dwt.DWTForward(J=J, wave='db5', mode='periodic').to(dev)
-    for i in range(5):
-        xfm(x)
+    xfm = dwt.DWTForward(J=J, wave='db5', mode='zero', separable=False).to(dev)
+    yl, yh = xfm(x)
+    return yl.mean(), [y.mean() for y in yh]
 
 
 def separable_dwt(size, J, no_grad=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
-    xfm = dwt.DWTSeparableForward(J, wave='db5', mode='periodic').to(dev)
-    for i in range(5):
-        xfm(x)
+    xfm = dwt.DWTForward(J, wave='db5', mode='zero', separable=True).to(dev)
+    yl, yh = xfm(x)
+    return yl.mean(), [y.mean() for y in yh]
 
 
-def selesnick_dtcwt(size, J, no_grad=False, dev='cuda'):
-    x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
-    yl, yh = cplxdual2D(x, J, qshift='qshift_06', mode='zero')
-    return yl, yh
+#  def selesnick_dtcwt(size, J, no_grad=False, dev='cuda'):
+    #  x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
+    #  yl, yh = cplxdual2D(x, J, qshift='qshift_06', mode='zero')
+    #  return yl, yh
 
 def test_dtcwt(size, J, no_grad=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)

@@ -155,9 +155,8 @@ E.g. an input of shape of :math:`(N, C_{in}, H_{in}, W_{in})` will have bandpass
 coefficients with shapes :math:`list(N, C_{in}, 6, H_{in}'', W_{in}'', 2)`,
 (we've put dashes next to the height and width as they will change with scale). 
 
-You can swap the channel and orientation dimension with the `o_before_c`
-parameter, in which case the bandpass outputs will have shape 
-:math:`list(N, 6, C_{in}, H_{in}'', W_{in}'', 2)`.
+You can choose where the orientations and real and imaginary dimensions go with
+the options `o_dim` and `ri_dim`, which are by default 2 and -1.
 
 Including all the lowpasses
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

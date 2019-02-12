@@ -49,8 +49,10 @@ def mypad(x, pad, mode='constant', value=0):
             i = np.outer(xe_col, np.ones(xe_row.shape[0]))
             j = np.outer(np.ones(xe_col.shape[0]), xe_row)
             return x[:,:,i,j]
-    elif mode == 'zero' or mode == 'constant' or mode == 'reflect':
+    elif mode == 'constant' or mode == 'reflect' or mode == 'replicate':
         return F.pad(x, pad, mode, value)
+    elif mode == 'zero':
+        return F.pad(x, pad)
     else:
         raise ValueError("Unkown pad type: {}".format(mode))
 
