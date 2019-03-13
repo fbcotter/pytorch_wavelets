@@ -57,16 +57,17 @@ def mypad(x, pad, mode='constant', value=0):
         raise ValueError("Unkown pad type: {}".format(mode))
 
 
-def afb1d(x, h0, h1, mode='zero', dim=-1):
+def afb1d(x, h0, h1, mode='zero', dim=-1, decimate=True):
     """ 1D analysis filter bank (along one dimension only) of an image
 
     Inputs:
         x (tensor): 4D input with the last two dimensions the spatial input
-        af (tensor) - analysis low and highpass filters. Should have shape
+        af (tensor): analysis low and highpass filters. Should have shape
         (2, 1, h, 1) or (2, 1, 1, w).
-        dim (int) - dimension of filtering. d=2 is for a vertical filter (called
-        column filtering but filters across the rows). d=3 is for a horizontal
-        filter, (called row filtering but filters across the columns).
+        dim (int): dimension of filtering. d=2 is for a vertical filter (called
+            column filtering but filters across the rows). d=3 is for a horizontal
+            filter, (called row filtering but filters across the columns).
+        decimate (bool): Whether to downsample by 2 or not
 
     Returns:
         lo, hi: lowpass and highpass subbands
@@ -74,7 +75,10 @@ def afb1d(x, h0, h1, mode='zero', dim=-1):
     C = x.shape[1]
     # Convert the dim to positive
     d = dim % 4
-    s = (2, 1) if d == 2 else (1, 2)
+    if decimate:
+        s = (2, 1) if d == 2 else (1, 2)
+    else:
+        s = (1, 1)
     N = x.shape[d]
     # If h0, h1 are not tensors, make them. If they are, then assume that they
     # are in the right order
@@ -105,7 +109,10 @@ def afb1d(x, h0, h1, mode='zero', dim=-1):
         x = roll(x, -L2, dim=d)
         pad = (L-1, 0) if d == 2 else (0, L-1)
         lohi = F.conv2d(x, h, padding=pad, stride=s, groups=C)
-        N2 = N//2
+        if decimate:
+            N2 = N//2
+        else:
+            N2 = N
         if d == 2:
             lohi[:,:,:L2] = lohi[:,:,:L2] + lohi[:,:,N2:N2+L2]
             lohi = lohi[:,:,:N2]
@@ -127,7 +134,10 @@ def afb1d(x, h0, h1, mode='zero', dim=-1):
             # Calculate the high and lowpass
             lohi = F.conv2d(x, h, padding=pad, stride=s, groups=C)
         elif mode == 'symmetric' or mode == 'reflect':
-            pad = (0, 0, p//2, (p+1)//2) if d == 2 else (p//2, (p+1)//2, 0, 0)
+            if decimate:
+                pad = (0, 0, p//2, (p+1)//2) if d == 2 else (p//2, (p+1)//2, 0, 0)
+            else:
+                pad = (0, 0, L2, L2) if d == 2 else (L2, L2, 0, 0)
             x = mypad(x, pad=pad, mode=mode)
             lohi = F.conv2d(x, h, stride=s, groups=C)
         else:
@@ -183,7 +193,7 @@ def sfb1d(lo, hi, g0, g1, mode='zero', dim=-1):
     return y
 
 
-def afb2d(x, filts, mode='zero'):
+def afb2d(x, filts, mode='zero', decimate=True):
     """ Does a single level 2d wavelet decomposition of an input. Does separate
     row and column filtering by two calls to
     :py:func:`pytorch_wavelets.dwt.lowlevel.afb1d`
@@ -201,9 +211,10 @@ def afb2d(x, filts, mode='zero'):
             padding to use. If periodization, the output size will be half the
             input size.  Otherwise, the output size will be slightly larger than
             half.
+        decimate (bool): Whether to downsample or not
 
     Returns:
-        y: Tensor of shape (N, C, 4, H, W)
+        y: Tensor of shape (N, C*4, H, W)
     """
     C = x.shape[1]
     tensorize = [not isinstance(f, torch.Tensor) for f in filts]
@@ -226,13 +237,13 @@ def afb2d(x, filts, mode='zero'):
     else:
         raise ValueError("Unknown form for input filts")
 
-    lohi = afb1d(x, h0_row, h1_row, mode=mode, dim=3)
-    y = afb1d(lohi, h0_col, h1_col, mode=mode, dim=2)
+    lohi = afb1d(x, h0_row, h1_row, mode=mode, dim=3, decimate=decimate)
+    y = afb1d(lohi, h0_col, h1_col, mode=mode, dim=2, decimate=decimate)
 
     return y
 
 
-def afb2d_nonsep(x, filts, mode='zero'):
+def afb2d_nonsep(x, filts, mode='zero', decimate=True):
     """ Does a 1 level 2d wavelet decomposition of an input. Doesn't do separate
     row and column filtering.
 
@@ -248,7 +259,7 @@ def afb2d_nonsep(x, filts, mode='zero'):
             half.
 
     Returns:
-        y: Tensor of shape (N, C, 4, H, W)
+        y: Tensor of shape (N, C*4, H, W)
     """
     C = x.shape[1]
     Ny = x.shape[2]
@@ -264,6 +275,12 @@ def afb2d_nonsep(x, filts, mode='zero'):
     f = torch.cat([filts]*C, dim=0)
     Ly = f.shape[2]
     Lx = f.shape[3]
+    if decimate:
+        stride = (2, 2)
+    else:
+        stride = (1, 1)
+        if mode == 'periodization' or mode == 'per':
+            print('Warning. This may produce an incorrect result')
 
     if mode == 'periodization' or mode == 'per':
         if x.shape[2] % 2 == 1:
@@ -273,7 +290,6 @@ def afb2d_nonsep(x, filts, mode='zero'):
             x = torch.cat((x, x[:,:,:,-1:]), dim=3)
             Nx += 1
         pad = (Ly-1, Lx-1)
-        stride = (2, 2)
         x = roll(roll(x, -Ly//2, dim=2), -Lx//2, dim=3)
         y = F.conv2d(x, f, padding=pad, stride=stride, groups=C)
         y[:,:,:Ly//2] += y[:,:,Ny//2:Ny//2+Ly//2]
@@ -297,11 +313,14 @@ def afb2d_nonsep(x, filts, mode='zero'):
                 x = F.pad(x, (0, 1, 0, 0))
             # Calculate the high and lowpass
             y = F.conv2d(
-                x, f, padding=(p1//2, p2//2), stride=2, groups=C)
+                x, f, padding=(p1//2, p2//2), stride=stride, groups=C)
         elif mode == 'symmetric' or mode == 'reflect':
-            pad = (p2//2, (p2+1)//2, p1//2, (p1+1)//2)
+            if decimate:
+                pad = (p2//2, (p2+1)//2, p1//2, (p1+1)//2)
+            else:
+                pad = (Ly//2, Ly//2, Lx//2, Lx//2)
             x = mypad(x, pad=pad, mode=mode)
-            y = F.conv2d(x, f, stride=2, groups=C)
+            y = F.conv2d(x, f, stride=stride, groups=C)
     else:
         raise ValueError("Unkown pad type: {}".format(mode))
 

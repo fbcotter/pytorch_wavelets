@@ -3,7 +3,32 @@ from __future__ import absolute_import
 import torch
 import torch.nn.functional as F
 import numpy as np
+from math import sqrt
 from pytorch_wavelets.utils import symm_pad_1d as symm_pad
+
+
+class SmoothMagFn(torch.autograd.Function):
+    """ Class to do complex magnitude """
+    @staticmethod
+    def forward(ctx, x, b, ri_dim):
+        ctx.ri_dim = ri_dim
+        x1, x2 = torch.unbind(x, dim=ri_dim)
+        val = torch.sqrt(x1**2 + x2**2 + b)
+        mag = val - sqrt(b)
+        if x.requires_grad:
+            dx1 = x1/val
+            dx2 = x2/val
+            ctx.save_for_backward(dx1, dx2)
+
+        return mag
+
+    @staticmethod
+    def backward(ctx, dy):
+        dx = None
+        if ctx.needs_input_grad[0]:
+            dx1, dx2 = ctx.saved_tensors
+            dx = torch.stack((dy*dx1, dy*dx2), dim=ctx.ri_dim)
+        return dx, None, None
 
 
 def as_column_vector(v):
@@ -247,7 +272,7 @@ def q2c(y, dim=-1):
     #  |    |
     #  c----d
     # Combine (a,b) and (d,c) to form two complex subimages.
-    y = y/np.sqrt(2)
+    y /= np.sqrt(2)
     a, b = y[:,:, 0::2, 0::2], y[:,:, 0::2, 1::2]
     c, d = y[:,:, 1::2, 0::2], y[:,:, 1::2, 1::2]
 

@@ -1,10 +1,67 @@
 import torch
 import torch.nn as nn
 from numpy import ndarray
+from math import sqrt
+import numpy as np
 
 from pytorch_wavelets.dtcwt.coeffs import qshift as _qshift, biort as _biort
 from pytorch_wavelets.dtcwt.lowlevel import prep_filt
+import pytorch_wavelets.dwt.lowlevel as lowlevel
 from pytorch_wavelets.dtcwt import transform_funcs as tf
+
+
+class Scatter(nn.Module):
+    """ Performs a single scale scattering with DTCWTs """
+    def __init__(self, biort='near_sym_a', separable=True):
+        super().__init__()
+        self.biort = biort
+        self.separable = separable
+        if isinstance(biort, str):
+            h0, _, h1, _ = _biort(biort)
+        else:
+            h0, h1 = biort
+        if h0.shape[0] < h1.shape[0]:
+            h0 = np.pad(h0, ((1,1), (0,0)), 'constant')
+        elif h1.shape[0] < h0.shape[0]:
+            h1 = np.pad(h1, ((1,1), (0,0)), 'constant')
+        # Prepare the filters
+        if separable:
+            filts = lowlevel.prep_filt_afb2d(h0, h1, h0, h1)
+            self.h0_col = nn.Parameter(filts[0], requires_grad=False)
+            self.h1_col = nn.Parameter(filts[1], requires_grad=False)
+            self.h0_row = nn.Parameter(filts[2], requires_grad=False)
+            self.h1_row = nn.Parameter(filts[3], requires_grad=False)
+            self.h = (self.h0_col, self.h1_col, self.h0_row, self.h1_row)
+        else:
+            filts = lowlevel.prep_filt_afb2d_nonsep(h0, h1, h0, h1)
+            self.h = nn.Parameter(filts, requires_grad=False)
+        self.b = 1e-4
+
+    def forward(self, x):
+        # If the row/col count of X is not divisible by 2 then we need to
+        # extend X
+        batch, ch, r, c = x.shape
+        if r % 2 != 0:
+            x = torch.cat((x, x[:,:,-1:]), dim=2)
+        if c % 2 != 0:
+            x = torch.cat((x, x[:,:,:,-1:]), dim=3)
+        batch, ch, r, c = x.shape
+
+        if self.separable:
+            y = lowlevel.afb2d(x, self.h, mode='symmetric',
+                                      decimate=False)
+        else:
+            y = lowlevel.afb2d_nonsep(x, self.h, mode='symmetric', decimate=False)
+        y = y.view(batch, ch, 4, r, c)
+        lo = y[:,:,0]
+        hi = y[:,:,1:]/sqrt(2)
+        r1 = hi[..., ::2, ::2] - hi[..., 1::2,1::2]
+        r2 = hi[..., ::2, ::2] + hi[..., 1::2,1::2]
+        i1 = hi[..., ::2, 1::2] + hi[..., 1::2, ::2]
+        i2 = hi[..., ::2, 1::2] - hi[..., 1::2, ::2]
+        m1 = torch.sqrt(r1**2 + i1**2 + self.b) - sqrt(self.b)
+        m2 = torch.sqrt(r2**2 + i2**2 + self.b) - sqrt(self.b)
+        return lo, torch.cat((m1, m2), dim=2).view(batch, ch*6, r//2, c//2)
 
 
 class DTCWTForward(nn.Module):
@@ -104,20 +161,12 @@ class DTCWTForward(nn.Module):
         coeffs = self.dtcwt_func.apply(
             x, self.h0o, self.h1o, self.h0a, self.h0b, self.h1a,
             self.h1b, self.skip_hps, self.include_scale, self.o_dim,
-            self.ri_dim)
+            self.ri_dim, self.downsample)
 
         if True in self.include_scale:
-            if self.downsample:
-                lps = tuple([c[:,:, ::2, ::2] for c in coeffs[:self.J]])
-                return lps, coeffs[self.J:]
-            else:
-                return coeffs[:self.J], coeffs[self.J:]
+            return coeffs[:self.J], coeffs[self.J:]
         else:
-            # Return in the format: (yl, yh)
-            if self.downsample:
-                return coeffs[0][:,:,::2, ::2], coeffs[1:]
-            else:
-                return coeffs[0], coeffs[1:]
+            return coeffs[0], coeffs[1:]
 
 
 class DTCWTInverse(nn.Module):
