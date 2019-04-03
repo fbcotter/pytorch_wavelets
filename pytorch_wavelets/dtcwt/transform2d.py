@@ -179,9 +179,9 @@ class DTCWTInverse(nn.Module):
             Reconstructed output
 
         Note:
-            Can accept Nones or an empty tensor (torch.tensor([])) for the lowpass
-            or bandpass inputs. In this cases, an array of zeros replaces that
-            input.
+            Can accept Nones or an empty tensor (torch.tensor([])) for the
+            lowpass or bandpass inputs. In this cases, an array of zeros
+            replaces that input.
 
         Note:
             :math:`H_{in}', W_{in}', H_{in}'', W_{in}''` are the shapes of a

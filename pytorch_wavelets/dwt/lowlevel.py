@@ -205,7 +205,6 @@ def afb2d(x, filts, mode='zero'):
     Returns:
         y: Tensor of shape (N, C, 4, H, W)
     """
-    C = x.shape[1]
     tensorize = [not isinstance(f, torch.Tensor) for f in filts]
     if len(filts) == 2:
         h0, h1 = filts
@@ -382,7 +381,8 @@ def sfb2d_nonsep(coeffs, filts, mode='zero'):
     # not, tensorize it here.
     if isinstance(filts, (tuple, list)):
         if len(filts) == 2:
-            filts = prep_filt_sfb2d_nonsep(filts[0], filts[1], device=coeffs.device)
+            filts = prep_filt_sfb2d_nonsep(filts[0], filts[1],
+                                           device=coeffs.device)
         elif len(filts) == 4:
             filts = prep_filt_sfb2d_nonsep(
                 filts[0], filts[1], filts[2], filts[3], device=coeffs.device)
@@ -402,8 +402,6 @@ def sfb2d_nonsep(coeffs, filts, mode='zero'):
     elif mode == 'symmetric' or mode == 'zero' or mode == 'reflect':
         pad = (Ly-2, Lx-2)
         ll = F.conv_transpose2d(x, f, padding=pad, groups=C, stride=2)
-        #  ll = F.conv_transpose2d(x, f, groups=C, stride=2)
-        #  ll = ll[:,:, 2*(Ly//2 - 1):-2*(Ly//2 - 1), 2*(Lx//2 - 1):2*(Lx//2 - 1)]
     else:
         raise ValueError("Unkown pad type: {}".format(mode))
 

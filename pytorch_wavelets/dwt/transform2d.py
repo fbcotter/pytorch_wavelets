@@ -40,9 +40,9 @@ class DWTForward(nn.Module):
             self.h1_col = nn.Parameter(filts[1], requires_grad=False)
             self.h0_row = nn.Parameter(filts[2], requires_grad=False)
             self.h1_row = nn.Parameter(filts[3], requires_grad=False)
-            self.h = (self.h0_col, self.h1_col, self.h0_row, self.h1_row)
         else:
-            filts = lowlevel.prep_filt_afb2d_nonsep(h0_col, h1_col, h0_row, h1_row)
+            filts = lowlevel.prep_filt_afb2d_nonsep(
+                h0_col, h1_col, h0_row, h1_row)
             self.h = nn.Parameter(filts, requires_grad=False)
         self.J = J
         self.mode = mode
@@ -74,7 +74,8 @@ class DWTForward(nn.Module):
         for j in range(self.J):
             # Do 1 level of the transform
             if self.separable:
-                y = lowlevel.afb2d(ll, self.h, self.mode)
+                filts = (self.h0_col, self.h1_col, self.h0_row, self.h1_row)
+                y = lowlevel.afb2d(ll, filts, self.mode)
             else:
                 y = lowlevel.afb2d_nonsep(ll, self.h, self.mode)
 
@@ -115,9 +116,9 @@ class DWTInverse(nn.Module):
             self.g1_col = nn.Parameter(filts[1], requires_grad=False)
             self.g0_row = nn.Parameter(filts[2], requires_grad=False)
             self.g1_row = nn.Parameter(filts[3], requires_grad=False)
-            self.h = (self.g0_col, self.g1_col, self.g0_row, self.g1_row)
         else:
-            filts = lowlevel.prep_filt_sfb2d_nonsep(g0_col, g1_col, g0_row, g1_row)
+            filts = lowlevel.prep_filt_sfb2d_nonsep(
+                g0_col, g1_col, g0_row, g1_row)
             self.h = nn.Parameter(filts, requires_grad=False)
         self.mode = mode
         self.separable = separable
@@ -160,7 +161,8 @@ class DWTInverse(nn.Module):
             # Do the synthesis filter banks
             if self.separable:
                 lh, hl, hh = torch.unbind(h, dim=2)
-                ll = lowlevel.sfb2d(ll, lh, hl, hh, self.h, mode=self.mode)
+                filts = (self.g0_col, self.g1_col, self.g0_row, self.g1_row)
+                ll = lowlevel.sfb2d(ll, lh, hl, hh, filts, mode=self.mode)
             else:
                 c = torch.cat((ll[:,:,None], h), dim=2)
                 ll = lowlevel.sfb2d_nonsep(c, self.h, mode=self.mode)
