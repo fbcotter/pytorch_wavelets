@@ -305,7 +305,8 @@ def test_gradients_fwd(wave, J, mode, sep_fwd, sep_inv):
     yl.backward(ylg, retain_graph=True)
     zeros = [torch.zeros_like(yh[i]) for i in range(J)]
     ref = iwt((ylg, zeros))
-    np.testing.assert_array_almost_equal(imt.grad.detach().cpu(), ref.cpu())
+    np.testing.assert_array_almost_equal(imt.grad.detach().cpu(), ref.cpu(),
+                                         decimal=PRECISION_FLOAT)
 
     # Test the bandpass
     for j, y in enumerate(yh):
