@@ -342,16 +342,22 @@ def cplxdual2D(x, J, level1='farras', qshift='qshift_a', mode='periodization',
         for n in range(2):
             # Do the first level transform with the first level filters
             #  ll, bands = afb2d(x, (Faf[m][0], Faf[m][1], Faf[n][0], Faf[n][1]), mode=mode)
-            ll, bands = afb2d(x, Faf[m][n], mode=mode)
-            w[0][m][n] = [bands[:,:,1], bands[:,:,0], bands[:,:,2]]
-            ll = ll[:,:,0]
+            bands = afb2d(x, Faf[m][n], mode=mode)
+            # Separate the low and bandpasses
+            s = bands.shape
+            bands = bands.reshape(s[0], -1, 4, s[-2], s[-1])
+            ll = bands[:,:,0].contiguous()
+            w[0][m][n] = [bands[:,:,2], bands[:,:,1], bands[:,:,3]]
 
             # Do the second+ level transform with the second level filters
             for j in range(1,J):
                 #  ll, bands = afb2d(ll, (af[m][0], af[m][1], af[n][0], af[n][1]), mode=mode)
-                ll, bands = afb2d(ll, af[m][n], mode=mode)
-                w[j][m][n] = [bands[:,:,1], bands[:,:,0], bands[:,:,2]]
-                ll = ll[:,:,0]
+                bands = afb2d(ll, af[m][n], mode=mode)
+                # Separate the low and bandpasses
+                s = bands.shape
+                bands = bands.reshape(s[0], -1, 4, s[-2], s[-1])
+                ll = bands[:,:,0].contiguous()
+                w[j][m][n] = [bands[:,:,2], bands[:,:,1], bands[:,:,3]]
             lows[m][n] = ll
 
     # Convert the quads into real and imaginary parts

@@ -203,9 +203,8 @@ def afb2d(x, filts, mode='zero'):
             half.
 
     Returns:
-        y: Tensor of shape (N, C, 4, H, W)
+        y: Tensor of shape (N, C*4, H, W)
     """
-    C = x.shape[1]
     tensorize = [not isinstance(f, torch.Tensor) for f in filts]
     if len(filts) == 2:
         h0, h1 = filts

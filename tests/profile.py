@@ -110,10 +110,11 @@ def separable_dwt(size, J, no_grad=False, dev='cuda'):
     return yl.mean(), [y.mean() for y in yh]
 
 
-#  def selesnick_dtcwt(size, J, no_grad=False, dev='cuda'):
-    #  x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
-    #  yl, yh = cplxdual2D(x, J, qshift='qshift_06', mode='zero')
-    #  return yl, yh
+def selesnick_dtcwt(size, J, no_grad=False, dev='cuda'):
+    x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
+    yl, yh = lowlevel2.cplxdual2D(x, J, qshift='qshift_06', mode='zero')
+    return yl, yh
+
 
 def test_dtcwt(size, J, no_grad=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
@@ -161,8 +162,8 @@ if __name__ == "__main__":
             nonseparable_dwt(size, args.j, args.no_grad, args.device)
     elif args.fb:
         print('Running 4 dwts')
-        #  yl, yh = selesnick_dtcwt(size, args.j, args.no_grad, args.device)
-        yl, yh = test_dtcwt2(size, args.j, no_grad=args.no_grad, dev=args.device)
+        yl, yh = selesnick_dtcwt(size, args.j, args.no_grad, args.device)
+        #  yl, yh = test_dtcwt2(size, args.j, no_grad=args.no_grad, dev=args.device)
     else:
         if args.forward:
             print('Running forward transform')
@@ -180,4 +181,4 @@ if __name__ == "__main__":
         mag = mag.view(n, 6*c, h, w)
         gain1 = nn.Conv2d(6*c, c, 3, padding=1).cuda()
         y = gain1(mag)
-
+    torch.cuda.synchronize()
