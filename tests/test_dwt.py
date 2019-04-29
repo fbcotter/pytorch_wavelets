@@ -5,8 +5,8 @@ from pytorch_wavelets import DWTForward, DWTInverse
 import torch
 from contextlib import contextmanager
 
-PRECISION_FLOAT = 3
-PRECISION_DOUBLE = 7
+PREC_FLT = 3
+PREC_DBL = 7
 
 HAVE_GPU = torch.cuda.is_available()
 if HAVE_GPU:
@@ -31,14 +31,17 @@ def set_double_precision():
     ('db3', 1, 'symmetric', False, False),
     ('db3', 2, 'reflect', False, False),
     ('db2', 3, 'periodization', False, False),
+    ('db2', 3, 'periodic', False, False),
     ('db4', 2, 'zero', False, False),
     ('db3', 3, 'symmetric', False, False),
     ('bior2.4', 2, 'periodization', False, False),
+    ('bior2.4', 2, 'periodization', False, False),
     ('db1', 1, 'zero', True, True),
-    ('db1', 3, 'zero', True, True),
+    ('db1', 3, 'periodic', True, True),
     ('db3', 1, 'symmetric', True, True),
     ('db3', 2, 'reflect', False, True),
     ('db2', 3, 'periodization', True, False),
+    ('db2', 3, 'periodic', True, False),
     ('db4', 2, 'zero', False, True),
     ('db3', 3, 'symmetric', True, False),
     ('bior2.4', 2, 'periodization', False, True)
@@ -62,14 +65,17 @@ def test_ok(wave, J, mode, sep_fwd, sep_inv):
     ('db3', 1, 'symmetric', False, False),
     ('db3', 2, 'reflect', False, False),
     ('db2', 3, 'periodization', False, False),
+    ('db2', 3, 'periodic', False, False),
     ('db4', 2, 'zero', False, False),
     ('db3', 3, 'symmetric', False, False),
     ('bior2.4', 2, 'periodization', False, False),
+    ('bior2.4', 2, 'periodization', False, False),
     ('db1', 1, 'zero', True, True),
-    ('db1', 3, 'zero', True, True),
+    ('db1', 3, 'periodic', True, True),
     ('db3', 1, 'symmetric', True, True),
     ('db3', 2, 'reflect', False, True),
     ('db2', 3, 'periodization', True, False),
+    ('db2', 3, 'periodic', True, False),
     ('db4', 2, 'zero', False, True),
     ('db3', 3, 'symmetric', True, False),
     ('bior2.4', 2, 'periodization', False, True)
@@ -82,16 +88,16 @@ def test_equal(wave, J, mode, sep_fwd, sep_inv):
     x2 = iwt((yl, yh))
 
     # Test the forward and inverse worked
-    np.testing.assert_array_almost_equal(x.cpu(), x2.detach(), decimal=4)
+    np.testing.assert_array_almost_equal(x.cpu(), x2.detach(), decimal=PREC_FLT)
     # Test it is the same as doing the PyWavelets wavedec with reflection
     # padding
     coeffs = pywt.wavedec2(x.cpu().numpy(), wave, level=J, axes=(-2,-1),
                            mode=mode)
-    np.testing.assert_array_almost_equal(yl.cpu(), coeffs[0], decimal=4)
+    np.testing.assert_array_almost_equal(yl.cpu(), coeffs[0], decimal=PREC_FLT)
     for j in range(J):
         for b in range(3):
             np.testing.assert_array_almost_equal(
-                coeffs[J-j][b], yh[j][:,:,b].cpu(), decimal=4)
+                coeffs[J-j][b], yh[j][:,:,b].cpu(), decimal=PREC_FLT)
 
 
 @pytest.mark.parametrize("size", [
@@ -115,16 +121,16 @@ def test_equal_oddshape(size):
     coeffs = pywt.wavedec2(x.cpu().numpy(), wave, level=J, axes=(-2,-1),
                            mode=mode)
     X2 = pywt.waverec2(coeffs, wave, mode=mode)
-    np.testing.assert_array_almost_equal(X2, x1.detach(), decimal=4)
-    np.testing.assert_array_almost_equal(X2, x2.detach(), decimal=4)
-    np.testing.assert_array_almost_equal(yl1.cpu(), coeffs[0], decimal=4)
-    np.testing.assert_array_almost_equal(yl2.cpu(), coeffs[0], decimal=4)
+    np.testing.assert_array_almost_equal(X2, x1.detach(), decimal=PREC_FLT)
+    np.testing.assert_array_almost_equal(X2, x2.detach(), decimal=PREC_FLT)
+    np.testing.assert_array_almost_equal(yl1.cpu(), coeffs[0], decimal=PREC_FLT)
+    np.testing.assert_array_almost_equal(yl2.cpu(), coeffs[0], decimal=PREC_FLT)
     for j in range(J):
         for b in range(3):
             np.testing.assert_array_almost_equal(
-                coeffs[J-j][b], yh1[j][:,:,b].cpu(), decimal=4)
+                coeffs[J-j][b], yh1[j][:,:,b].cpu(), decimal=PREC_FLT)
             np.testing.assert_array_almost_equal(
-                coeffs[J-j][b], yh2[j][:,:,b].cpu(), decimal=4)
+                coeffs[J-j][b], yh2[j][:,:,b].cpu(), decimal=PREC_FLT)
 
 
 @pytest.mark.parametrize("size", [
@@ -148,16 +154,16 @@ def test_equal_oddshape2(size):
     coeffs = pywt.wavedec2(x.cpu().numpy(), wave, level=J, axes=(-2,-1),
                            mode=mode)
     X2 = pywt.waverec2(coeffs, wave, mode=mode)
-    np.testing.assert_array_almost_equal(X2, x1.detach(), decimal=4)
-    np.testing.assert_array_almost_equal(X2, x2.detach(), decimal=4)
-    np.testing.assert_array_almost_equal(yl1.cpu(), coeffs[0], decimal=4)
-    np.testing.assert_array_almost_equal(yl2.cpu(), coeffs[0], decimal=4)
+    np.testing.assert_array_almost_equal(X2, x1.detach(), decimal=PREC_FLT)
+    np.testing.assert_array_almost_equal(X2, x2.detach(), decimal=PREC_FLT)
+    np.testing.assert_array_almost_equal(yl1.cpu(), coeffs[0], decimal=PREC_FLT)
+    np.testing.assert_array_almost_equal(yl2.cpu(), coeffs[0], decimal=PREC_FLT)
     for j in range(J):
         for b in range(3):
             np.testing.assert_array_almost_equal(
-                coeffs[J-j][b], yh1[j][:,:,b].cpu(), decimal=4)
+                coeffs[J-j][b], yh1[j][:,:,b].cpu(), decimal=PREC_FLT)
             np.testing.assert_array_almost_equal(
-                coeffs[J-j][b], yh2[j][:,:,b].cpu(), decimal=4)
+                coeffs[J-j][b], yh2[j][:,:,b].cpu(), decimal=PREC_FLT)
 
 
 @pytest.mark.parametrize("wave, J, mode, sep_fwd, sep_inv", [
@@ -166,14 +172,17 @@ def test_equal_oddshape2(size):
     ('db3', 1, 'symmetric', False, False),
     ('db3', 2, 'reflect', False, False),
     ('db2', 3, 'periodization', False, False),
+    ('db2', 3, 'periodic', False, False),
     ('db4', 2, 'zero', False, False),
     ('db3', 3, 'symmetric', False, False),
     ('bior2.4', 2, 'periodization', False, False),
+    ('bior2.4', 2, 'periodization', False, False),
     ('db1', 1, 'zero', True, True),
-    ('db1', 3, 'zero', True, True),
+    ('db1', 3, 'periodic', True, True),
     ('db3', 1, 'symmetric', True, True),
     ('db3', 2, 'reflect', False, True),
     ('db2', 3, 'periodization', True, False),
+    ('db2', 3, 'periodic', True, False),
     ('db4', 2, 'zero', False, True),
     ('db3', 3, 'symmetric', True, False),
     ('bior2.4', 2, 'periodization', False, True)
@@ -189,14 +198,14 @@ def test_equal_double(wave, J, mode, sep_fwd, sep_inv):
     x2 = iwt((yl, yh))
 
     # Test the forward and inverse worked
-    np.testing.assert_array_almost_equal(x.cpu(), x2.detach(), decimal=7)
+    np.testing.assert_array_almost_equal(x.cpu(), x2.detach(), decimal=PREC_DBL)
     coeffs = pywt.wavedec2(x.cpu().numpy(), wave, level=J, axes=(-2,-1),
                            mode=mode)
     np.testing.assert_array_almost_equal(yl.cpu(), coeffs[0], decimal=7)
     for j in range(J):
         for b in range(3):
             np.testing.assert_array_almost_equal(
-                coeffs[J-j][b], yh[j][:,:,b].cpu(), decimal=7)
+                coeffs[J-j][b], yh[j][:,:,b].cpu(), decimal=PREC_DBL)
 
 
 @pytest.mark.parametrize("wave, J, j", [
@@ -231,48 +240,17 @@ def test_commutativity(wave, J, j):
     yc = iwt(coeffs_zero)
 
     np.testing.assert_array_almost_equal(
-        (ya+yb).detach().cpu(), yab.detach().cpu(), decimal=4)
+        (ya+yb).detach().cpu(), yab.detach().cpu(), decimal=PREC_FLT)
     np.testing.assert_array_almost_equal(
-        (yc+yb).detach().cpu(), ybc.detach().cpu(), decimal=4)
-
-
-@pytest.mark.parametrize("wave, J, mode, sep_fwd, sep_inv", [
-    ('db1', 1, 'zero', False, False),
-    ('db1', 3, 'zero', False, False),
-    ('db3', 1, 'symmetric', False, False),
-    ('db3', 2, 'reflect', False, False),
-    ('db2', 3, 'periodization', False, False),
-    ('db4', 2, 'zero', False, False),
-    ('db3', 3, 'symmetric', False, False),
-    ('bior2.4', 2, 'periodization', False, False),
-    ('db1', 1, 'zero', True, True),
-    ('db1', 3, 'zero', True, True),
-    ('db3', 1, 'symmetric', True, True),
-    ('db3', 2, 'reflect', False, True),
-    ('db2', 3, 'periodization', True, False),
-    ('db4', 2, 'zero', False, True),
-    ('db3', 3, 'symmetric', True, False),
-    ('bior2.4', 2, 'periodization', False, True)
-])
-def test_ok(wave, J, mode, sep_fwd, sep_inv):
-    x = torch.randn(5, 4, 64, 64).to(dev)
-    dwt = DWTForward(J=J, wave=wave, mode=mode, separable=sep_fwd).to(dev)
-    iwt = DWTInverse(wave=wave, mode=mode, separable=sep_inv).to(dev)
-    yl, yh = dwt(x)
-    x2 = iwt((yl, yh))
-    # Can have data errors sometimes
-    assert yl.is_contiguous()
-    for j in range(J):
-        assert yh[j].is_contiguous()
-    assert x2.is_contiguous()
+        (yc+yb).detach().cpu(), ybc.detach().cpu(), decimal=PREC_FLT)
 
 
 # Test gradients
 @pytest.mark.parametrize("wave, J, mode, sep_fwd, sep_inv", [
     ('db1', 1, 'zero', False, False),
     ('db1', 3, 'zero', False, False),
-    #  ('db3', 1, 'symmetric', False, False),
-    #  ('db3', 2, 'reflect', False, False),
+    ('db3', 1, 'symmetric', False, False),
+    ('db3', 2, 'reflect', False, False),
     ('db2', 3, 'periodization', False, False),
     ('db4', 2, 'zero', False, False),
     #  ('db3', 3, 'symmetric', False, False),
@@ -306,7 +284,7 @@ def test_gradients_fwd(wave, J, mode, sep_fwd, sep_inv):
     zeros = [torch.zeros_like(yh[i]) for i in range(J)]
     ref = iwt((ylg, zeros))
     np.testing.assert_array_almost_equal(imt.grad.detach().cpu(), ref.cpu(),
-                                         decimal=PRECISION_FLOAT)
+                                         decimal=PREC_FLT)
 
     # Test the bandpass
     for j, y in enumerate(yh):
@@ -317,7 +295,8 @@ def test_gradients_fwd(wave, J, mode, sep_fwd, sep_inv):
         hps[j] = g
         ref = iwt((torch.zeros_like(yl), hps))
         np.testing.assert_array_almost_equal(imt.grad.detach().cpu(), ref.cpu(),
-                                             decimal=PRECISION_FLOAT)
+                                             decimal=PREC_FLT)
+
 
 # Test gradients
 @pytest.mark.parametrize("wave, J, mode, sep_fwd, sep_inv", [
@@ -352,7 +331,8 @@ def test_gradients_inv(wave, J, mode, sep_fwd, sep_inv):
     l, h = dwt(temp)
     # Create our inputs
     yl = torch.randn(*l.shape, requires_grad=True, device=dev)
-    yh = [torch.randn(*h[i].shape, requires_grad=True, device=dev) for i in range(J)]
+    yh = [torch.randn(*h[i].shape, requires_grad=True, device=dev)
+          for i in range(J)]
     y = iwt((yl, yh))
 
     # Test the gradients
@@ -362,9 +342,10 @@ def test_gradients_inv(wave, J, mode, sep_fwd, sep_inv):
 
     # test the lowpass
     np.testing.assert_array_almost_equal(yl.grad.detach().cpu(), dyl.cpu(),
-                                         decimal=PRECISION_FLOAT)
+                                         decimal=PREC_FLT)
 
     # Test the bandpass
     for j in range(J):
-        np.testing.assert_array_almost_equal(yh[j].grad.detach().cpu(), dyh[j].cpu(),
-                                             decimal=PRECISION_FLOAT)
+        np.testing.assert_array_almost_equal(yh[j].grad.detach().cpu(),
+                                             dyh[j].cpu(),
+                                             decimal=PREC_FLT)
