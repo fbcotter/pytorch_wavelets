@@ -4,7 +4,9 @@ from numpy import ndarray
 
 from pytorch_wavelets.dtcwt.coeffs import qshift as _qshift, biort as _biort
 from pytorch_wavelets.dtcwt.lowlevel import prep_filt
-from pytorch_wavelets.dtcwt import transform_funcs as tf
+from pytorch_wavelets.dtcwt.transform_funcs import FWD_J1, FWD_J2PLUS
+from pytorch_wavelets.dtcwt.transform_funcs import INV_J1, INV_J2PLUS
+from pytorch_wavelets.dtcwt.transform_funcs import get_dimensions
 
 
 class DTCWTForward(nn.Module):
@@ -28,14 +30,12 @@ class DTCWTForward(nn.Module):
             [False, True, True], the forward call will return the second and
             third lowpass outputs, but discard the lowpass from the first level
             transform.
-        downsample (bool): If true, subsample the output lowpass (to match the
-            bandpass output sizes)
         o_dim (int): Which dimension to put the orientations in
         ri_dim (int): which dimension to put the real and imaginary parts
     """
     def __init__(self, biort='near_sym_a', qshift='qshift_a',
                  J=3, skip_hps=False, include_scale=False,
-                 downsample=False, o_dim=2, ri_dim=-1):
+                 o_dim=2, ri_dim=-1):
         super().__init__()
         if o_dim == ri_dim:
             raise ValueError("Orientations and real/imaginary parts must be "
@@ -44,7 +44,6 @@ class DTCWTForward(nn.Module):
         self.biort = biort
         self.qshift = qshift
         self.J = J
-        self.downsample = downsample
         self.o_dim = o_dim
         self.ri_dim = ri_dim
         if isinstance(biort, str):
@@ -75,10 +74,6 @@ class DTCWTForward(nn.Module):
             self.include_scale = include_scale
         else:
             self.include_scale = [include_scale,] * self.J
-        if True in self.include_scale:
-            self.dtcwt_func = getattr(tf, 'xfm{J}scale'.format(J=J))
-        else:
-            self.dtcwt_func = getattr(tf, 'xfm{J}'.format(J=J))
 
     def forward(self, x):
         """ Forward Dual Tree Complex Wavelet Transform
@@ -101,23 +96,45 @@ class DTCWTForward(nn.Module):
             :math:`H_{in}', W_{in}', H_{in}'', W_{in}''` are the shapes of a
             DTCWT pyramid.
         """
-        coeffs = self.dtcwt_func.apply(
-            x, self.h0o, self.h1o, self.h0a, self.h0b, self.h1a,
-            self.h1b, self.skip_hps, self.include_scale, self.o_dim,
-            self.ri_dim)
+        scales = [x.new_zeros([]),] * self.J
+        highs = [x.new_zeros([]),] * self.J
+        if self.J == 0:
+            return x, None
+
+        # If the row/col count of X is not divisible by 2 then we need to
+        # extend X
+        r, c = x.shape[2:]
+        if r % 2 != 0:
+            x = torch.cat((x, x[:,:,-1:]), dim=2)
+        if c % 2 != 0:
+            x = torch.cat((x, x[:,:,:,-1:]), dim=3)
+
+        # Do the level 1 transform
+        low, h = FWD_J1.apply(x, self.h0o, self.h1o, self.skip_hps[0],
+                              self.o_dim, self.ri_dim)
+        highs[0] = h
+        if self.include_scale[0]:
+            scales[0] = low
+
+        for j in range(1, self.J):
+            # Ensure the lowpass is divisible by 4
+            r, c = low.shape[2:]
+            if r % 4 != 0:
+                low = torch.cat((low[:,:,0:1], low, low[:,:,-1:]), dim=2)
+            if c % 4 != 0:
+                low = torch.cat((low[:,:,:,0:1], low, low[:,:,:,-1:]), dim=3)
+
+            low, h = FWD_J2PLUS.apply(low, self.h0a, self.h1a, self.h0b,
+                                      self.h1b, self.skip_hps[j], self.o_dim,
+                                      self.ri_dim)
+            highs[j] = h
+            if self.include_scale[j]:
+                scales[j] = low
 
         if True in self.include_scale:
-            if self.downsample:
-                lps = tuple([c[:,:, ::2, ::2] for c in coeffs[:self.J]])
-                return lps, coeffs[self.J:]
-            else:
-                return coeffs[:self.J], coeffs[self.J:]
+            return scales, highs
         else:
-            # Return in the format: (yl, yh)
-            if self.downsample:
-                return coeffs[0][:,:,::2, ::2], coeffs[1:]
-            else:
-                return coeffs[0], coeffs[1:]
+            return low, highs
 
 
 class DTCWTInverse(nn.Module):
@@ -136,14 +153,13 @@ class DTCWTInverse(nn.Module):
         ri_dim (int): which dimension to put th real and imaginary parts in
     """
 
-    def __init__(self, biort='near_sym_a', qshift='qshift_a', J=3,
-                 o_dim=2, ri_dim=-1):
+    def __init__(self, biort='near_sym_a', qshift='qshift_a', o_dim=2,
+                 ri_dim=-1):
         super().__init__()
         self.biort = biort
         self.qshift = qshift
         self.o_dim = o_dim
         self.ri_dim = ri_dim
-        self.J = J
         if isinstance(biort, str):
             _, g0o, _, g1o = _biort(biort)
             self.g0o = torch.nn.Parameter(prep_filt(g0o, 1), False)
@@ -162,9 +178,6 @@ class DTCWTInverse(nn.Module):
             self.g0b = torch.nn.Parameter(prep_filt(qshift[1], 1), False)
             self.g1a = torch.nn.Parameter(prep_filt(qshift[2], 1), False)
             self.g1b = torch.nn.Parameter(prep_filt(qshift[3], 1), False)
-
-        # Create the function to do the DTCWT
-        self.dtcwt_func = getattr(tf, 'ifm{J}'.format(J=J))
 
     def forward(self, coeffs):
         """
@@ -191,21 +204,39 @@ class DTCWTInverse(nn.Module):
             If include_scale was true for the forward pass, you should provide
             only the final lowpass output here, as normal for an inverse wavelet
             transform.
-
-        Note:
-            Won't work if the forward transform lowpass was downsampled.
         """
-        yl, yh = coeffs
-        for s in yh:
-            if s is not None and s.shape != torch.Size([0]):
+        low, highs = coeffs
+        J = len(highs)
+        _, _, h_dim, w_dim = get_dimensions(
+            self.o_dim, self.ri_dim)
+        for j, s in zip(range(J-1, 0, -1), highs[1:][::-1]):
+            if s is not None and s.shape != torch.Size([]):
                 assert s.shape[self.o_dim] == 6, "Inverse transform must " \
                     "have input with 6 orientations"
                 assert len(s.shape) == 6, "Bandpass inputs must have " \
                     "6 dimensions"
                 assert s.shape[self.ri_dim] == 2, "Inputs must be complex " \
                     "with real and imaginary parts in the ri dimension"
-        assert len(yh) == self.J, "The input provided has more scales than J"
+                # Ensure the low and highpass are the right size
+                r, c = low.shape[2:]
+                r1, c1 = s.shape[h_dim], s.shape[w_dim]
+                if r != r1 * 2:
+                    low = low[:,:,1:-1]
+                if c != c1 * 2:
+                    low = low[:,:,:,1:-1]
 
-        return self.dtcwt_func.apply(
-            yl, *yh, self.g0o, self.g1o, self.g0a, self.g0b, self.g1a, self.g1b,
-            self.o_dim, self.ri_dim)
+            low = INV_J2PLUS.apply(low, s, self.g0a, self.g1a, self.g0b,
+                                   self.g1b, self.o_dim, self.ri_dim)
+
+        # Ensure the low and highpass are the right size
+        if highs[0] is not None and highs[0].shape != torch.Size([]):
+            r, c = low.shape[2:]
+            r1, c1 = highs[0].shape[h_dim], highs[0].shape[w_dim]
+            if r != r1 * 2:
+                low = low[:,:,1:-1]
+            if c != c1 * 2:
+                low = low[:,:,:,1:-1]
+
+        low = INV_J1.apply(low, highs[0], self.g0o, self.g1o, self.o_dim,
+                           self.ri_dim)
+        return low

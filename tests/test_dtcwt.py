@@ -153,7 +153,7 @@ def test_fwd_skip_hps(J, o_dim):
         Yl.cpu(), yl, decimal=PRECISION_FLOAT)
     for j in range(J):
         if hps[j]:
-            assert Yh[j].shape == torch.Size([0])
+            assert Yh[j].shape == torch.Size([])
         else:
             for l in range(6):
                 ours_r = np.take(Yh[j][...,0].cpu().numpy(), l, o_dim)
@@ -179,7 +179,7 @@ def test_fwd_include_scale(scales):
 
     for j in range(J):
         if not scales[j]:
-            assert Ys[j].shape == torch.Size([0])
+            assert Ys[j].shape == torch.Size([])
         else:
             np.testing.assert_array_almost_equal(
                 Ys[j].cpu(), ys[j], decimal=PRECISION_FLOAT)
@@ -229,7 +229,8 @@ def test_bwd_include_scale(scales):
     yl, yh, ys = f1.forward(X, nlevels=J, include_scale=True)
 
     for ys in Ys:
-        ys.backward(torch.ones_like(ys),retain_graph=True)
+        if ys.requires_grad:
+            ys.backward(torch.ones_like(ys),retain_graph=True)
 
 
 @pytest.mark.parametrize("J, o_dim", [
@@ -245,7 +246,7 @@ def test_inv(J, o_dim):
     Yh2 = [np.stack((np.stack(r, axis=o_dim), np.stack(i, axis=o_dim)), axis=-1)
            for r, i in zip(Yhr, Yhi)]
     Yh2 = [torch.tensor(yh, dtype=torch.float32, device=dev) for yh in Yh2]
-    ifm = DTCWTInverse(J=J, o_dim=o_dim).to(dev)
+    ifm = DTCWTInverse(o_dim=o_dim).to(dev)
     X = ifm((torch.tensor(Yl, dtype=torch.float32, device=dev), Yh2))
     f1 = Transform2d_np()
     x = f1.inverse(Yl, Yh1)
@@ -270,10 +271,10 @@ def test_inv_skip_hps(J, o_dim):
     Yh2 = [torch.tensor(yh, dtype=torch.float32, device=dev) for yh in Yh2]
     for j in range(J):
         if hps[j]:
-            Yh2[j] = torch.tensor([])
+            Yh2[j] = torch.tensor(0.)
             Yh1[j] = np.zeros_like(Yh1[j])
 
-    ifm = DTCWTInverse(J=J, o_dim=o_dim).to(dev)
+    ifm = DTCWTInverse(o_dim=o_dim).to(dev)
     X = ifm((torch.tensor(Yl, dtype=torch.float32, requires_grad=True,
                           device=dev), Yh2))
     # Also test giving None instead of an empty tensor
@@ -309,7 +310,7 @@ def test_inv_ri_dim(ri_dim):
     else:
         o_dim = 2
 
-    ifm = DTCWTInverse(J=J, o_dim=o_dim, ri_dim=ri_dim).to(dev)
+    ifm = DTCWTInverse(o_dim=o_dim, ri_dim=ri_dim).to(dev)
     X = ifm((torch.tensor(Yl, dtype=torch.float32, device=dev), Yh2))
     f1 = Transform2d_np()
     x = f1.inverse(Yl, Yh1)
@@ -331,7 +332,7 @@ def test_end2end(biort, qshift, size, J):
     imt = torch.tensor(im, dtype=torch.float32, requires_grad=True, device=dev)
     xfm = DTCWTForward(J=J, biort=biort, qshift=qshift).to(dev)
     Yl, Yh = xfm(imt)
-    ifm = DTCWTInverse(J=J, biort=biort, qshift=qshift).to(dev)
+    ifm = DTCWTInverse(biort=biort, qshift=qshift).to(dev)
     y = ifm((Yl, Yh))
 
     # Compare with numpy results
@@ -361,7 +362,7 @@ def test_gradients_fwd(biort, qshift, size, J):
     xfm = DTCWTForward(biort=biort, qshift=qshift, J=J).to(dev)
     h0o, g0o, h1o, g1o = _biort(biort)
     h0a, h0b, g0a, g0b, h1a, h1b, g1a, g1b = _qshift(qshift)
-    xfm_grad = DTCWTInverse(J=J, biort=(h0o[::-1], h1o[::-1]),
+    xfm_grad = DTCWTInverse(biort=(h0o[::-1], h1o[::-1]),
                             qshift=(h0a[::-1], h0b[::-1], h1a[::-1], h1b[::-1])
                             ).to(dev)
     Yl, Yh = xfm(imt)
@@ -391,7 +392,7 @@ def test_gradients_inv(biort, qshift, size, J):
     swapped """
     im = np.random.randn(5,6,*size).astype('float32')
     imt = torch.tensor(im, dtype=torch.float32, device=dev)
-    ifm = DTCWTInverse(biort=biort, qshift=qshift, J=J).to(dev)
+    ifm = DTCWTInverse(biort=biort, qshift=qshift).to(dev)
     h0o, g0o, h1o, g1o = _biort(biort)
     h0a, h0b, g0a, g0b, h1a, h1b, g1a, g1b = _qshift(qshift)
     ifm_grad = DTCWTForward(J=J, biort=(g0o[::-1], g1o[::-1]),
