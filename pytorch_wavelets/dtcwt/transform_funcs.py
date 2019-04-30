@@ -144,7 +144,7 @@ class xfm1scale(Function):
             Ys1 = LoLo
         else:
             Ys1 = torch.tensor([], device=input.device)
-        
+
         Yl = LoLo
         return Ys1, Yh1
 
@@ -163,7 +163,7 @@ class xfm1scale(Function):
 
         if True in ctx.needs_input_grad:
             ll = grad_Ys1
-            
+
             # Level 1 backward (time reversed biorthogonal analysis filters)
             if not ctx.skip_hps[0]:
                 dev = grad_Yh1.device
@@ -185,7 +185,7 @@ class xfm1scale(Function):
                 grad_input = grad_input[:,:,:-1]
             if ctx.extra_cols:
                 grad_input = grad_input[:,:,:,:-1]
-            
+
 
         return (grad_input,) + (None,) * 10
 
@@ -247,7 +247,7 @@ class xfm1(Function):
             Ys1 = LoLo
         else:
             Ys1 = torch.tensor([], device=input.device)
-        
+
         Yl = LoLo
         return Yl, Yh1
 
@@ -266,7 +266,7 @@ class xfm1(Function):
 
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
-            
+
             # Level 1 backward (time reversed biorthogonal analysis filters)
             if not ctx.skip_hps[0]:
                 dev = grad_Yh1.device
@@ -288,7 +288,7 @@ class xfm1(Function):
                 grad_input = grad_input[:,:,:-1]
             if ctx.extra_cols:
                 grad_input = grad_input[:,:,:,:-1]
-            
+
 
         return (grad_input,) + (None,) * 10
 
@@ -336,7 +336,7 @@ class ifm2(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
             r, c = ll.shape[2:]
@@ -480,7 +480,7 @@ class xfm2scale(Function):
             Ys1 = LoLo
         else:
             Ys1 = torch.tensor([], device=input.device)
-        
+
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -526,7 +526,7 @@ class xfm2scale(Function):
 
         if True in ctx.needs_input_grad:
             ll = grad_Ys2
-            
+
             # Level 2 backward (time reversed quater shift analysis filters)
             if not ctx.skip_hps[1]:
                 dev = grad_Yh2.device
@@ -574,7 +574,7 @@ class xfm2scale(Function):
                 grad_input = grad_input[:,:,:-1]
             if ctx.extra_cols:
                 grad_input = grad_input[:,:,:,:-1]
-            
+
 
         return (grad_input,) + (None,) * 10
 
@@ -636,7 +636,7 @@ class xfm2(Function):
             Ys1 = LoLo
         else:
             Ys1 = torch.tensor([], device=input.device)
-        
+
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -682,7 +682,7 @@ class xfm2(Function):
 
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
-            
+
             # Level 2 backward (time reversed quater shift analysis filters)
             if not ctx.skip_hps[1]:
                 dev = grad_Yh2.device
@@ -728,7 +728,7 @@ class xfm2(Function):
                 grad_input = grad_input[:,:,:-1]
             if ctx.extra_cols:
                 grad_input = grad_input[:,:,:,:-1]
-            
+
 
         return (grad_input,) + (None,) * 10
 
@@ -776,7 +776,7 @@ class ifm3(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
 
         # Level 2 inverse transform with quater shift synthesis filters
         if yh2 is not None and yh2.shape != torch.Size([0]):
@@ -804,7 +804,7 @@ class ifm3(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
             r, c = ll.shape[2:]
@@ -969,7 +969,7 @@ class xfm3scale(Function):
             Ys1 = LoLo
         else:
             Ys1 = torch.tensor([], device=input.device)
-        
+
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -1042,7 +1042,7 @@ class xfm3scale(Function):
 
         if True in ctx.needs_input_grad:
             ll = grad_Ys3
-            
+
             # Level 3 backward (time reversed quater shift analysis filters)
             if not ctx.skip_hps[2]:
                 dev = grad_Yh3.device
@@ -1116,7 +1116,7 @@ class xfm3scale(Function):
                 grad_input = grad_input[:,:,:-1]
             if ctx.extra_cols:
                 grad_input = grad_input[:,:,:,:-1]
-            
+
 
         return (grad_input,) + (None,) * 10
 
@@ -1178,7 +1178,7 @@ class xfm3(Function):
             Ys1 = LoLo
         else:
             Ys1 = torch.tensor([], device=input.device)
-        
+
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -1251,7 +1251,7 @@ class xfm3(Function):
 
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
-            
+
             # Level 3 backward (time reversed quater shift analysis filters)
             if not ctx.skip_hps[2]:
                 dev = grad_Yh3.device
@@ -1321,7 +1321,7 @@ class xfm3(Function):
                 grad_input = grad_input[:,:,:-1]
             if ctx.extra_cols:
                 grad_input = grad_input[:,:,:,:-1]
-            
+
 
         return (grad_input,) + (None,) * 10
 
@@ -1369,7 +1369,7 @@ class ifm4(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
 
         # Level 3 inverse transform with quater shift synthesis filters
         if yh3 is not None and yh3.shape != torch.Size([0]):
@@ -1397,7 +1397,7 @@ class ifm4(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
 
         # Level 2 inverse transform with quater shift synthesis filters
         if yh2 is not None and yh2.shape != torch.Size([0]):
@@ -1425,7 +1425,7 @@ class ifm4(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
             r, c = ll.shape[2:]
@@ -1611,7 +1611,7 @@ class xfm4scale(Function):
             Ys1 = LoLo
         else:
             Ys1 = torch.tensor([], device=input.device)
-        
+
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -1711,7 +1711,7 @@ class xfm4scale(Function):
 
         if True in ctx.needs_input_grad:
             ll = grad_Ys4
-            
+
             # Level 4 backward (time reversed quater shift analysis filters)
             if not ctx.skip_hps[3]:
                 dev = grad_Yh4.device
@@ -1811,7 +1811,7 @@ class xfm4scale(Function):
                 grad_input = grad_input[:,:,:-1]
             if ctx.extra_cols:
                 grad_input = grad_input[:,:,:,:-1]
-            
+
 
         return (grad_input,) + (None,) * 10
 
@@ -1873,7 +1873,7 @@ class xfm4(Function):
             Ys1 = LoLo
         else:
             Ys1 = torch.tensor([], device=input.device)
-        
+
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -1973,7 +1973,7 @@ class xfm4(Function):
 
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
-            
+
             # Level 4 backward (time reversed quater shift analysis filters)
             if not ctx.skip_hps[3]:
                 dev = grad_Yh4.device
@@ -2067,7 +2067,7 @@ class xfm4(Function):
                 grad_input = grad_input[:,:,:-1]
             if ctx.extra_cols:
                 grad_input = grad_input[:,:,:,:-1]
-            
+
 
         return (grad_input,) + (None,) * 10
 
@@ -2115,7 +2115,7 @@ class ifm5(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
 
         # Level 4 inverse transform with quater shift synthesis filters
         if yh4 is not None and yh4.shape != torch.Size([0]):
@@ -2143,7 +2143,7 @@ class ifm5(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
 
         # Level 3 inverse transform with quater shift synthesis filters
         if yh3 is not None and yh3.shape != torch.Size([0]):
@@ -2171,7 +2171,7 @@ class ifm5(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
 
         # Level 2 inverse transform with quater shift synthesis filters
         if yh2 is not None and yh2.shape != torch.Size([0]):
@@ -2199,7 +2199,7 @@ class ifm5(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
             r, c = ll.shape[2:]
@@ -2406,7 +2406,7 @@ class xfm5scale(Function):
             Ys1 = LoLo
         else:
             Ys1 = torch.tensor([], device=input.device)
-        
+
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -2533,7 +2533,7 @@ class xfm5scale(Function):
 
         if True in ctx.needs_input_grad:
             ll = grad_Ys5
-            
+
             # Level 5 backward (time reversed quater shift analysis filters)
             if not ctx.skip_hps[4]:
                 dev = grad_Yh5.device
@@ -2659,7 +2659,7 @@ class xfm5scale(Function):
                 grad_input = grad_input[:,:,:-1]
             if ctx.extra_cols:
                 grad_input = grad_input[:,:,:,:-1]
-            
+
 
         return (grad_input,) + (None,) * 10
 
@@ -2721,7 +2721,7 @@ class xfm5(Function):
             Ys1 = LoLo
         else:
             Ys1 = torch.tensor([], device=input.device)
-        
+
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -2848,7 +2848,7 @@ class xfm5(Function):
 
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
-            
+
             # Level 5 backward (time reversed quater shift analysis filters)
             if not ctx.skip_hps[4]:
                 dev = grad_Yh5.device
@@ -2966,7 +2966,7 @@ class xfm5(Function):
                 grad_input = grad_input[:,:,:-1]
             if ctx.extra_cols:
                 grad_input = grad_input[:,:,:,:-1]
-            
+
 
         return (grad_input,) + (None,) * 10
 
@@ -3014,7 +3014,7 @@ class ifm6(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
 
         # Level 5 inverse transform with quater shift synthesis filters
         if yh5 is not None and yh5.shape != torch.Size([0]):
@@ -3042,7 +3042,7 @@ class ifm6(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
 
         # Level 4 inverse transform with quater shift synthesis filters
         if yh4 is not None and yh4.shape != torch.Size([0]):
@@ -3070,7 +3070,7 @@ class ifm6(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
 
         # Level 3 inverse transform with quater shift synthesis filters
         if yh3 is not None and yh3.shape != torch.Size([0]):
@@ -3098,7 +3098,7 @@ class ifm6(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
 
         # Level 2 inverse transform with quater shift synthesis filters
         if yh2 is not None and yh2.shape != torch.Size([0]):
@@ -3126,7 +3126,7 @@ class ifm6(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
             r, c = ll.shape[2:]
@@ -3354,7 +3354,7 @@ class xfm6scale(Function):
             Ys1 = LoLo
         else:
             Ys1 = torch.tensor([], device=input.device)
-        
+
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -3508,7 +3508,7 @@ class xfm6scale(Function):
 
         if True in ctx.needs_input_grad:
             ll = grad_Ys6
-            
+
             # Level 6 backward (time reversed quater shift analysis filters)
             if not ctx.skip_hps[5]:
                 dev = grad_Yh6.device
@@ -3660,7 +3660,7 @@ class xfm6scale(Function):
                 grad_input = grad_input[:,:,:-1]
             if ctx.extra_cols:
                 grad_input = grad_input[:,:,:,:-1]
-            
+
 
         return (grad_input,) + (None,) * 10
 
@@ -3722,7 +3722,7 @@ class xfm6(Function):
             Ys1 = LoLo
         else:
             Ys1 = torch.tensor([], device=input.device)
-        
+
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -3876,7 +3876,7 @@ class xfm6(Function):
 
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
-            
+
             # Level 6 backward (time reversed quater shift analysis filters)
             if not ctx.skip_hps[5]:
                 dev = grad_Yh6.device
@@ -4018,7 +4018,7 @@ class xfm6(Function):
                 grad_input = grad_input[:,:,:-1]
             if ctx.extra_cols:
                 grad_input = grad_input[:,:,:,:-1]
-            
+
 
         return (grad_input,) + (None,) * 10
 
@@ -4066,7 +4066,7 @@ class ifm7(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
 
         # Level 6 inverse transform with quater shift synthesis filters
         if yh6 is not None and yh6.shape != torch.Size([0]):
@@ -4094,7 +4094,7 @@ class ifm7(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
 
         # Level 5 inverse transform with quater shift synthesis filters
         if yh5 is not None and yh5.shape != torch.Size([0]):
@@ -4122,7 +4122,7 @@ class ifm7(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
 
         # Level 4 inverse transform with quater shift synthesis filters
         if yh4 is not None and yh4.shape != torch.Size([0]):
@@ -4150,7 +4150,7 @@ class ifm7(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
 
         # Level 3 inverse transform with quater shift synthesis filters
         if yh3 is not None and yh3.shape != torch.Size([0]):
@@ -4178,7 +4178,7 @@ class ifm7(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
 
         # Level 2 inverse transform with quater shift synthesis filters
         if yh2 is not None and yh2.shape != torch.Size([0]):
@@ -4206,7 +4206,7 @@ class ifm7(Function):
             ll = rowifilt(Hi, g1b, g1a, True) + rowifilt(Lo, g0b, g0a)
         else:
             ll = rowifilt(colifilt(ll, g0b, g0a), g0b, g0a)
-        
+
         # Level 1 inverse with biorthogonal synthesis filters
         if yh1 is not None and yh1.shape != torch.Size([0]):
             r, c = ll.shape[2:]
@@ -4455,7 +4455,7 @@ class xfm7scale(Function):
             Ys1 = LoLo
         else:
             Ys1 = torch.tensor([], device=input.device)
-        
+
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -4636,7 +4636,7 @@ class xfm7scale(Function):
 
         if True in ctx.needs_input_grad:
             ll = grad_Ys7
-            
+
             # Level 7 backward (time reversed quater shift analysis filters)
             if not ctx.skip_hps[6]:
                 dev = grad_Yh7.device
@@ -4814,7 +4814,7 @@ class xfm7scale(Function):
                 grad_input = grad_input[:,:,:-1]
             if ctx.extra_cols:
                 grad_input = grad_input[:,:,:,:-1]
-            
+
 
         return (grad_input,) + (None,) * 10
 
@@ -4876,7 +4876,7 @@ class xfm7(Function):
             Ys1 = LoLo
         else:
             Ys1 = torch.tensor([], device=input.device)
-        
+
         # Level 2 forward (quater shift analysis filters)
         r, c = LoLo.shape[2:]
         if r % 4 != 0:
@@ -5057,7 +5057,7 @@ class xfm7(Function):
 
         if True in ctx.needs_input_grad:
             ll = grad_LoLo
-            
+
             # Level 7 backward (time reversed quater shift analysis filters)
             if not ctx.skip_hps[6]:
                 dev = grad_Yh7.device
@@ -5223,7 +5223,7 @@ class xfm7(Function):
                 grad_input = grad_input[:,:,:-1]
             if ctx.extra_cols:
                 grad_input = grad_input[:,:,:,:-1]
-            
+
 
         return (grad_input,) + (None,) * 10
 

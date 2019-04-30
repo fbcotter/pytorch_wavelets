@@ -68,7 +68,7 @@ def prep_filt(h, c, transpose=False):
 
 
 def colfilter(X, h):
-    if X is None or X.shape == torch.Size([0]):
+    if X is None or X.shape == torch.Size([]):
         return torch.zeros(1,1,1,1, device=X.device)
     ch, r = X.shape[1:3]
     m = h.shape[2] // 2
@@ -77,7 +77,7 @@ def colfilter(X, h):
 
 
 def rowfilter(X, h):
-    if X is None or X.shape == torch.Size([0]):
+    if X is None or X.shape == torch.Size([]):
         return torch.zeros(1,1,1,1, device=X.device)
     ch, _, c = X.shape[1:]
     m = h.shape[2] // 2
@@ -87,7 +87,7 @@ def rowfilter(X, h):
 
 
 def coldfilt(X, ha, hb, highpass=False):
-    if X is None or X.shape == torch.Size([0]):
+    if X is None or X.shape == torch.Size([]):
         return torch.zeros(1,1,1,1, device=X.device)
     batch, ch, r, c = X.shape
     r2 = r // 2
@@ -112,7 +112,7 @@ def coldfilt(X, ha, hb, highpass=False):
 
 
 def rowdfilt(X, ha, hb, highpass=False):
-    if X is None or X.shape == torch.Size([0]):
+    if X is None or X.shape == torch.Size([]):
         return torch.zeros(1,1,1,1, device=X.device)
     batch, ch, r, c = X.shape
     c2 = c // 2
@@ -138,7 +138,7 @@ def rowdfilt(X, ha, hb, highpass=False):
 
 
 def colifilt(X, ha, hb, highpass=False):
-    if X is None or X.shape == torch.Size([0]):
+    if X is None or X.shape == torch.Size([]):
         return torch.zeros(1,1,1,1, device=X.device)
     m = ha.shape[2]
     m2 = m // 2
@@ -187,7 +187,7 @@ def colifilt(X, ha, hb, highpass=False):
 
 
 def rowifilt(X, ha, hb, highpass=False):
-    if X is None or X.shape == torch.Size([0]):
+    if X is None or X.shape == torch.Size([]):
         return torch.zeros(1,1,1,1, device=X.device)
     m = ha.shape[2]
     m2 = m // 2
