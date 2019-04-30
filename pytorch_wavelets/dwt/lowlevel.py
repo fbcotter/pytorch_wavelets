@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
+from torch.autograd import Function
 from pytorch_wavelets.utils import reflect
 import pywt
 
@@ -58,7 +59,7 @@ def mypad(x, pad, mode='constant', value=0):
             i = np.outer(xe_col, np.ones(xe_row.shape[0]))
             j = np.outer(np.ones(xe_col.shape[0]), xe_row)
             return x[:,:,i,j]
-    elif mode == 'per' or mode == 'periodization':
+    elif mode == 'periodic':
         # Vertical only
         if pad[0] == 0 and pad[1] == 0:
             xe = np.arange(x.shape[-2])
@@ -171,7 +172,7 @@ def afb1d(x, h0, h1, mode='zero', dim=-1):
     return lohi
 
 
-def afb1d_atrous(x, h0, h1, mode='periodization', dim=-1, dilation=1):
+def afb1d_atrous(x, h0, h1, mode='periodic', dim=-1, dilation=1):
     """ 1D analysis filter bank (along one dimension only) of an image without
     downsampling. Does the a trous algorithm.
 
@@ -270,81 +271,98 @@ def sfb1d(lo, hi, g0, g1, mode='zero', dim=-1):
     return y
 
 
-def sfb1d_atrous(lo, hi, g0, g1, mode='periodization', dim=-1, dilation=1,
-                 pad1=None, pad=None):
-    """ 1D synthesis filter bank of an image tensor with no upsampling. Used for
-    the stationary wavelet transform.
+def mode_to_int(mode):
+    if mode == 'zero':
+        return 0
+    elif mode == 'symmetric':
+        return 1
+    elif mode == 'per' or mode == 'periodization':
+        return 2
+    elif mode == 'constant':
+        return 3
+    elif mode == 'reflect':
+        return 4
+    elif mode == 'replicate':
+        return 5
+    elif mode == 'periodic':
+        return 6
+    else:
+        raise ValueError("Unkown pad type: {}".format(mode))
+
+
+def int_to_mode(mode):
+    if mode == 0:
+        return 'zero'
+    elif mode == 1:
+        return 'symmetric'
+    elif mode == 2:
+        return 'periodization'
+    elif mode == 3:
+        return 'constant'
+    elif mode == 4:
+        return 'reflect'
+    elif mode == 5:
+        return 'replicate'
+    elif mode == 6:
+        return 'periodic'
+    else:
+        raise ValueError("Unkown pad type: {}".format(mode))
+
+
+class AFB2D(Function):
+    """ Does a single level 2d wavelet decomposition of an input. Does separate
+    row and column filtering by two calls to
+    :py:func:`pytorch_wavelets.dwt.lowlevel.afb1d`
+
+    Needs to have the tensors in the right form. Because this function defines
+    its own backward pass, saves on memory by not having to save the input
+    tensors.
+
+    Inputs:
+        x (torch.Tensor): Input to decompose
+        h0_row: row lowpass
+        h1_row: row highpass
+        h0_col: col lowpass
+        h1_col: col highpass
+        mode (int): use mode_to_int to get the int code here
+
+    We encode the mode as an integer rather than a string as gradcheck causes an
+    error when a string is provided.
+
+    Returns:
+        y: Tensor of shape (N, C*4, H, W)
     """
-    C = lo.shape[1]
-    d = dim % 4
-    # If g0, g1 are not tensors, make them. If they are, then assume that they
-    # are in the right order
-    if not isinstance(g0, torch.Tensor):
-        g0 = torch.tensor(np.copy(np.array(g0).ravel()),
-                          dtype=torch.float, device=lo.device)
-    if not isinstance(g1, torch.Tensor):
-        g1 = torch.tensor(np.copy(np.array(g1).ravel()),
-                          dtype=torch.float, device=lo.device)
-    L = g0.numel()
-    shape = [1,1,1,1]
-    shape[d] = L
-    # If g aren't in the right shape, make them so
-    if g0.shape != tuple(shape):
-        g0 = g0.reshape(*shape)
-    if g1.shape != tuple(shape):
-        g1 = g1.reshape(*shape)
-    g0 = torch.cat([g0]*C,dim=0)
-    g1 = torch.cat([g1]*C,dim=0)
+    @staticmethod
+    def forward(ctx, x, h0_row, h1_row, h0_col, h1_col, mode):
+        ctx.save_for_backward(h0_row, h1_row, h0_col, h1_col)
+        ctx.shape = x.shape[-2:]
+        mode = int_to_mode(mode)
+        ctx.mode = mode
+        lohi = afb1d(x, h0_row, h1_row, mode=mode, dim=3)
+        y = afb1d(lohi, h0_col, h1_col, mode=mode, dim=2)
+        s = y.shape
+        y = y.reshape(s[0], -1, 4, s[-2], s[-1])
+        low = y[:,:,0].contiguous()
+        highs = y[:,:,1:].contiguous()
+        return low, highs
 
-    # Calculate the padding size.
-    # With dilation, zeros are inserted between the filter taps but not after.
-    # that means a filter that is [a b c d] becomes [a 0 b 0 c 0 d].
-    centre = L / 2
-    fsz = (L-1)*dilation + 1
-    newcentre = fsz / 2
-    before = newcentre - dilation*centre
-
-    # When conv_transpose2d is done, a filter with k taps expands an input with
-    # N samples to be N + k - 1 samples. The 'padding' is really the opposite of
-    # that, and is how many samples on the edges you want to cut out.
-    # In addition to this, we want the input to be extended before convolving.
-    # This means the final output size without the padding option will be
-    #   N + k - 1 + k - 1
-    # The final thing to worry about is making sure that the output is centred.
-    short_offset = dilation - 1
-    centre_offset = fsz % 2
-    a = fsz//2
-    b = fsz//2 + (fsz + 1) % 2
-    #  a = 0
-    #  b = 0
-    pad = (0, 0, a, b) if d == 2 else (a, b, 0, 0)
-    lo = mypad(lo, pad=pad, mode=mode)
-    hi = mypad(hi, pad=pad, mode=mode)
-    unpad = (fsz - 1, 0) if d == 2 else (0, fsz - 1)
-    unpad = (0, 0)
-    y = F.conv_transpose2d(lo, g0, padding=unpad, groups=C, dilation=dilation) + \
-        F.conv_transpose2d(hi, g1, padding=unpad, groups=C, dilation=dilation)
-    #  pad = (L-1, 0) if d == 2 else (0, L-1)
-    #  y = F.conv_transpose2d(lo, g0, padding=pad, groups=C, dilation=dilation) + \
-        #  F.conv_transpose2d(hi, g1, padding=pad, groups=C, dilation=dilation)
-    #
-    #
-    # Calculate the pad size
-    #  L2 = (L * dilation)//2
-    #  #  pad = (0, 0, L2, L2+dilation) if d == 2 else (L2, L2+dilation, 0, 0)
-    #  a = dilation*2
-    #  b = dilation*(L-2)
-    #  if pad1 is None:
-        #  pad1 = (0, 0, a, b) if d == 2 else (a, b, 0, 0)
-        #  print(pad1)
-    #  lo = mypad(lo, pad=pad1, mode=mode)
-    #  hi = mypad(hi, pad=pad1, mode=mode)
-    #  if pad is None:
-        #  p = (a + b + (L - 1)*dilation)//2
-        #  pad = (p, 0) if d == 2 else (0, p)
-        #  print(pad)
-
-    return y/(2*dilation)
+    @staticmethod
+    def backward(ctx, low, highs):
+        dx = None
+        if ctx.needs_input_grad[0]:
+            mode = ctx.mode
+            h0_row, h1_row, h0_col, h1_col = ctx.saved_tensors
+            lh, hl, hh = torch.unbind(highs, dim=2)
+            lo = sfb1d(low, lh, h0_col, h1_col, mode=mode, dim=2)
+            hi = sfb1d(hl, hh, h0_col, h1_col, mode=mode, dim=2)
+            dx = sfb1d(lo, hi, h0_row, h1_row, mode=mode, dim=3)
+            if dx.shape[-2] > ctx.shape[-2] and dx.shape[-1] > ctx.shape[-1]:
+                dx = dx[:,:,:ctx.shape[-2], :ctx.shape[-1]]
+            elif dx.shape[-2] > ctx.shape[-2]:
+                dx = dx[:,:,:ctx.shape[-2]]
+            elif dx.shape[-1] > ctx.shape[-1]:
+                dx = dx[:,:,:,:ctx.shape[-1]]
+        return dx, None, None, None, None, None
 
 
 def afb2d(x, filts, mode='zero'):
@@ -567,51 +585,54 @@ def sfb2d(ll, lh, hl, hh, filts, mode='zero'):
     return y
 
 
-def sfb2d_atrous(ll, lh, hl, hh, filts, mode='zero'):
-    """ Does a single level 2d wavelet reconstruction of wavelet coefficients.
-    Does separate row and column filtering by two calls to
-    :py:func:`pytorch_wavelets.dwt.lowlevel.sfb1d`
+class SFB2D(Function):
+    """ Does a single level 2d wavelet decomposition of an input. Does separate
+    row and column filtering by two calls to
+    :py:func:`pytorch_wavelets.dwt.lowlevel.afb1d`
+
+    Needs to have the tensors in the right form. Because this function defines
+    its own backward pass, saves on memory by not having to save the input
+    tensors.
 
     Inputs:
-        ll (torch.Tensor): lowpass coefficients
-        lh (torch.Tensor): horizontal coefficients
-        hl (torch.Tensor): vertical coefficients
-        hh (torch.Tensor): diagonal coefficients
-        filts (list of ndarray or torch.Tensor): If a list of tensors has been
-            given, this function assumes they are in the right form (the form
-            returned by
-            :py:func:`~pytorch_wavelets.dwt.lowlevel.prep_filt_sfb2d`).
-            Otherwise, this function will prepare the filters to be of the right
-            form by calling
-            :py:func:`~pytorch_wavelets.dwt.lowlevel.prep_filt_sfb2d`.
-        mode (str): 'zero', 'symmetric', 'reflect' or 'periodization'. Which
-            padding to use. If periodization, the output size will be half the
-            input size.  Otherwise, the output size will be slightly larger than
-            half.
+        x (torch.Tensor): Input to decompose
+        h0_row: row lowpass
+        h1_row: row highpass
+        h0_col: col lowpass
+        h1_col: col highpass
+        mode (int): use mode_to_int to get the int code here
+
+    We encode the mode as an integer rather than a string as gradcheck causes an
+    error when a string is provided.
+
+    Returns:
+        y: Tensor of shape (N, C*4, H, W)
     """
-    tensorize = [not isinstance(x, torch.Tensor) for x in filts]
-    if len(filts) == 2:
-        g0, g1 = filts
-        if True in tensorize:
-            g0_col, g1_col, g0_row, g1_row = prep_filt_sfb2d(g0, g1)
-        else:
-            g0_col = g0
-            g0_row = g0.transpose(2,3)
-            g1_col = g1
-            g1_row = g1.transpose(2,3)
-    elif len(filts) == 4:
-        if True in tensorize:
-            g0_col, g1_col, g0_row, g1_row = prep_filt_sfb2d(*filts)
-        else:
-            g0_col, g1_col, g0_row, g1_row = filts
-    else:
-        raise ValueError("Unknown form for input filts")
+    @staticmethod
+    def forward(ctx, low, highs, g0_row, g1_row, g0_col, g1_col, mode):
+        mode = int_to_mode(mode)
+        ctx.mode = mode
+        ctx.save_for_backward(g0_row, g1_row, g0_col, g1_col)
 
-    lo = sfb1d_atrous(ll, lh, g0_col, g1_col, mode=mode, dim=2)
-    hi = sfb1d_atrous(hl, hh, g0_col, g1_col, mode=mode, dim=2)
-    y = sfb1d_atrous(lo, hi, g0_row, g1_row, mode=mode, dim=3)
+        lh, hl, hh = torch.unbind(highs, dim=2)
+        lo = sfb1d(low, lh, g0_col, g1_col, mode=mode, dim=2)
+        hi = sfb1d(hl, hh, g0_col, g1_col, mode=mode, dim=2)
+        y = sfb1d(lo, hi, g0_row, g1_row, mode=mode, dim=3)
+        return y
 
-    return y
+    @staticmethod
+    def backward(ctx, dy):
+        dx = None
+        if ctx.needs_input_grad[0]:
+            mode = ctx.mode
+            g0_row, g1_row, g0_col, g1_col = ctx.saved_tensors
+            dx = afb1d(dy, g0_row, g1_row, mode=mode, dim=3)
+            dx = afb1d(dx, g0_col, g1_col, mode=mode, dim=2)
+            s = dx.shape
+            dx = dx.reshape(s[0], -1, 4, s[-2], s[-1])
+            dlow = dx[:,:,0].contiguous()
+            dhigh = dx[:,:,1:].contiguous()
+        return dlow, dhigh, None, None, None, None, None
 
 
 def sfb2d_nonsep(coeffs, filts, mode='zero'):

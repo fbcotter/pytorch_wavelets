@@ -18,7 +18,7 @@ class DWTForward(nn.Module):
         separable (bool): whether to do the filtering separably or not (the
             naive implementation can be faster on a gpu).
         """
-    def __init__(self, J=1, wave='db1', mode='zero', separable=True):
+    def __init__(self, J=1, wave='db1', mode='zero'):
         super().__init__()
         if isinstance(wave, str):
             wave = pywt.Wavelet(wave)
@@ -34,19 +34,13 @@ class DWTForward(nn.Module):
                 h0_row, h1_row = wave[2], wave[3]
 
         # Prepare the filters
-        if separable:
-            filts = lowlevel.prep_filt_afb2d(h0_col, h1_col, h0_row, h1_row)
-            self.h0_col = nn.Parameter(filts[0], requires_grad=False)
-            self.h1_col = nn.Parameter(filts[1], requires_grad=False)
-            self.h0_row = nn.Parameter(filts[2], requires_grad=False)
-            self.h1_row = nn.Parameter(filts[3], requires_grad=False)
-        else:
-            filts = lowlevel.prep_filt_afb2d_nonsep(
-                h0_col, h1_col, h0_row, h1_row)
-            self.h = nn.Parameter(filts, requires_grad=False)
+        filts = lowlevel.prep_filt_afb2d(h0_col, h1_col, h0_row, h1_row)
+        self.h0_col = nn.Parameter(filts[0], requires_grad=False)
+        self.h1_col = nn.Parameter(filts[1], requires_grad=False)
+        self.h0_row = nn.Parameter(filts[2], requires_grad=False)
+        self.h1_row = nn.Parameter(filts[3], requires_grad=False)
         self.J = J
         self.mode = mode
-        self.separable = separable
 
     def forward(self, x):
         """ Forward pass of the DWT.
@@ -69,24 +63,14 @@ class DWTForward(nn.Module):
         """
         yh = []
         ll = x
-
-        if self.separable:
-            filts = (self.h0_col, self.h1_col, self.h0_row, self.h1_row)
-            afb2d = lowlevel.afb2d
-        else:
-            filts = self.h
-            afb2d = lowlevel.afb2d_nonsep
+        mode = lowlevel.mode_to_int(self.mode)
 
         # Do a multilevel transform
         for j in range(self.J):
             # Do 1 level of the transform
-            y = afb2d(ll, filts, self.mode)
-
-            # Separate the low and bandpasses
-            s = y.shape
-            y = y.reshape(s[0], -1, 4, s[-2], s[-1])
-            ll = y[:,:,0].contiguous()
-            yh.append(y[:,:,1:].contiguous())
+            ll, high = lowlevel.AFB2D.apply(
+                ll, self.h0_col, self.h1_col, self.h0_row, self.h1_row, mode)
+            yh.append(high)
 
         return ll, yh
 
@@ -98,7 +82,7 @@ class DWTInverse(nn.Module):
         wave (str or pywt.Wavelet): Which wavelet to use
         C: deprecated, will be removed in future
     """
-    def __init__(self, wave='db1', mode='zero', separable=True):
+    def __init__(self, wave='db1', mode='zero'):
         super().__init__()
         if isinstance(wave, str):
             wave = pywt.Wavelet(wave)
@@ -113,18 +97,12 @@ class DWTInverse(nn.Module):
                 g0_col, g1_col = wave[0], wave[1]
                 g0_row, g1_row = wave[2], wave[3]
         # Prepare the filters
-        if separable:
-            filts = lowlevel.prep_filt_sfb2d(g0_col, g1_col, g0_row, g1_row)
-            self.g0_col = nn.Parameter(filts[0], requires_grad=False)
-            self.g1_col = nn.Parameter(filts[1], requires_grad=False)
-            self.g0_row = nn.Parameter(filts[2], requires_grad=False)
-            self.g1_row = nn.Parameter(filts[3], requires_grad=False)
-        else:
-            filts = lowlevel.prep_filt_sfb2d_nonsep(
-                g0_col, g1_col, g0_row, g1_row)
-            self.h = nn.Parameter(filts, requires_grad=False)
+        filts = lowlevel.prep_filt_sfb2d(g0_col, g1_col, g0_row, g1_row)
+        self.g0_col = nn.Parameter(filts[0], requires_grad=False)
+        self.g1_col = nn.Parameter(filts[1], requires_grad=False)
+        self.g0_row = nn.Parameter(filts[2], requires_grad=False)
+        self.g1_row = nn.Parameter(filts[3], requires_grad=False)
         self.mode = mode
-        self.separable = separable
 
     def forward(self, coeffs):
         """
@@ -148,6 +126,7 @@ class DWTInverse(nn.Module):
         """
         yl, yh = coeffs
         ll = yl
+        mode = lowlevel.mode_to_int(self.mode)
 
         # Do a multilevel inverse transform
         for h in yh[::-1]:
@@ -160,15 +139,8 @@ class DWTInverse(nn.Module):
                 ll = ll[...,:-1,:]
             if ll.shape[-1] > h.shape[-1]:
                 ll = ll[...,:-1]
-
-            # Do the synthesis filter banks
-            if self.separable:
-                lh, hl, hh = torch.unbind(h, dim=2)
-                filts = (self.g0_col, self.g1_col, self.g0_row, self.g1_row)
-                ll = lowlevel.sfb2d(ll, lh, hl, hh, filts, mode=self.mode)
-            else:
-                c = torch.cat((ll[:,:,None], h), dim=2)
-                ll = lowlevel.sfb2d_nonsep(c, self.h, mode=self.mode)
+            ll = lowlevel.SFB2D.apply(
+                ll, h, self.g0_col, self.g1_col, self.g0_row, self.g1_row, mode)
         return ll
 
 
@@ -234,84 +206,3 @@ class SWTForward(nn.Module):
             ll = y[:,:,0]
 
         return coeffs
-
-
-class SWTInverse(nn.Module):
-    """ Performs a 2d DWT Inverse reconstruction of an image
-
-    Args:
-        wave (str or pywt.Wavelet): Which wavelet to use
-        C: deprecated, will be removed in future
-    """
-    def __init__(self, wave='db1', mode='zero', separable=True):
-        super().__init__()
-        if isinstance(wave, str):
-            wave = pywt.Wavelet(wave)
-        if isinstance(wave, pywt.Wavelet):
-            g0_col, g1_col = wave.rec_lo, wave.rec_hi
-            g0_row, g1_row = g0_col, g1_col
-        else:
-            if len(wave) == 2:
-                g0_col, g1_col = wave[0], wave[1]
-                g0_row, g1_row = g0_col, g1_col
-            elif len(wave) == 4:
-                g0_col, g1_col = wave[0], wave[1]
-                g0_row, g1_row = wave[2], wave[3]
-        # Prepare the filters
-        if separable:
-            filts = lowlevel.prep_filt_sfb2d(g0_col, g1_col, g0_row, g1_row)
-            self.g0_col = nn.Parameter(filts[0], requires_grad=False)
-            self.g1_col = nn.Parameter(filts[1], requires_grad=False)
-            self.g0_row = nn.Parameter(filts[2], requires_grad=False)
-            self.g1_row = nn.Parameter(filts[3], requires_grad=False)
-        else:
-            filts = lowlevel.prep_filt_sfb2d_nonsep(
-                g0_col, g1_col, g0_row, g1_row)
-            self.h = nn.Parameter(filts, requires_grad=False)
-        self.mode = mode
-        self.separable = separable
-
-    def forward(self, coeffs):
-        """
-        Args:
-            coeffs (yl, yh): tuple of lowpass and bandpass coefficients, where:
-              yl is a lowpass tensor of shape :math:`(N, C_{in}, H_{in}',
-              W_{in}')` and yh is a list of bandpass tensors of shape
-              :math:`list(N, C_{in}, 3, H_{in}'', W_{in}'')`. I.e. should match
-              the format returned by DWTForward
-
-        Returns:
-            Reconstructed input of shape :math:`(N, C_{in}, H_{in}, W_{in})`
-
-        Note:
-            :math:`H_{in}', W_{in}', H_{in}'', W_{in}''` denote the correctly
-            downsampled shapes of the DWT pyramid.
-
-        Note:
-            Can have None for any of the highpass scales and will treat the
-            values as zeros (not in an efficient way though).
-        """
-        yl, yh = coeffs
-        ll = yl
-
-        # Do a multilevel inverse transform
-        for h in yh[::-1]:
-            if h is None:
-                h = torch.zeros(ll.shape[0], ll.shape[1], 3, ll.shape[-2],
-                                ll.shape[-1], device=ll.device)
-
-            # 'Unpad' added dimensions
-            if ll.shape[-2] > h.shape[-2]:
-                ll = ll[...,:-1,:]
-            if ll.shape[-1] > h.shape[-1]:
-                ll = ll[...,:-1]
-
-            # Do the synthesis filter banks
-            if self.separable:
-                lh, hl, hh = torch.unbind(h, dim=2)
-                filts = (self.g0_col, self.g1_col, self.g0_row, self.g1_row)
-                ll = lowlevel.sfb2d(ll, lh, hl, hh, filts, mode=self.mode)
-            else:
-                c = torch.cat((ll[:,:,None], h), dim=2)
-                ll = lowlevel.sfb2d_nonsep(c, self.h, mode=self.mode)
-        return ll

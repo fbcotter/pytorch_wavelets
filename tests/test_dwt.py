@@ -25,31 +25,22 @@ def set_double_precision():
         torch.set_default_dtype(old_prec)
 
 
-@pytest.mark.parametrize("wave, J, mode, sep_fwd, sep_inv", [
-    ('db1', 1, 'zero', False, False),
-    ('db1', 3, 'zero', False, False),
-    ('db3', 1, 'symmetric', False, False),
-    ('db3', 2, 'reflect', False, False),
-    ('db2', 3, 'periodization', False, False),
-    ('db2', 3, 'periodic', False, False),
-    ('db4', 2, 'zero', False, False),
-    ('db3', 3, 'symmetric', False, False),
-    ('bior2.4', 2, 'periodization', False, False),
-    ('bior2.4', 2, 'periodization', False, False),
-    ('db1', 1, 'zero', True, True),
-    ('db1', 3, 'periodic', True, True),
-    ('db3', 1, 'symmetric', True, True),
-    ('db3', 2, 'reflect', False, True),
-    ('db2', 3, 'periodization', True, False),
-    ('db2', 3, 'periodic', True, False),
-    ('db4', 2, 'zero', False, True),
-    ('db3', 3, 'symmetric', True, False),
-    ('bior2.4', 2, 'periodization', False, True)
+@pytest.mark.parametrize("wave, J, mode", [
+    ('db1', 1, 'zero'),
+    ('db1', 3, 'zero'),
+    ('db3', 1, 'symmetric'),
+    ('db3', 2, 'reflect'),
+    ('db2', 3, 'periodization'),
+    ('db2', 3, 'periodic'),
+    ('db4', 2, 'zero'),
+    ('db3', 3, 'symmetric'),
+    ('bior2.4', 2, 'periodization'),
+    ('bior2.4', 2, 'periodization'),
 ])
-def test_ok(wave, J, mode, sep_fwd, sep_inv):
+def test_ok(wave, J, mode):
     x = torch.randn(5, 4, 64, 64).to(dev)
-    dwt = DWTForward(J=J, wave=wave, mode=mode, separable=sep_fwd).to(dev)
-    iwt = DWTInverse(wave=wave, mode=mode, separable=sep_inv).to(dev)
+    dwt = DWTForward(J=J, wave=wave, mode=mode).to(dev)
+    iwt = DWTInverse(wave=wave, mode=mode).to(dev)
     yl, yh = dwt(x)
     x2 = iwt((yl, yh))
     # Can have data errors sometimes
@@ -59,31 +50,21 @@ def test_ok(wave, J, mode, sep_fwd, sep_inv):
     assert x2.is_contiguous()
 
 
-@pytest.mark.parametrize("wave, J, mode, sep_fwd, sep_inv", [
-    ('db1', 1, 'zero', False, False),
-    ('db1', 3, 'zero', False, False),
-    ('db3', 1, 'symmetric', False, False),
-    ('db3', 2, 'reflect', False, False),
-    ('db2', 3, 'periodization', False, False),
-    ('db2', 3, 'periodic', False, False),
-    ('db4', 2, 'zero', False, False),
-    ('db3', 3, 'symmetric', False, False),
-    ('bior2.4', 2, 'periodization', False, False),
-    ('bior2.4', 2, 'periodization', False, False),
-    ('db1', 1, 'zero', True, True),
-    ('db1', 3, 'periodic', True, True),
-    ('db3', 1, 'symmetric', True, True),
-    ('db3', 2, 'reflect', False, True),
-    ('db2', 3, 'periodization', True, False),
-    ('db2', 3, 'periodic', True, False),
-    ('db4', 2, 'zero', False, True),
-    ('db3', 3, 'symmetric', True, False),
-    ('bior2.4', 2, 'periodization', False, True)
-])
-def test_equal(wave, J, mode, sep_fwd, sep_inv):
+@pytest.mark.parametrize("wave, J, mode", [
+    ('db1', 1, 'zero'),
+    ('db1', 3, 'zero'),
+    ('db3', 1, 'symmetric'),
+    ('db3', 2, 'reflect'),
+    ('db2', 3, 'periodization'),
+    ('db2', 3, 'periodic'),
+    ('db4', 2, 'zero'),
+    ('db3', 3, 'symmetric'),
+    ('bior2.4', 2, 'periodization'),
+    ('bior2.4', 2, 'periodization')])
+def test_equal(wave, J, mode):
     x = torch.randn(5, 4, 64, 64).to(dev)
-    dwt = DWTForward(J=J, wave=wave, mode=mode, separable=sep_fwd).to(dev)
-    iwt = DWTInverse(wave=wave, mode=mode, separable=sep_inv).to(dev)
+    dwt = DWTForward(J=J, wave=wave, mode=mode).to(dev)
+    iwt = DWTInverse(wave=wave, mode=mode).to(dev)
     yl, yh = dwt(x)
     x2 = iwt((yl, yh))
 
@@ -107,10 +88,10 @@ def test_equal_oddshape(size):
     J = 3
     mode = 'symmetric'
     x = torch.randn(5, 4, *size).to(dev)
-    dwt1 = DWTForward(J=J, wave=wave, mode=mode, separable=False).to(dev)
-    iwt1 = DWTInverse(wave=wave, mode=mode, separable=False).to(dev)
-    dwt2 = DWTForward(J=J, wave=wave, mode=mode, separable=True).to(dev)
-    iwt2 = DWTInverse(wave=wave, mode=mode, separable=True).to(dev)
+    dwt1 = DWTForward(J=J, wave=wave, mode=mode).to(dev)
+    iwt1 = DWTInverse(wave=wave, mode=mode).to(dev)
+    dwt2 = DWTForward(J=J, wave=wave, mode=mode).to(dev)
+    iwt2 = DWTInverse(wave=wave, mode=mode).to(dev)
 
     yl1, yh1 = dwt1(x)
     x1 = iwt1((yl1, yh1))
@@ -140,10 +121,10 @@ def test_equal_oddshape2(size):
     J = 3
     mode = 'periodization'
     x = torch.randn(5, 4, *size).to(dev)
-    dwt1 = DWTForward(J=J, wave=wave, mode=mode, separable=False).to(dev)
-    iwt1 = DWTInverse(wave=wave, mode=mode, separable=False).to(dev)
-    dwt2 = DWTForward(J=J, wave=wave, mode=mode, separable=True).to(dev)
-    iwt2 = DWTInverse(wave=wave, mode=mode, separable=True).to(dev)
+    dwt1 = DWTForward(J=J, wave=wave, mode=mode).to(dev)
+    iwt1 = DWTInverse(wave=wave, mode=mode).to(dev)
+    dwt2 = DWTForward(J=J, wave=wave, mode=mode).to(dev)
+    iwt2 = DWTInverse(wave=wave, mode=mode).to(dev)
 
     yl1, yh1 = dwt1(x)
     x1 = iwt1((yl1, yh1))
@@ -166,33 +147,23 @@ def test_equal_oddshape2(size):
                 coeffs[J-j][b], yh2[j][:,:,b].cpu(), decimal=PREC_FLT)
 
 
-@pytest.mark.parametrize("wave, J, mode, sep_fwd, sep_inv", [
-    ('db1', 1, 'zero', False, False),
-    ('db1', 3, 'zero', False, False),
-    ('db3', 1, 'symmetric', False, False),
-    ('db3', 2, 'reflect', False, False),
-    ('db2', 3, 'periodization', False, False),
-    ('db2', 3, 'periodic', False, False),
-    ('db4', 2, 'zero', False, False),
-    ('db3', 3, 'symmetric', False, False),
-    ('bior2.4', 2, 'periodization', False, False),
-    ('bior2.4', 2, 'periodization', False, False),
-    ('db1', 1, 'zero', True, True),
-    ('db1', 3, 'periodic', True, True),
-    ('db3', 1, 'symmetric', True, True),
-    ('db3', 2, 'reflect', False, True),
-    ('db2', 3, 'periodization', True, False),
-    ('db2', 3, 'periodic', True, False),
-    ('db4', 2, 'zero', False, True),
-    ('db3', 3, 'symmetric', True, False),
-    ('bior2.4', 2, 'periodization', False, True)
-])
-def test_equal_double(wave, J, mode, sep_fwd, sep_inv):
+@pytest.mark.parametrize("wave, J, mode", [
+    ('db1', 1, 'zero'),
+    ('db1', 3, 'zero'),
+    ('db3', 1, 'symmetric'),
+    ('db3', 2, 'reflect'),
+    ('db2', 3, 'periodization'),
+    ('db2', 3, 'periodic'),
+    ('db4', 2, 'zero'),
+    ('db3', 3, 'symmetric'),
+    ('bior2.4', 2, 'periodization'),
+    ('bior2.4', 2, 'periodization')])
+def test_equal_double(wave, J, mode):
     with set_double_precision():
         x = torch.randn(5, 4, 64, 64).to(dev)
         assert x.dtype == torch.float64
-        dwt = DWTForward(J=J, wave=wave, mode=mode, separable=sep_fwd).to(dev)
-        iwt = DWTInverse(wave=wave, mode=mode, separable=sep_inv).to(dev)
+        dwt = DWTForward(J=J, wave=wave, mode=mode).to(dev)
+        iwt = DWTInverse(wave=wave, mode=mode).to(dev)
 
     yl, yh = dwt(x)
     x2 = iwt((yl, yh))
@@ -246,25 +217,25 @@ def test_commutativity(wave, J, j):
 
 
 # Test gradients
-@pytest.mark.parametrize("wave, J, mode, sep_fwd, sep_inv", [
-    ('db1', 1, 'zero', False, False),
-    ('db1', 3, 'zero', False, False),
-    ('db3', 1, 'symmetric', False, False),
-    ('db3', 2, 'reflect', False, False),
-    ('db2', 3, 'periodization', False, False),
-    ('db4', 2, 'zero', False, False),
+@pytest.mark.parametrize("wave, J, mode", [
+    ('db1', 1, 'zero'),
+    ('db1', 3, 'zero'),
+    ('db3', 1, 'symmetric'),
+    ('db3', 2, 'reflect'),
+    ('db2', 3, 'periodization'),
+    ('db4', 2, 'zero'),
     #  ('db3', 3, 'symmetric', False, False),
-    ('bior2.4', 2, 'periodization', False, False),
-    ('db1', 1, 'zero', True, True),
-    ('db1', 3, 'zero', True, True),
+    ('bior2.4', 2, 'periodization'),
+    ('db1', 1, 'zero'),
+    ('db1', 3, 'zero'),
     #  ('db3', 1, 'symmetric', True, True),
     #  ('db3', 2, 'reflect', False, True),
-    ('db2', 3, 'periodization', True, False),
-    ('db4', 2, 'zero', False, True),
+    ('db2', 3, 'periodization'),
+    ('db4', 2, 'zero'),
     #  ('db3', 3, 'symmetric', True, False),
-    ('bior2.4', 2, 'periodization', False, True)
+    ('bior2.4', 2, 'periodization')
 ])
-def test_gradients_fwd(wave, J, mode, sep_fwd, sep_inv):
+def test_gradients_fwd(wave, J, mode):
     """ Gradient of forward function should be inverse function with filters
     swapped """
     im = np.random.randn(5,6,128, 128).astype('float32')
@@ -273,8 +244,8 @@ def test_gradients_fwd(wave, J, mode, sep_fwd, sep_inv):
     wave = pywt.Wavelet(wave)
     fwd_filts = (wave.dec_lo, wave.dec_hi)
     inv_filts = (wave.dec_lo[::-1], wave.dec_hi[::-1])
-    dwt = DWTForward(J=J, wave=fwd_filts, mode=mode, separable=sep_fwd).to(dev)
-    iwt = DWTInverse(wave=inv_filts, mode=mode, separable=sep_inv).to(dev)
+    dwt = DWTForward(J=J, wave=fwd_filts, mode=mode).to(dev)
+    iwt = DWTInverse(wave=inv_filts, mode=mode).to(dev)
 
     yl, yh = dwt(imt)
 
@@ -299,32 +270,32 @@ def test_gradients_fwd(wave, J, mode, sep_fwd, sep_inv):
 
 
 # Test gradients
-@pytest.mark.parametrize("wave, J, mode, sep_fwd, sep_inv", [
-    ('db1', 1, 'zero', False, False),
-    ('db1', 3, 'zero', False, False),
-    #  ('db3', 1, 'symmetric', False, False),
-    #  ('db3', 2, 'reflect', False, False),
-    ('db2', 3, 'periodization', False, False),
-    ('db4', 2, 'zero', False, False),
+@pytest.mark.parametrize("wave, J, mode", [
+    ('db1', 1, 'zero'),
+    ('db1', 3, 'zero'),
+    ('db3', 1, 'symmetric'),
+    ('db3', 2, 'reflect'),
+    ('db2', 3, 'periodization'),
+    ('db4', 2, 'zero'),
     #  ('db3', 3, 'symmetric', False, False),
-    ('bior2.4', 2, 'periodization', False, False),
-    ('db1', 1, 'zero', True, True),
-    ('db1', 3, 'zero', True, True),
+    ('bior2.4', 2, 'periodization'),
+    ('db1', 1, 'zero'),
+    ('db1', 3, 'zero'),
     #  ('db3', 1, 'symmetric', True, True),
     #  ('db3', 2, 'reflect', False, True),
-    ('db2', 3, 'periodization', True, False),
-    ('db4', 2, 'zero', False, True),
+    ('db2', 3, 'periodization'),
+    ('db4', 2, 'zero'),
     #  ('db3', 3, 'symmetric', True, False),
-    ('bior2.4', 2, 'periodization', False, True)
+    ('bior2.4', 2, 'periodization')
 ])
-def test_gradients_inv(wave, J, mode, sep_fwd, sep_inv):
+def test_gradients_inv(wave, J, mode):
     """ Gradient of inverse function should be forward function with filters
     swapped """
     wave = pywt.Wavelet(wave)
     fwd_filts = (wave.dec_lo, wave.dec_hi)
     inv_filts = (wave.dec_lo[::-1], wave.dec_hi[::-1])
-    dwt = DWTForward(J=J, wave=fwd_filts, mode=mode, separable=sep_fwd).to(dev)
-    iwt = DWTInverse(wave=inv_filts, mode=mode, separable=sep_inv).to(dev)
+    dwt = DWTForward(J=J, wave=fwd_filts, mode=mode).to(dev)
+    iwt = DWTInverse(wave=inv_filts, mode=mode).to(dev)
 
     # Get the shape of the pyramid
     temp = torch.zeros(5,6,128,128).to(dev)
