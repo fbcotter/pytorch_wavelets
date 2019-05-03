@@ -7,6 +7,7 @@ from pytorch_wavelets.dtcwt.lowlevel import prep_filt
 from pytorch_wavelets.dtcwt.transform_funcs import FWD_J1, FWD_J2PLUS
 from pytorch_wavelets.dtcwt.transform_funcs import INV_J1, INV_J2PLUS
 from pytorch_wavelets.dtcwt.transform_funcs import get_dimensions
+from pytorch_wavelets.dwt.lowlevel import mode_to_int
 
 
 class DTCWTForward(nn.Module):
@@ -35,7 +36,7 @@ class DTCWTForward(nn.Module):
     """
     def __init__(self, biort='near_sym_a', qshift='qshift_a',
                  J=3, skip_hps=False, include_scale=False,
-                 o_dim=2, ri_dim=-1):
+                 o_dim=2, ri_dim=-1, mode='symmetric'):
         super().__init__()
         if o_dim == ri_dim:
             raise ValueError("Orientations and real/imaginary parts must be "
@@ -46,6 +47,7 @@ class DTCWTForward(nn.Module):
         self.J = J
         self.o_dim = o_dim
         self.ri_dim = ri_dim
+        self.mode = mode
         if isinstance(biort, str):
             h0o, _, h1o, _ = _biort(biort)
             self.h0o = torch.nn.Parameter(prep_filt(h0o, 1), False)
@@ -98,6 +100,7 @@ class DTCWTForward(nn.Module):
         """
         scales = [x.new_zeros([]),] * self.J
         highs = [x.new_zeros([]),] * self.J
+        mode = mode_to_int(self.mode)
         if self.J == 0:
             return x, None
 
@@ -111,7 +114,7 @@ class DTCWTForward(nn.Module):
 
         # Do the level 1 transform
         low, h = FWD_J1.apply(x, self.h0o, self.h1o, self.skip_hps[0],
-                              self.o_dim, self.ri_dim)
+                              self.o_dim, self.ri_dim, mode)
         highs[0] = h
         if self.include_scale[0]:
             scales[0] = low
@@ -126,7 +129,7 @@ class DTCWTForward(nn.Module):
 
             low, h = FWD_J2PLUS.apply(low, self.h0a, self.h1a, self.h0b,
                                       self.h1b, self.skip_hps[j], self.o_dim,
-                                      self.ri_dim)
+                                      self.ri_dim, mode)
             highs[j] = h
             if self.include_scale[j]:
                 scales[j] = low
@@ -154,12 +157,13 @@ class DTCWTInverse(nn.Module):
     """
 
     def __init__(self, biort='near_sym_a', qshift='qshift_a', o_dim=2,
-                 ri_dim=-1):
+                 ri_dim=-1, mode='symmetric'):
         super().__init__()
         self.biort = biort
         self.qshift = qshift
         self.o_dim = o_dim
         self.ri_dim = ri_dim
+        self.mode = mode
         if isinstance(biort, str):
             _, g0o, _, g1o = _biort(biort)
             self.g0o = torch.nn.Parameter(prep_filt(g0o, 1), False)
@@ -207,6 +211,7 @@ class DTCWTInverse(nn.Module):
         """
         low, highs = coeffs
         J = len(highs)
+        mode = mode_to_int(self.mode)
         _, _, h_dim, w_dim = get_dimensions(
             self.o_dim, self.ri_dim)
         for j, s in zip(range(J-1, 0, -1), highs[1:][::-1]):
@@ -226,7 +231,7 @@ class DTCWTInverse(nn.Module):
                     low = low[:,:,:,1:-1]
 
             low = INV_J2PLUS.apply(low, s, self.g0a, self.g1a, self.g0b,
-                                   self.g1b, self.o_dim, self.ri_dim)
+                                   self.g1b, self.o_dim, self.ri_dim, mode)
 
         # Ensure the low and highpass are the right size
         if highs[0] is not None and highs[0].shape != torch.Size([]):
@@ -238,5 +243,5 @@ class DTCWTInverse(nn.Module):
                 low = low[:,:,:,1:-1]
 
         low = INV_J1.apply(low, highs[0], self.g0o, self.g1o, self.o_dim,
-                           self.ri_dim)
+                           self.ri_dim, mode)
         return low

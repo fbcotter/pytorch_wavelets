@@ -67,26 +67,34 @@ def prep_filt(h, c, transpose=False):
     return torch.tensor(h, dtype=torch.get_default_dtype())
 
 
-def colfilter(X, h):
+def colfilter(X, h, mode='symmetric'):
     if X is None or X.shape == torch.Size([]):
         return torch.zeros(1,1,1,1, device=X.device)
     ch, r = X.shape[1:3]
     m = h.shape[2] // 2
-    xe = symm_pad(r, m)
-    return F.conv2d(X[:,:,xe], h.repeat(ch,1,1,1), groups=ch)
+    if mode == 'symmetric':
+        xe = symm_pad(r, m)
+        y = F.conv2d(X[:,:,xe], h.repeat(ch,1,1,1), groups=ch)
+    else:
+        y = F.conv2d(X, h.repeat(ch, 1, 1, 1), groups=ch, padding=(m, 0))
+    return y
 
 
-def rowfilter(X, h):
+def rowfilter(X, h, mode='symmetric'):
     if X is None or X.shape == torch.Size([]):
         return torch.zeros(1,1,1,1, device=X.device)
     ch, _, c = X.shape[1:]
     m = h.shape[2] // 2
-    xe = symm_pad(c, m)
     h = h.transpose(2,3).contiguous()
-    return F.conv2d(X[:,:,:,xe], h.repeat(ch,1,1,1), groups=ch)
+    if mode == 'symmetric':
+        xe = symm_pad(c, m)
+        y = F.conv2d(X[:,:,:,xe], h.repeat(ch,1,1,1), groups=ch)
+    else:
+        y = F.conv2d(X, h.repeat(ch,1,1,1), groups=ch, padding=(0, m))
+    return y
 
 
-def coldfilt(X, ha, hb, highpass=False):
+def coldfilt(X, ha, hb, highpass=False, mode='symmetric'):
     if X is None or X.shape == torch.Size([]):
         return torch.zeros(1,1,1,1, device=X.device)
     batch, ch, r, c = X.shape
@@ -94,24 +102,31 @@ def coldfilt(X, ha, hb, highpass=False):
     if r % 4 != 0:
         raise ValueError('No. of rows in X must be a multiple of 4\n' +
                          'X was {}'.format(X.shape))
-    m = ha.shape[2]
-    xe = symm_pad(r, m)
-    X1 = X[:,:,xe[2::2]]
-    X2 = X[:,:,xe[3::2]]
-    h = torch.cat((ha.repeat(ch, 1, 1, 1), hb.repeat(ch, 1, 1, 1)), dim=0)
-    Y = F.conv2d(torch.cat((X1, X2), dim=1), h, stride=(2,1), groups=ch*2)
+
+    if mode == 'symmetric':
+        m = ha.shape[2]
+        xe = symm_pad(r, m)
+        X1 = X[:,:,xe[2::2]]
+        X2 = X[:,:,xe[3::2]]
+        h = torch.cat((ha.repeat(ch, 1, 1, 1), hb.repeat(ch, 1, 1, 1)), dim=0)
+        Y = F.conv2d(torch.cat((X1, X2), dim=1), h, stride=(2,1), groups=ch*2)
+        Y1 = Y[:, :ch]
+        Y2 = Y[:, ch:]
+        del Y
+    else:
+        raise NotImplementedError()
 
     # Reshape result to be shape [Batch, ch, r/2, c]. This reshaping
     # interleaves the columns
     if highpass:
-        Y = torch.stack((Y[:,ch:], Y[:,:ch]), dim=-2).view(batch, ch, r2, c)
+        Y = torch.stack((Y2, Y1), dim=-2).view(batch, ch, r2, c)
     else:
-        Y = torch.stack((Y[:,:ch], Y[:,ch:]), dim=-2).view(batch, ch, r2, c)
+        Y = torch.stack((Y1, Y2), dim=-2).view(batch, ch, r2, c)
 
     return Y
 
 
-def rowdfilt(X, ha, hb, highpass=False):
+def rowdfilt(X, ha, hb, highpass=False, mode='symmetric'):
     if X is None or X.shape == torch.Size([]):
         return torch.zeros(1,1,1,1, device=X.device)
     batch, ch, r, c = X.shape
@@ -119,25 +134,32 @@ def rowdfilt(X, ha, hb, highpass=False):
     if c % 4 != 0:
         raise ValueError('No. of cols in X must be a multiple of 4\n' +
                          'X was {}'.format(X.shape))
-    m = ha.shape[2]
-    xe = symm_pad(c, m)
-    X1 = X[:,:,:,xe[2::2]]
-    X2 = X[:,:,:,xe[3::2]]
-    h = torch.cat((ha.reshape(1,1,1,m).repeat(ch, 1, 1, 1),
-                   hb.reshape(1,1,1,m).repeat(ch, 1, 1, 1)), dim=0)
-    Y = F.conv2d(torch.cat((X1, X2), dim=1), h, stride=(1,2), groups=ch*2)
+
+    if mode == 'symmetric':
+        m = ha.shape[2]
+        xe = symm_pad(c, m)
+        X1 = X[:,:,:,xe[2::2]]
+        X2 = X[:,:,:,xe[3::2]]
+        h = torch.cat((ha.reshape(1,1,1,m).repeat(ch, 1, 1, 1),
+                       hb.reshape(1,1,1,m).repeat(ch, 1, 1, 1)), dim=0)
+        Y = F.conv2d(torch.cat((X1, X2), dim=1), h, stride=(1,2), groups=ch*2)
+        Y1 = Y[:, :ch]
+        Y2 = Y[:, ch:]
+        del Y
+    else:
+        raise NotImplementedError()
 
     # Reshape result to be shape [Batch, ch, r/2, c]. This reshaping
     # interleaves the columns
     if highpass:
-        Y = torch.stack((Y[:,ch:], Y[:,:ch]), dim=-1).view(batch, ch, r, c2)
+        Y = torch.stack((Y2, Y1), dim=-1).view(batch, ch, r, c2)
     else:
-        Y = torch.stack((Y[:,:ch], Y[:,ch:]), dim=-1).view(batch, ch, r, c2)
+        Y = torch.stack((Y1, Y2), dim=-1).view(batch, ch, r, c2)
 
     return Y
 
 
-def colifilt(X, ha, hb, highpass=False):
+def colifilt(X, ha, hb, highpass=False, mode='symmetric'):
     if X is None or X.shape == torch.Size([]):
         return torch.zeros(1,1,1,1, device=X.device)
     m = ha.shape[2]
@@ -186,7 +208,7 @@ def colifilt(X, ha, hb, highpass=False):
     return Y
 
 
-def rowifilt(X, ha, hb, highpass=False):
+def rowifilt(X, ha, hb, highpass=False, mode='symmetric'):
     if X is None or X.shape == torch.Size([]):
         return torch.zeros(1,1,1,1, device=X.device)
     m = ha.shape[2]

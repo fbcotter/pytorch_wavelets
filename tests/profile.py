@@ -37,12 +37,14 @@ parser.add_argument('--batch', default=16, type=int,
 
 ICIP = False
 
+
 def forward(size, no_grad, J, no_hp=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
-    xfm = DTCWTForward(J=J, skip_hps=no_hp, o_dim=1).to(dev)
-    Yl, Yh = xfm(x)
-    if not no_grad:
-        Yl.backward(torch.ones_like(Yl))
+    xfm = DTCWTForward(J=J, skip_hps=no_hp, o_dim=1, mode='symmetric').to(dev)
+    for _ in range(5):
+        Yl, Yh = xfm(x)
+        if not no_grad:
+            Yl.backward(torch.ones_like(Yl))
     return Yl.mean(), [y.mean() for y in Yh]
 
 
@@ -52,21 +54,23 @@ def inverse(size, no_grad, J, no_hp=False, dev='cuda'):
     yh = [torch.randn(size[0], size[1], 6, size[2] >> j, size[3] >> j, 2,
                       requires_grad=(not no_grad)).to(dev)
           for j in range(1,J+1)]
-    ifm = DTCWTInverse(J=J).to(dev)
-    Y = ifm((yl, yh))
-    if not no_grad:
-        Y.backward(torch.ones_like(Y))
+    ifm = DTCWTInverse().to(dev)
+    for _ in range(5):
+        Y = ifm((yl, yh))
+        if not no_grad:
+            Y.backward(torch.ones_like(Y))
     return Y
 
 
 def end_to_end(size, no_grad, J, no_hp=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
     xfm = DTCWTForward(J=J, skip_hps=no_hp).to(dev)
-    ifm = DTCWTInverse(J=J).to(dev)
+    ifm = DTCWTInverse().to(dev)
     Yl, Yh = xfm(x)
-    Y = ifm((Yl, Yh))
-    if not no_grad:
-        Y.backward(torch.ones_like(Y))
+    for _ in range(5):
+        Y = ifm((Yl, Yh))
+        if not no_grad:
+            Y.backward(torch.ones_like(Y))
     return Y
 
 
@@ -96,23 +100,20 @@ def reference_fftconv(size, J, no_grad=False, dev='cuda'):
         Y.backward(torch.ones_like(Y))
 
 
-def nonseparable_dwt(size, J, no_grad=False, dev='cuda'):
-    x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
-    xfm = dwt.DWTForward(J=J, wave='db5', mode='zero', separable=False).to(dev)
-    yl, yh = xfm(x)
-    return yl.mean(), [y.mean() for y in yh]
-
-
 def separable_dwt(size, J, no_grad=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
-    xfm = dwt.DWTForward(J, wave='db5', mode='zero', separable=True).to(dev)
-    yl, yh = xfm(x)
+    xfm = dwt.DWTForward(J, wave='db5', mode='zero').to(dev)
+    for _ in range(5):
+        yl, yh = xfm(x)
+        if not no_grad:
+            yh[0].backward(torch.ones_like(yh[0]))
     return yl.mean(), [y.mean() for y in yh]
 
 
 def selesnick_dtcwt(size, J, no_grad=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
-    yl, yh = lowlevel2.cplxdual2D(x, J, qshift='qshift_06', mode='zero')
+    for _ in range(5):
+        yl, yh = lowlevel2.cplxdual2D(x, J, qshift='qshift_06', mode='zero')
     return yl, yh
 
 
@@ -127,6 +128,7 @@ def test_dtcwt(size, J, no_grad=False, dev='cuda'):
     for j in range(3):
         yl, yh = lowlevel.afb2d_nonsep(x, filts, mode='zero')
         x = yl.reshape(yl.shape[0], -1, yl.shape[-2], yl.shape[-1])
+
 
 def test_dtcwt2(size, J, no_grad=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
@@ -154,12 +156,8 @@ if __name__ == "__main__":
         print('Running 11x11 convolution')
         reference_conv(size, args.no_grad, args.device)
     elif args.dwt:
-        if args.fb:
-            print('Running separable dwt')
-            separable_dwt(size, args.j, args.no_grad, args.device)
-        else:
-            print('Running nonseparable dwt')
-            nonseparable_dwt(size, args.j, args.no_grad, args.device)
+        print('Running separable dwt')
+        separable_dwt(size, args.j, args.no_grad, args.device)
     elif args.fb:
         print('Running 4 dwts')
         yl, yh = selesnick_dtcwt(size, args.j, args.no_grad, args.device)
