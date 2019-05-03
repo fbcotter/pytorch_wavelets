@@ -28,15 +28,6 @@ convolution). It then performs non-separable 2D convolution on the input, using
 strided convolution to calculate the LL, LH, HL, and HH subbands. It also takes
 care of padding to match the PyWavelets implementation.
 
-Memory Problem
---------------
-Currently the non-separable implementation uses twice the memory it should.
-I believe this is because pytorch is saving intermediate tensors for the
-backwards pass when it doesn't need to. The separable version does not suffer
-from this problem. 
-
-This is a known issue and one I would like to address in the near future.
-
 Differences to PyWavelets
 -------------------------
 

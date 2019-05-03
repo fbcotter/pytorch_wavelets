@@ -23,6 +23,14 @@ gradients through both using pytorch.
 The implementation is designed to be used with batches of multichannel images.
 We use the standard pytorch implementation of having 'NCHW' data format.
 
+New in version 1.1.0
+~~~~~~~~~~~~~~~~~~~~
+
+- Fixed memory problem with dwt 
+- Fixed the backend code for the dtcwt calculation - much cleaner now but similar performance
+- Both dtcwt and dwt should be more memory efficient/aware now. 
+- Removed need to specify number of scales for DTCWTInverse
+
 New in version 1.0.0
 ~~~~~~~~~~~~~~~~~~~~
 Version 1.0.0 has now added support for separable DWT calculation, and more

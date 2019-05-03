@@ -57,7 +57,7 @@ Example
     >>> torch.Size([10, 5, 6, 16, 16, 2])
     print(Yh[2].shape)
     >>> torch.Size([10, 5, 6, 8, 8, 2])
-    ifm = DTCWTInverse(J=3, biort='near_sym_b', qshift='qshift_b')
+    ifm = DTCWTInverse(biort='near_sym_b', qshift='qshift_b')
     Y = ifm((Yl, Yh))
 
 Like with the DWT, Yh returned is a tuple. There are 2 extra dimensions - the
@@ -78,7 +78,7 @@ centre spatial value to 1 for each of the orientations at the third scale. I.e.:
     import torch
     from pytorch_wavelets import DTCWTForward, DTCWTInverse
     xfm = DTCWTForward(J=3)
-    ifm = DTCWTInverse(J=3)
+    ifm = DTCWTInverse()
     x = torch.zeros(1,1,64,64)
     # Create 12 outputs, one for the real and imaginary point spread functions
     # for each of the 6 orientations
@@ -198,16 +198,4 @@ E.g.
 Note that to do the inverse transform, you have to give the final lowpass
 output. You can provide None to indicate it's all zeros, but you cannot provide
 all the intermediate lowpasses.
-
-Downsampling the lowpass
-~~~~~~~~~~~~~~~~~~~~~~~~
-Because of the dual tree nature of the DTCWT, the lowpass comes out at twice the
-resolution you would expect it to. You can downsample the output by setting this
-parameter to true. It simply takes every second sample and is included for
-convenience only.
-
-  
-
-
-  
 
