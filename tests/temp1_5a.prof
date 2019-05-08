@@ -1,0 +1,38 @@
+python profile.py --no_grad --fb -j 3
+Type Time (%) Time (ms)  Calls       Avg       Min       Max                                               Name
+GPU activities:     66.1    17.761    120  148.01us  31.840us  331.94us  void spatialDepthwiseConvolutionUpdateOutput<f...
+GPU activities:     9.88    2.6538     30  88.458us  15.521us  192.90us  void kernelPointwiseApply2<CopyOp<float, float...
+GPU activities:     4.66    1.2525    185  6.7700us  1.5360us  48.672us  void kernelPointwiseApply2<TensorDivConstantOp...
+GPU activities:     4.44    1.1943    180  6.6340us  1.6320us  13.568us  void kernelPointwiseApply2<CopyOp<float, float...
+GPU activities:     3.81    1.0241    281  3.6440us     864ns  687.98us                                 [CUDA memcpy HtoD]
+GPU activities:     3.48   0.93428     90  10.380us  3.5520us  20.064us  void kernelPointwiseApply3<TensorAddOp<float>,...
+GPU activities:     3.31   0.88993    120  7.4160us  5.3120us  9.5040us  void CatArrayBatchedCopy<float, unsigned int, ...
+GPU activities:     2.94   0.79003     90  8.7780us  1.8880us  20.449us  void kernelPointwiseApply3<TensorSubOp<float>,...
+GPU activities:     1.38   0.37143     60  6.1900us  1.6000us  13.568us  void kernelPointwiseApply2<CopyOp<float, float...
+         Total:      100   26.8714   1156                                                                                 
+Total (no mem):    96.19   25.8473    875                                                                                 
+     API calls:    96.99   4195.92     34  123.41ms  7.0270us  4.18175s                                         cudaMalloc
+     API calls:     2.24    97.051      1  97.051ms  97.051ms  97.051ms                              cudaDeviceSynchronize
+     API calls:      0.2    8.7512    875  10.001us  5.9320us  45.655us                                         cudaLaunch
+     API calls:     0.12    5.0585    185  27.343us     126ns  1.1479ms                               cuDeviceGetAttribute
+     API calls:     0.12    5.0557      2  2.5279ms  2.5049ms  2.5509ms                            cudaGetDeviceProperties
+     API calls:     0.08    3.5348  11392     310ns     255ns  11.295us                                      cudaGetDevice
+     API calls:     0.07    3.0742    281  10.940us  5.2430us  780.59us                                    cudaMemcpyAsync
+     API calls:     0.05    2.1194   4477     473ns     276ns  505.90us                                      cudaSetDevice
+     API calls:     0.04    1.7371      5  347.43us  13.967us  1.6712ms                                      cudaHostAlloc
+     API calls:     0.02    1.0035    161  6.2330us  3.5990us  91.557us                              cudaStreamSynchronize
+     API calls:     0.02   0.85253   5720     149ns     107ns  14.943us                                  cudaSetupArgument
+     API calls:     0.01   0.48503      2  242.52us  242.25us  242.78us                                    cuDeviceGetName
+     API calls:     0.01    0.4484    305  1.4700us     628ns  3.8440us                                     cudaEventQuery
+     API calls:     0.01   0.30409      2  152.04us  151.26us  152.82us                                   cuDeviceTotalMem
+     API calls:        0   0.20825   1115     186ns     122ns  2.3350us                                   cudaGetLastError
+     API calls:        0     0.208    875     237ns     168ns  7.0700us                                  cudaConfigureCall
+     API calls:        0    0.1747    120  1.4550us  1.2370us  7.7210us                           cudaEventCreateWithFlags
+     API calls:        0   0.16076    120  1.3390us  1.2130us  2.7310us                                    cudaEventRecord
+     API calls:        0   0.13033    116  1.1230us     492ns  4.4340us                                   cudaEventDestroy
+     API calls:        0  0.003478     13     267ns     103ns     962ns                                 cudaGetDeviceCount
+     API calls:        0  0.002064      4     516ns     147ns  1.3970us                                   cuDeviceGetCount
+     API calls:        0  0.001143      3     381ns     131ns     755ns                                        cuDeviceGet
+     API calls:        0  0.000896      1     896ns     896ns     896ns                                             cuInit
+     API calls:        0  0.000537      1     537ns     537ns     537ns                                 cuDriverGetVersion
+         Total:    99.98   4326.29  25810
