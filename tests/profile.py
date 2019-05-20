@@ -1,5 +1,6 @@
 import torch
 from pytorch_wavelets import DTCWTForward, DTCWTInverse
+from pytorch_wavelets.dtcwt.transform2d import DTCWTForward2, DTCWTInverse
 import argparse
 import py3nvml
 import torch.nn.functional as F
@@ -45,7 +46,7 @@ def forward(size, no_grad, J, no_hp=False, dev='cuda'):
         Yl, Yh = xfm(x)
         if not no_grad:
             Yl.backward(torch.ones_like(Yl))
-    return Yl.mean(), [y.mean() for y in Yh]
+    return Yl, Yh
 
 
 def inverse(size, no_grad, J, no_hp=False, dev='cuda'):
@@ -112,9 +113,12 @@ def separable_dwt(size, J, no_grad=False, dev='cuda'):
 
 def selesnick_dtcwt(size, J, no_grad=False, dev='cuda'):
     x = torch.randn(*size, requires_grad=(not no_grad)).to(dev)
+    xfm = DTCWTForward2(J=J, mode='symmetric').to(dev)
     for _ in range(5):
-        yl, yh = lowlevel2.cplxdual2D(x, J, qshift='qshift_06', mode='zero')
-    return yl, yh
+        Yl, Yh = xfm(x)
+        if not no_grad:
+            Yl.backward(torch.ones_like(Yl))
+    return Yl, Yh
 
 
 def test_dtcwt(size, J, no_grad=False, dev='cuda'):

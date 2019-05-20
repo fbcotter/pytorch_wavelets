@@ -257,6 +257,7 @@ def rowifilt(X, ha, hb, highpass=False, mode='symmetric'):
     return Y
 
 
+#  def q2c(y, dim=-1):
 def q2c(y, dim=-1):
     """
     Convert from quads in y to complex numbers in z.
@@ -273,10 +274,11 @@ def q2c(y, dim=-1):
     a, b = y[:,:, 0::2, 0::2], y[:,:, 0::2, 1::2]
     c, d = y[:,:, 1::2, 0::2], y[:,:, 1::2, 1::2]
 
-    return torch.stack((a-d, b+c), dim=dim), torch.stack((a+d, b-c), dim=dim)
+    #  return torch.stack((a-d, b+c), dim=dim), torch.stack((a+d, b-c), dim=dim)
+    return ((a-d, b+c), (a+d, b-c))
 
 
-def c2q(w1, w2, dim=-1):
+def c2q(w1, w2):
     """
     Scale by gain and convert from complex w(:,:,1:2) to real quad-numbers
     in z.
@@ -289,39 +291,23 @@ def c2q(w1, w2, dim=-1):
      C----D     Re   Im of w(:,:,2)
 
     """
-    # shape will be:
-    #   x1   x2
-    #   x3   x4
-    if w1.shape[dim] != 2:
-        raise ValueError("Wrong dimension specified for c2q. Need to specify "
-                         "the dimension with real and imaginary components")
+    w1r, w1i = w1
+    w2r, w2i = w2
 
-    r = torch.tensor(0, device=w1.device)
-    i = torch.tensor(1, device=w1.device)
-    x1 = torch.index_select(w1, dim, r) + torch.index_select(w2, dim, r)
-    x2 = torch.index_select(w1, dim, i) + torch.index_select(w2, dim, i)
-    x3 = torch.index_select(w1, dim, i) - torch.index_select(w2, dim, i)
-    x4 = -torch.index_select(w1, dim, r) + torch.index_select(w2, dim, r)
-    x1 = x1.squeeze(dim)
-    x2 = x2.squeeze(dim)
-    x3 = x3.squeeze(dim)
-    x4 = x4.squeeze(dim)
+    x1 = w1r + w2r
+    x2 = w1i + w2i
+    x3 = w1i - w2i
+    x4 = -w1r + w2r
 
     # Get the shape of the tensor excluding the real/imagniary part
-    s = list(w1.shape)
-    del s[dim]
-    b, ch, r, c = s
+    b, ch, r, c = w1r.shape
 
-    # Stack 2 inputs of shape [batch, ch, r, c] to [batch, ch, r, 2, c]
-    x_rows1 = torch.stack((x1, x3), dim=-2)
-    # Reshaping interleaves the results
-    x_rows1 = x_rows1.view(-1, ch, 2*r, c)
-    # Do the same for the even columns
-    x_rows2 = torch.stack((x2, x4), dim=-2)
-    x_rows2 = x_rows2.view(-1, ch, 2*r, c)
-
-    # Stack the two [batch, ch, 2*r, c] tensors to [batch, ch, 2*r, c, 2]
-    x_cols = torch.stack((x_rows1, x_rows2), dim=-1)
-    y = x_cols.view(-1, ch, 2*r, 2*c)/np.sqrt(2)
+    # Create new empty tensor and fill it
+    y = w1r.new_zeros((b, ch, r*2, c*2), requires_grad=w1r.requires_grad)
+    y[:, :, ::2,::2] = x1
+    y[:, :, ::2, 1::2] = x2
+    y[:, :, 1::2, ::2] = x3
+    y[:, :, 1::2, 1::2] = x4
+    y /= np.sqrt(2)
 
     return y

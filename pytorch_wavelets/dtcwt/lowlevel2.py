@@ -13,6 +13,146 @@ from pytorch_wavelets.dwt.lowlevel import prep_filt_afb2d, prep_filt_sfb2d_nonse
 from pytorch_wavelets.dtcwt.coeffs import level1 as _level1, qshift as _qshift, biort as _biort
 
 
+class DTCWTForward2(nn.Module):
+    """ DTCWT based on 4 DWTs. Still works, but the above implementation is
+    faster """
+    def __init__(self, biort='farras', qshift='qshift_a', J=3,
+                 mode='symmetric'):
+        super().__init__()
+        self.biort = biort
+        self.qshift = qshift
+        self.J = J
+
+        if isinstance(biort, str):
+            biort = level1(biort)
+        assert len(biort) == 8
+        h0a1, h0b1, _, _, h1a1, h1b1, _, _ = biort
+        DWTaa1 = DWTForward(J=1, wave=(h0a1, h1a1, h0a1, h1a1), mode=mode)
+        DWTab1 = DWTForward(J=1, wave=(h0a1, h1a1, h0b1, h1b1), mode=mode)
+        DWTba1 = DWTForward(J=1, wave=(h0b1, h1b1, h0a1, h1a1), mode=mode)
+        DWTbb1 = DWTForward(J=1, wave=(h0b1, h1b1, h0b1, h1b1), mode=mode)
+        self.level1 = nn.ModuleList([DWTaa1, DWTab1, DWTba1, DWTbb1])
+
+        if J > 1:
+            if isinstance(qshift, str):
+                qshift = _qshift(qshift)
+            assert len(qshift) == 8
+            h0a, h0b, _, _, h1a, h1b, _, _ = qshift
+            DWTaa = DWTForward(J-1, (h0a, h1a, h0a, h1a), mode=mode)
+            DWTab = DWTForward(J-1, (h0a, h1a, h0b, h1b), mode=mode)
+            DWTba = DWTForward(J-1, (h0b, h1b, h0a, h1a), mode=mode)
+            DWTbb = DWTForward(J-1, (h0b, h1b, h0b, h1b), mode=mode)
+            self.level2 = nn.ModuleList([DWTaa, DWTab, DWTba, DWTbb])
+
+    def forward(self, x):
+        x = x/2
+        J = self.J
+        w = [[[None for _ in range(2)] for _ in range(2)] for j in range(J)]
+        lows = [[None for _ in range(2)] for _ in range(2)]
+        for m in range(2):
+            for n in range(2):
+                # Do the first level transform
+                ll, (w[0][m][n],) = self.level1[m*2+n](x)
+                #  w[0][m][n] = [bands[:,:,2], bands[:,:,1], bands[:,:,3]]
+
+                # Do the second+ level transform with the second level filters
+                if J > 1:
+                    ll, bands = self.level2[m*2+n](ll)
+                    for j in range(1,J):
+                        w[j][m][n] = bands[j-1]
+                lows[m][n] = ll
+
+        # Convert the quads into real and imaginary parts
+        yh = [None,] * J
+        for j in range(J):
+            deg75r, deg105i = pm(w[j][0][0][:,:,1], w[j][1][1][:,:,1])
+            deg105r, deg75i = pm(w[j][0][1][:,:,1], w[j][1][0][:,:,1])
+            deg15r, deg165i = pm(w[j][0][0][:,:,0], w[j][1][1][:,:,0])
+            deg165r, deg15i = pm(w[j][0][1][:,:,0], w[j][1][0][:,:,0])
+            deg135r, deg45i = pm(w[j][0][0][:,:,2], w[j][1][1][:,:,2])
+            deg45r, deg135i = pm(w[j][0][1][:,:,2], w[j][1][0][:,:,2])
+            w[j] = None
+            yhr = torch.stack((deg15r, deg45r, deg75r,
+                               deg105r, deg135r, deg165r), dim=1)
+            yhi = torch.stack((deg15i, deg45i, deg75i,
+                               deg105i, deg135i, deg165i), dim=1)
+            yh[j] = torch.stack((yhr, yhi), dim=-1)
+
+        return lows, yh
+
+
+class DTCWTInverse2(nn.Module):
+    def __init__(self, biort='farras', qshift='qshift_a',
+                 mode='symmetric'):
+        super().__init__()
+        self.biort = biort
+        self.qshift = qshift
+
+        if isinstance(biort, str):
+            biort = level1(biort)
+        assert len(biort) == 8
+        _, _, g0a1, g0b1, _, _, g1a1, g1b1 = biort
+        IWTaa1 = DWTInverse(wave=(g0a1, g1a1, g0a1, g1a1), mode=mode)
+        IWTab1 = DWTInverse(wave=(g0a1, g1a1, g0b1, g1b1), mode=mode)
+        IWTba1 = DWTInverse(wave=(g0b1, g1b1, g0a1, g1a1), mode=mode)
+        IWTbb1 = DWTInverse(wave=(g0b1, g1b1, g0b1, g1b1), mode=mode)
+        self.level1 = nn.ModuleList([IWTaa1, IWTab1, IWTba1, IWTbb1])
+
+        if isinstance(qshift, str):
+            qshift = _qshift(qshift)
+        assert len(qshift) == 8
+        _, _, g0a, g0b, _, _, g1a, g1b = qshift
+        IWTaa = DWTInverse(wave=(g0a, g1a, g0a, g1a), mode=mode)
+        IWTab = DWTInverse(wave=(g0a, g1a, g0b, g1b), mode=mode)
+        IWTba = DWTInverse(wave=(g0b, g1b, g0a, g1a), mode=mode)
+        IWTbb = DWTInverse(wave=(g0b, g1b, g0b, g1b), mode=mode)
+        self.level2 = nn.ModuleList([IWTaa, IWTab, IWTba, IWTbb])
+
+    def forward(self, x):
+        # Convert the highs back to subbands
+        yl, yh = x
+        J = len(yh)
+        #  w = [[[[None for i in range(3)] for j in range(2)]
+              #  for k in range(2)] for l in range(J)]
+        w = [[[[None for band in range(3)] for j in range(J)]
+              for m in range(2)] for n in range(2)]
+        for j in range(J):
+            w[0][0][j][0], w[1][1][j][0] = pm(
+                yh[j][:,2,:,:,:,0], yh[j][:,3,:,:,:,1])
+            w[0][1][j][0], w[1][0][j][0] = pm(
+                yh[j][:,3,:,:,:,0], yh[j][:,2,:,:,:,1])
+            w[0][0][j][1], w[1][1][j][1] = pm(
+                yh[j][:,0,:,:,:,0], yh[j][:,5,:,:,:,1])
+            w[0][1][j][1], w[1][0][j][1] = pm(
+                yh[j][:,5,:,:,:,0], yh[j][:,0,:,:,:,1])
+            w[0][0][j][2], w[1][1][j][2] = pm(
+                yh[j][:,1,:,:,:,0], yh[j][:,4,:,:,:,1])
+            w[0][1][j][2], w[1][0][j][2] = pm(
+                yh[j][:,4,:,:,:,0], yh[j][:,1,:,:,:,1])
+            w[0][0][j] = torch.stack(w[0][0][j], dim=2)
+            w[0][1][j] = torch.stack(w[0][1][j], dim=2)
+            w[1][0][j] = torch.stack(w[1][0][j], dim=2)
+            w[1][1][j] = torch.stack(w[1][1][j], dim=2)
+
+        y = None
+        for m in range(2):
+            for n in range(2):
+                lo = yl[m][n]
+                if J > 1:
+                    lo = self.level2[m*2+n]((lo, w[m][n][1:]))
+                lo = self.level1[m*2+n]((lo, (w[m][n][0],)))
+
+                # Add to the output
+                if y is None:
+                    y = lo
+                else:
+                    y = y + lo
+
+        # Normalize
+        y = y/2
+        return y
+
+
 def prep_filt_quad_afb2d_nonsep(
         h0a_col, h1a_col, h0a_row, h1a_row,
         h0b_col, h1b_col, h0b_row, h1b_row,

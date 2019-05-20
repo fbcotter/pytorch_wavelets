@@ -1,13 +1,20 @@
 import torch
 import torch.nn as nn
-from numpy import ndarray
+from numpy import ndarray, sqrt
 
-from pytorch_wavelets.dtcwt.coeffs import qshift as _qshift, biort as _biort
+from pytorch_wavelets.dtcwt.coeffs import qshift as _qshift, biort as _biort, level1
 from pytorch_wavelets.dtcwt.lowlevel import prep_filt
 from pytorch_wavelets.dtcwt.transform_funcs import FWD_J1, FWD_J2PLUS
 from pytorch_wavelets.dtcwt.transform_funcs import INV_J1, INV_J2PLUS
-from pytorch_wavelets.dtcwt.transform_funcs import get_dimensions
+from pytorch_wavelets.dtcwt.transform_funcs import get_dimensions6
 from pytorch_wavelets.dwt.lowlevel import mode_to_int
+from pytorch_wavelets.dwt.transform2d import DWTForward, DWTInverse
+
+
+def pm(a, b):
+    u = (a + b)/sqrt(2)
+    v = (a - b)/sqrt(2)
+    return u, v
 
 
 class DTCWTForward(nn.Module):
@@ -212,7 +219,7 @@ class DTCWTInverse(nn.Module):
         low, highs = coeffs
         J = len(highs)
         mode = mode_to_int(self.mode)
-        _, _, h_dim, w_dim = get_dimensions(
+        _, _, h_dim, w_dim = get_dimensions6(
             self.o_dim, self.ri_dim)
         for j, s in zip(range(J-1, 0, -1), highs[1:][::-1]):
             if s is not None and s.shape != torch.Size([]):
@@ -245,3 +252,5 @@ class DTCWTInverse(nn.Module):
         low = INV_J1.apply(low, highs[0], self.g0o, self.g1o, self.o_dim,
                            self.ri_dim, mode)
         return low
+
+
