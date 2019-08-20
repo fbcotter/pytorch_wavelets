@@ -108,9 +108,10 @@ def fwd_j1(x, h0, h1, skip_hps, o_dim, mode):
         hi = rowfilter(x, h1, mode)
         ll = colfilter(lo, h0, mode)
         lh = colfilter(lo, h1, mode)
+        del lo
         hl = colfilter(hi, h0, mode)
         hh = colfilter(hi, h1, mode)
-        del lo, hi
+        del hi
         highr, highi = highs_to_orientations(lh, hl, hh, o_dim)
     else:
         ll = rowfilter(x, h0, mode)
