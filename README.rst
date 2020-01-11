@@ -1,7 +1,7 @@
 2D Wavelet Transforms in Pytorch
 ================================
 
-|build-status| |docs|
+|build-status| |docs| |doi|
 
 .. |build-status| image:: https://travis-ci.org/fbcotter/pytorch_wavelets.png?branch=master
     :alt: build status
@@ -12,6 +12,9 @@
     :target: https://pytorch-wavelets.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
 
+.. |doi| image:: https://zenodo.org/badge/146817005.svg
+   :target: https://zenodo.org/badge/latestdoi/146817005
+   
 The full documentation is also available `here`__.
 
 __ http://pytorch-wavelets.readthedocs.io/
@@ -26,7 +29,7 @@ We use the standard pytorch implementation of having 'NCHW' data format.
 We also have added layers to do the 2-D DTCWT based scatternet. This is similar
 to the Morlet based scatternet in `KymatIO`__, but is roughly 10 times faster.
 
-See the full documentation for 
+For citing, please use the DOI for the moment. We may release a paper in due time describing the repo.
 
 __ https://github.com/kymatio/kymatio
 
