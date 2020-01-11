@@ -40,3 +40,30 @@ a machine with a GTX1080 and 14 Intel Xeon E5-2660 CPU cores were (averaged over
 | Pytorch Wavelets | 2.8         | 3.2         | 0.10        | 0.16        |
 +------------------+-------------+-------------+-------------+-------------+
 
+The cost of using these quicker spatially implemented wavelets is in the approximate shift invariance that they provide.
+The original ScatterNet paper introduced 3 main desirable properties of the ScatterNet:
+
+1. Invariant to additive noise
+2. Invariant to small shifts
+3. Invariant to small deformations
+
+We test these 3 properties and compare the DTCWT implementation to the Morlet based one. The experiment code can be
+found on the github for this repo under `tests/Measure of Stability.ipynb`. We take 1000 samples (:math:`x`) from Tiny Imagenet, 
+apply these transformations (:math:`y = F(x)`) and measure the average distance between the scattered outputs 
+:math:`\frac{1}{N}||Sx - Sy||^2` and compare it to the distance of the inputs :math:`\frac{1}{N}||x-y||^2`. The results were:
+
++---------------------------+-------------------+----------------------------+----------------------------+
+| Test                      | :math:`||x-y||^2` | Morlet :math:`||Sx-Sy||^2` | DTCWT :math:`||Sx-Sy||^2`  |
++---------------------------+-------------------+----------------------------+----------------------------+
+| Additive Noise            | 0.49              | 0.003                      | 0.03                       |
++---------------------------+-------------------+----------------------------+----------------------------+
+| Shifts of the Input       | 0.74              | 0.004                      | 0.009                      |
++---------------------------+-------------------+----------------------------+----------------------------+
+| Deformations of the Input | 0.68              | 0.004                      | 0.010                      |
++---------------------------+-------------------+----------------------------+----------------------------+
+
+These numbers show that the Morlet implementation is better at achieving the desired properties, but the DTCWT
+scatternet performs comparatively well. Our experiments have shown that the degradation in performance on these
+3 properties has little effect when ScatterNets are used as part of a deeper system (e.g. before a CNN there was no
+noticeable change in classification accuracy), but when used before an SVM, the cost was slightly more noticeable
+(1-2% drop in classification accuracy).
