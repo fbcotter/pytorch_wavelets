@@ -13,6 +13,7 @@ Welcome to Pytorch Wavelets's documentation!
    readme
    dwt
    dtcwt
+   scatternet
    speed
    functions
 

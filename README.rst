@@ -23,6 +23,45 @@ gradients through both using pytorch.
 The implementation is designed to be used with batches of multichannel images.
 We use the standard pytorch implementation of having 'NCHW' data format.
 
+We also have added layers to do the 2-D DTCWT based scatternet. This is similar
+to the Morlet based scatternet in `KymatIO`__, but is roughly 10 times faster.
+
+See the full documentation for 
+
+__ https://github.com/kymatio/kymatio
+
+New in version 1.2.0
+~~~~~~~~~~~~~~~~~~~~
+
+- Added a DTCWT based ScatterNet
+
+.. code:: python
+
+    import torch
+    from pytorch_wavelets import ScatLayer
+    scat = ScatLayer()
+    X = torch.randn(10,5,64,64)
+    # A first order scatternet with 6 orientations and one lowpass channels
+    # gives 7 times the input channel dimension
+    Z = scat(X)
+    print(Z.shape)
+    >>> torch.Size([10, 35, 32, 32])
+    # A second order scatternet with 6 orientations and one lowpass channels
+    # gives 7^2 times the input channel dimension
+    scat2 = torch.nn.Sequential(ScatLayer(), ScatLayer())
+    Z = scat2(X)
+    print(Z.shape)
+    >>> torch.Size([10, 245, 16, 16])
+    # We also have a slightly more specialized, but slower, second order scatternet
+    from pytorch_wavelets import ScatLayerj2
+    scat2a = ScatLayerj2()
+    Z = scat2a(X)
+    print(Z.shape)
+    >>> torch.Size([10, 245, 16, 16])
+    # These all of course work with cuda
+    scat2a.cuda()
+    Z = scat2a(X.cuda())
+
 New in version 1.1.0
 ~~~~~~~~~~~~~~~~~~~~
 
