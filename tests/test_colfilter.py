@@ -103,7 +103,7 @@ def test_equal_numpy_qshift1():
     h = qshift('qshift_c')[0]
     ref = ref_colfilter(barbara, h)
     y = colfilter(barbara_t, prep_filt(h, 1).to(dev))
-    np.testing.assert_array_almost_equal(y[0], ref, decimal=4)
+    np.testing.assert_array_almost_equal(y[0].cpu(), ref, decimal=4)
 
 
 def test_equal_numpy_qshift2():

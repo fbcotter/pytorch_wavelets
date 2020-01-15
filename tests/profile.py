@@ -1,6 +1,6 @@
 import torch
 from pytorch_wavelets import DTCWTForward, DTCWTInverse
-from pytorch_wavelets.dtcwt.transform2d import DTCWTForward2, DTCWTInverse
+#  from pytorch_wavelets.dtcwt.transform2d import DTCWTForward2, DTCWTInverse
 import argparse
 import py3nvml
 import torch.nn.functional as F
