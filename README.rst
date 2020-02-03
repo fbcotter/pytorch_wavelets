@@ -207,13 +207,11 @@ attribute set to true.
 
 
 Provenance
-``````````
+~~~~~~~~~~
 Based on the Dual-Tree Complex Wavelet Transform Pack for MATLAB by Nick
 Kingsbury, Cambridge University. The original README can be found in
 ORIGINAL_README.txt.  This file outlines the conditions of use of the original
 MATLAB toolbox.
-
- ********************************
 
 Further information on the DT CWT can be obtained from papers
 downloadable from my website (given below). The best tutorial is in
@@ -234,7 +232,6 @@ of these algorithms.
 Nick Kingsbury, 
 Cambridge University, June 2003.
 
- ***********************************************************
 Dr N G Kingsbury,
   Dept. of Engineering, University of Cambridge,
     Trumpington St., Cambridge CB2 1PZ, UK.
@@ -243,6 +240,5 @@ Dr N G Kingsbury,
 Phone: (0 or +44) 1223 338514 / 332647;  Home: 1954 211152;
 Fax: 1223 338564 / 332662;  E-mail: ngk@eng.cam.ac.uk
 Web home page: http://www.eng.cam.ac.uk/~ngk/
- ***********************************************************
 
 .. vim:sw=4:sts=4:et
