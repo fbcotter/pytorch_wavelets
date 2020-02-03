@@ -1,3 +1,9 @@
+This licence applies to any parts of this library which are novel in comparison
+to the original DTCWT MATLAB toolbox written by Nick Kingsbury and Cian
+Shaffrey. See the Provenance section of README.rst file for details on any further
+restrictions of use. If you wish to use the DTCWT, you should read that license as well.
+The DWT sections come under this license.
+
 MIT License
 
 Copyright (c) 2020 Fergal Cotter
@@ -19,3 +25,4 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+

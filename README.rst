@@ -213,4 +213,36 @@ Kingsbury, Cambridge University. The original README can be found in
 ORIGINAL_README.txt.  This file outlines the conditions of use of the original
 MATLAB toolbox.
 
+ ********************************
+
+Further information on the DT CWT can be obtained from papers
+downloadable from my website (given below). The best tutorial is in
+the 1999 Royal Society Paper. In particular this explains the conversion
+between 'real' quad-number subimages and pairs of complex subimages. 
+The Q-shift filters are explained in the ICIP 2000 paper and in more detail
+in the May 2001 paper for the Journal on Applied and Computational 
+Harmonic Analysis.
+
+This code is copyright and is supplied free of charge for research
+purposes only. In return for supplying the code, all I ask is that, if
+you use the algorithms, you give due reference to this work in any
+papers that you write and that you let me know if you find any good
+applications for the DT CWT. If the applications are good, I would be
+very interested in collaboration. I accept no liability arising from use
+of these algorithms.
+
+Nick Kingsbury, 
+Cambridge University, June 2003.
+
+ ***********************************************************
+Dr N G Kingsbury,
+  Dept. of Engineering, University of Cambridge,
+    Trumpington St., Cambridge CB2 1PZ, UK.
+                      or
+    Trinity College, Cambridge CB2 1TQ, UK.
+Phone: (0 or +44) 1223 338514 / 332647;  Home: 1954 211152;
+Fax: 1223 338564 / 332662;  E-mail: ngk@eng.cam.ac.uk
+Web home page: http://www.eng.cam.ac.uk/~ngk/
+ ***********************************************************
+
 .. vim:sw=4:sts=4:et
