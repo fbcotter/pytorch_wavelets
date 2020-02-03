@@ -233,10 +233,9 @@ Nick Kingsbury,
 Cambridge University, June 2003.
 
 Dr N G Kingsbury,
-  Dept. of Engineering, University of Cambridge,
-    Trumpington St., Cambridge CB2 1PZ, UK.
-                      or
-    Trinity College, Cambridge CB2 1TQ, UK.
+Dept. of Engineering, University of Cambridge,
+Trumpington St., Cambridge CB2 1PZ, UK., or
+Trinity College, Cambridge CB2 1TQ, UK.
 Phone: (0 or +44) 1223 338514 / 332647;  Home: 1954 211152;
 Fax: 1223 338564 / 332662;  E-mail: ngk@eng.cam.ac.uk
 Web home page: http://www.eng.cam.ac.uk/~ngk/
