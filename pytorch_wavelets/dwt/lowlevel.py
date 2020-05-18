@@ -622,7 +622,7 @@ class SFB2D(Function):
 
     @staticmethod
     def backward(ctx, dy):
-        dx = None
+        dlow, dhigh = None, None
         if ctx.needs_input_grad[0]:
             mode = ctx.mode
             g0_row, g1_row, g0_col, g1_col = ctx.saved_tensors

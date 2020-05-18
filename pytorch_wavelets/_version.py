@@ -1,2 +1,2 @@
 # IMPORTANT: before release, remove the 'devN' tag from the release name
-__version__ = '1.2.2'
+__version__ = '1.2.3'
