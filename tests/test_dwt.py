@@ -69,7 +69,7 @@ def test_equal(wave, J, mode):
     x2 = iwt((yl, yh))
 
     # Test the forward and inverse worked
-    np.testing.assert_array_almost_equal(x.cpu(), x2.detach(), decimal=PREC_FLT)
+    np.testing.assert_array_almost_equal(x.cpu(), x2.detach().cpu(), decimal=PREC_FLT)
     # Test it is the same as doing the PyWavelets wavedec with reflection
     # padding
     coeffs = pywt.wavedec2(x.cpu().numpy(), wave, level=J, axes=(-2,-1),
@@ -102,8 +102,8 @@ def test_equal_oddshape(size):
     coeffs = pywt.wavedec2(x.cpu().numpy(), wave, level=J, axes=(-2,-1),
                            mode=mode)
     X2 = pywt.waverec2(coeffs, wave, mode=mode)
-    np.testing.assert_array_almost_equal(X2, x1.detach(), decimal=PREC_FLT)
-    np.testing.assert_array_almost_equal(X2, x2.detach(), decimal=PREC_FLT)
+    np.testing.assert_array_almost_equal(X2, x1.detach().cpu(), decimal=PREC_FLT)
+    np.testing.assert_array_almost_equal(X2, x2.detach().cpu(), decimal=PREC_FLT)
     np.testing.assert_array_almost_equal(yl1.cpu(), coeffs[0], decimal=PREC_FLT)
     np.testing.assert_array_almost_equal(yl2.cpu(), coeffs[0], decimal=PREC_FLT)
     for j in range(J):
@@ -135,8 +135,8 @@ def test_equal_oddshape2(size):
     coeffs = pywt.wavedec2(x.cpu().numpy(), wave, level=J, axes=(-2,-1),
                            mode=mode)
     X2 = pywt.waverec2(coeffs, wave, mode=mode)
-    np.testing.assert_array_almost_equal(X2, x1.detach(), decimal=PREC_FLT)
-    np.testing.assert_array_almost_equal(X2, x2.detach(), decimal=PREC_FLT)
+    np.testing.assert_array_almost_equal(X2, x1.detach().cpu(), decimal=PREC_FLT)
+    np.testing.assert_array_almost_equal(X2, x2.detach().cpu(), decimal=PREC_FLT)
     np.testing.assert_array_almost_equal(yl1.cpu(), coeffs[0], decimal=PREC_FLT)
     np.testing.assert_array_almost_equal(yl2.cpu(), coeffs[0], decimal=PREC_FLT)
     for j in range(J):
@@ -169,7 +169,7 @@ def test_equal_double(wave, J, mode):
     x2 = iwt((yl, yh))
 
     # Test the forward and inverse worked
-    np.testing.assert_array_almost_equal(x.cpu(), x2.detach(), decimal=PREC_DBL)
+    np.testing.assert_array_almost_equal(x.cpu(), x2.detach().cpu(), decimal=PREC_DBL)
     coeffs = pywt.wavedec2(x.cpu().numpy(), wave, level=J, axes=(-2,-1),
                            mode=mode)
     np.testing.assert_array_almost_equal(yl.cpu(), coeffs[0], decimal=7)
