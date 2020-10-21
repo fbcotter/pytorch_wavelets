@@ -113,7 +113,7 @@ def test_equal_numpy_qshift2():
     im_t = torch.unsqueeze(torch.tensor(im, dtype=torch.float32), dim=0).to(dev)
     ref = ref_rowfilter(im, h)
     y = rowfilter(im_t, prep_filt(h, 1).to(dev))
-    np.testing.assert_array_almost_equal(y[0], ref, decimal=4)
+    np.testing.assert_array_almost_equal(y[0].cpu(), ref, decimal=4)
 
 
 @pytest.mark.skip
