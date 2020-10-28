@@ -147,14 +147,14 @@ class SWTInverse(nn.Module):
         # Prepare the filters
         if separable:
             filts = lowlevel.prep_filt_sfb2d(g0_col, g1_col, g0_row, g1_row)
-            self.g0_col = nn.Parameter(filts[0], requires_grad=False)
-            self.g1_col = nn.Parameter(filts[1], requires_grad=False)
-            self.g0_row = nn.Parameter(filts[2], requires_grad=False)
-            self.g1_row = nn.Parameter(filts[3], requires_grad=False)
+            self.register_buffer('g0_col', filts[0])
+            self.register_buffer('g1_col', filts[1])
+            self.register_buffer('g0_row', filts[2])
+            self.register_buffer('g1_row', filts[3])
         else:
             filts = lowlevel.prep_filt_sfb2d_nonsep(
                 g0_col, g1_col, g0_row, g1_row)
-            self.h = nn.Parameter(filts, requires_grad=False)
+            self.register_buffer('h', filts)
         self.mode = mode
         self.separable = separable
 

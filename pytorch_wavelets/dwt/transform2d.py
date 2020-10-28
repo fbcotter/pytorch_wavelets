@@ -35,10 +35,10 @@ class DWTForward(nn.Module):
 
         # Prepare the filters
         filts = lowlevel.prep_filt_afb2d(h0_col, h1_col, h0_row, h1_row)
-        self.h0_col = nn.Parameter(filts[0], requires_grad=False)
-        self.h1_col = nn.Parameter(filts[1], requires_grad=False)
-        self.h0_row = nn.Parameter(filts[2], requires_grad=False)
-        self.h1_row = nn.Parameter(filts[3], requires_grad=False)
+        self.register_buffer('h0_col', filts[0])
+        self.register_buffer('h1_col', filts[1])
+        self.register_buffer('h0_row', filts[2])
+        self.register_buffer('h1_row', filts[3])
         self.J = J
         self.mode = mode
 
@@ -98,10 +98,10 @@ class DWTInverse(nn.Module):
                 g0_row, g1_row = wave[2], wave[3]
         # Prepare the filters
         filts = lowlevel.prep_filt_sfb2d(g0_col, g1_col, g0_row, g1_row)
-        self.g0_col = nn.Parameter(filts[0], requires_grad=False)
-        self.g1_col = nn.Parameter(filts[1], requires_grad=False)
-        self.g0_row = nn.Parameter(filts[2], requires_grad=False)
-        self.g1_row = nn.Parameter(filts[3], requires_grad=False)
+        self.register_buffer('g0_col', filts[0])
+        self.register_buffer('g1_col', filts[1])
+        self.register_buffer('g0_row', filts[2])
+        self.register_buffer('g1_row', filts[3])
         self.mode = mode
 
     def forward(self, coeffs):
@@ -175,10 +175,10 @@ class SWTForward(nn.Module):
 
         # Prepare the filters
         filts = lowlevel.prep_filt_afb2d(h0_col, h1_col, h0_row, h1_row)
-        self.h0_col = nn.Parameter(filts[0], requires_grad=False)
-        self.h1_col = nn.Parameter(filts[1], requires_grad=False)
-        self.h0_row = nn.Parameter(filts[2], requires_grad=False)
-        self.h1_row = nn.Parameter(filts[3], requires_grad=False)
+        self.register_buffer('h0_col', filts[0])
+        self.register_buffer('h1_col', filts[1])
+        self.register_buffer('h0_row', filts[2])
+        self.register_buffer('h1_row', filts[3])
 
         self.J = J
         self.mode = mode

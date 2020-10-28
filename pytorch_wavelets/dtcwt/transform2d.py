@@ -57,22 +57,22 @@ class DTCWTForward(nn.Module):
         self.mode = mode
         if isinstance(biort, str):
             h0o, _, h1o, _ = _biort(biort)
-            self.h0o = torch.nn.Parameter(prep_filt(h0o, 1), False)
-            self.h1o = torch.nn.Parameter(prep_filt(h1o, 1), False)
+            self.register_buffer('h0o', prep_filt(h0o, 1))
+            self.register_buffer('h1o', prep_filt(h1o, 1))
         else:
-            self.h0o = torch.nn.Parameter(prep_filt(biort[0], 1), False)
-            self.h1o = torch.nn.Parameter(prep_filt(biort[1], 1), False)
+            self.register_buffer('h0o', prep_filt(biort[0], 1))
+            self.register_buffer('h1o', prep_filt(biort[1], 1))
         if isinstance(qshift, str):
             h0a, h0b, _, _, h1a, h1b, _, _ = _qshift(qshift)
-            self.h0a = torch.nn.Parameter(prep_filt(h0a, 1), False)
-            self.h0b = torch.nn.Parameter(prep_filt(h0b, 1), False)
-            self.h1a = torch.nn.Parameter(prep_filt(h1a, 1), False)
-            self.h1b = torch.nn.Parameter(prep_filt(h1b, 1), False)
+            self.register_buffer('h0a', prep_filt(h0a, 1))
+            self.register_buffer('h0b', prep_filt(h0b, 1))
+            self.register_buffer('h1a', prep_filt(h1a, 1))
+            self.register_buffer('h1b', prep_filt(h1b, 1))
         else:
-            self.h0a = torch.nn.Parameter(prep_filt(qshift[0], 1), False)
-            self.h0b = torch.nn.Parameter(prep_filt(qshift[1], 1), False)
-            self.h1a = torch.nn.Parameter(prep_filt(qshift[2], 1), False)
-            self.h1b = torch.nn.Parameter(prep_filt(qshift[3], 1), False)
+            self.register_buffer('h0a', prep_filt(qshift[0], 1))
+            self.register_buffer('h0b', prep_filt(qshift[1], 1))
+            self.register_buffer('h1a', prep_filt(qshift[2], 1))
+            self.register_buffer('h1b', prep_filt(qshift[3], 1))
 
         # Get the function to do the DTCWT
         if isinstance(skip_hps, (list, tuple, ndarray)):
@@ -173,22 +173,22 @@ class DTCWTInverse(nn.Module):
         self.mode = mode
         if isinstance(biort, str):
             _, g0o, _, g1o = _biort(biort)
-            self.g0o = torch.nn.Parameter(prep_filt(g0o, 1), False)
-            self.g1o = torch.nn.Parameter(prep_filt(g1o, 1), False)
+            self.register_buffer('g0o', prep_filt(g0o, 1))
+            self.register_buffer('g1o', prep_filt(g1o, 1))
         else:
-            self.g0o = torch.nn.Parameter(prep_filt(biort[0], 1), False)
-            self.g1o = torch.nn.Parameter(prep_filt(biort[1], 1), False)
+            self.register_buffer('g0o', prep_filt(biort[0], 1))
+            self.register_buffer('g1o', prep_filt(biort[1], 1))
         if isinstance(qshift, str):
             _, _, g0a, g0b, _, _, g1a, g1b = _qshift(qshift)
-            self.g0a = torch.nn.Parameter(prep_filt(g0a, 1), False)
-            self.g0b = torch.nn.Parameter(prep_filt(g0b, 1), False)
-            self.g1a = torch.nn.Parameter(prep_filt(g1a, 1), False)
-            self.g1b = torch.nn.Parameter(prep_filt(g1b, 1), False)
+            self.register_buffer('g0a', prep_filt(g0a, 1))
+            self.register_buffer('g0b', prep_filt(g0b, 1))
+            self.register_buffer('g1a', prep_filt(g1a, 1))
+            self.register_buffer('g1b', prep_filt(g1b, 1))
         else:
-            self.g0a = torch.nn.Parameter(prep_filt(qshift[0], 1), False)
-            self.g0b = torch.nn.Parameter(prep_filt(qshift[1], 1), False)
-            self.g1a = torch.nn.Parameter(prep_filt(qshift[2], 1), False)
-            self.g1b = torch.nn.Parameter(prep_filt(qshift[3], 1), False)
+            self.register_buffer('g0a', prep_filt(qshift[0], 1))
+            self.register_buffer('g0b', prep_filt(qshift[1], 1))
+            self.register_buffer('g1a', prep_filt(qshift[2], 1))
+            self.register_buffer('g1b', prep_filt(qshift[3], 1))
 
     def forward(self, coeffs):
         """
