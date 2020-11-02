@@ -29,7 +29,7 @@ We use the standard pytorch implementation of having 'NCHW' data format.
 We also have added layers to do the 2-D DTCWT based scatternet. This is similar
 to the Morlet based scatternet in `KymatIO`__, but is roughly 10 times faster.
 
-For citing, please use the DOI for the moment. We may release a paper in due time describing the repo.
+If you use this repo, please cite my PhD thesis, chapter 3: https://doi.org/10.17863/CAM.53748.
 
 __ https://github.com/kymatio/kymatio
 
