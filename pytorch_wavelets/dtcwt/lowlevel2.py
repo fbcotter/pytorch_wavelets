@@ -25,7 +25,7 @@ class DTCWTForward2(nn.Module):
         self.J = J
 
         if isinstance(biort, str):
-            biort = level1(biort)
+            biort = _level1(biort)
         assert len(biort) == 8
         h0a1, h0b1, _, _, h1a1, h1b1, _, _ = biort
         DWTaa1 = DWTForward(J=1, wave=(h0a1, h1a1, h0a1, h1a1), mode=mode)
@@ -90,7 +90,7 @@ class DTCWTInverse2(nn.Module):
         self.qshift = qshift
 
         if isinstance(biort, str):
-            biort = level1(biort)
+            biort = _level1(biort)
         assert len(biort) == 8
         _, _, g0a1, g0b1, _, _, g1a1, g1b1 = biort
         IWTaa1 = DWTInverse(wave=(g0a1, g1a1, g0a1, g1a1), mode=mode)
