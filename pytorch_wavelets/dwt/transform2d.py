@@ -9,14 +9,13 @@ class DWTForward(nn.Module):
 
     Args:
         J (int): Number of levels of decomposition
-        wave (str or pywt.Wavelet): Which wavelet to use. Can be a string to
-            pass to pywt.Wavelet constructor, can also be a pywt.Wavelet class,
-            or can be a two tuple of array-like objects for the analysis low and
-            high pass filters.
+        wave (str or pywt.Wavelet or tuple(ndarray)): Which wavelet to use.
+            Can be:
+            1) a string to pass to pywt.Wavelet constructor
+            2) a pywt.Wavelet class
+            3) a tuple of numpy arrays, either (h0, h1) or (h0_col, h1_col, h0_row, h1_row)
         mode (str): 'zero', 'symmetric', 'reflect' or 'periodization'. The
             padding scheme
-        separable (bool): whether to do the filtering separably or not (the
-            naive implementation can be faster on a gpu).
         """
     def __init__(self, J=1, wave='db1', mode='zero'):
         super().__init__()
@@ -50,8 +49,8 @@ class DWTForward(nn.Module):
 
         Returns:
             (yl, yh)
-                tuple of lowpass (yl) and bandpass (yh)
-                coefficients. yh is a list of length J with the first entry
+                tuple of lowpass (yl) and bandpass (yh) coefficients.
+                yh is a list of length J with the first entry
                 being the finest scale coefficients. yl has shape
                 :math:`(N, C_{in}, H_{in}', W_{in}')` and yh has shape
                 :math:`list(N, C_{in}, 3, H_{in}'', W_{in}'')`. The new
@@ -79,8 +78,13 @@ class DWTInverse(nn.Module):
     """ Performs a 2d DWT Inverse reconstruction of an image
 
     Args:
-        wave (str or pywt.Wavelet): Which wavelet to use
-        C: deprecated, will be removed in future
+        wave (str or pywt.Wavelet or tuple(ndarray)): Which wavelet to use.
+            Can be:
+            1) a string to pass to pywt.Wavelet constructor
+            2) a pywt.Wavelet class
+            3) a tuple of numpy arrays, either (h0, h1) or (h0_col, h1_col, h0_row, h1_row)
+        mode (str): 'zero', 'symmetric', 'reflect' or 'periodization'. The
+            padding scheme
     """
     def __init__(self, wave='db1', mode='zero'):
         super().__init__()
