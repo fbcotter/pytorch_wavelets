@@ -30,7 +30,7 @@ def setup():
     mode = mode_to_int('symmetric')
     o_dim = 2
     ri_dim = -1
-    py3nvml.grab_gpus(1, gpu_fraction=0.5)
+    py3nvml.grab_gpus(1, gpu_fraction=0.5, env_set_ok=True)
 
 
 @pytest.mark.parametrize("skip_hps", [False, True])

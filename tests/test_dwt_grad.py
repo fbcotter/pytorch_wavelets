@@ -26,7 +26,7 @@ def set_double_precision():
 
 
 def setup():
-    py3nvml.grab_gpus(1, gpu_fraction=0.5)
+    py3nvml.grab_gpus(1, gpu_fraction=0.5, env_set_ok=True)
 
 
 @pytest.mark.parametrize("mode", [0, 1, 6])
