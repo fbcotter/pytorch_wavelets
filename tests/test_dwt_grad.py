@@ -29,6 +29,7 @@ def setup():
     py3nvml.grab_gpus(1, gpu_fraction=0.5, env_set_ok=True)
 
 
+@pytest.mark.skip("These tests take a very long time to compute")
 @pytest.mark.parametrize("mode", [0, 1, 6])
 def test_fwd(mode):
     with set_double_precision():
@@ -39,6 +40,7 @@ def test_fwd(mode):
     gradcheck(AFB2D.apply, input, eps=EPS, atol=ATOL)
 
 
+@pytest.mark.skip("These tests take a very long time to compute")
 @pytest.mark.parametrize("mode", [0, 1, 6])
 def test_inv_j2(mode):
     with set_double_precision():

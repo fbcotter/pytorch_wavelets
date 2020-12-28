@@ -17,6 +17,7 @@ def setup():
     py3nvml.grab_gpus(1, gpu_fraction=0.5, env_set_ok=True)
 
 
+@pytest.mark.skip("These tests take a very long time to compute")
 @pytest.mark.parametrize('biort', ['near_sym_a', 'near_sym_b', 'near_sym_b_bp'])
 def test_grad_scat(biort):
     x = torch.randn(1, 3, 32, 32, requires_grad=True, dtype=torch.double, device=dev)
@@ -25,6 +26,7 @@ def test_grad_scat(biort):
     gradcheck(scat, (x,))
 
 
+@pytest.mark.skip("These tests take a very long time to compute")
 @pytest.mark.parametrize('biort', ['near_sym_a', 'near_sym_b', 'near_sym_b_bp'])
 def test_grad_scat_colour(biort):
     x = torch.randn(1, 3, 32, 32, requires_grad=True, dtype=torch.double, device=dev)
@@ -33,6 +35,7 @@ def test_grad_scat_colour(biort):
     gradcheck(scat, (x,))
 
 
+@pytest.mark.skip("These tests take a very long time to compute")
 @pytest.mark.parametrize('biort,qshift', [('near_sym_a', 'qshift_a'),
                                           ('near_sym_b', 'qshift_b'),
                                           ('near_sym_b_bp', 'qshift_b_bp')])
@@ -43,6 +46,7 @@ def test_grad_scatj2(biort, qshift):
     gradcheck(scat, (x,))
 
 
+@pytest.mark.skip("These tests take a very long time to compute")
 @pytest.mark.parametrize('biort,qshift', [('near_sym_a', 'qshift_a'),
                                           ('near_sym_b', 'qshift_b'),
                                           ('near_sym_b_bp', 'qshift_b_bp')])
@@ -53,6 +57,7 @@ def test_grad_scatj2_colour(biort, qshift):
     gradcheck(scat, (x,))
 
 
+@pytest.mark.skip("These tests take a very long time to compute")
 @pytest.mark.parametrize('sz', [32, 30, 31, 29, 28])
 def test_grad_odd_size(sz):
     x = torch.randn(1, 3, sz, sz, requires_grad=True, dtype=torch.double, device=dev)
@@ -61,6 +66,7 @@ def test_grad_odd_size(sz):
     gradcheck(scat, (x,))
 
 
+@pytest.mark.skip("These tests take a very long time to compute")
 @pytest.mark.parametrize('sz', [32, 30, 31, 29, 28])
 def test_grad_odd_size_j2(sz):
     x = torch.randn(1, 3, sz, sz, requires_grad=True, dtype=torch.double, device=dev)
@@ -69,6 +75,7 @@ def test_grad_odd_size_j2(sz):
     gradcheck(scat, (x,))
 
 
+@pytest.mark.skip("These tests take a very long time to compute")
 @pytest.mark.parametrize('magbias', [0, 1e-1, 1e-2, 1e-3])
 def test_grad_mag(magbias):
     x = torch.randn(1, 3, 32, 32, requires_grad=True, dtype=torch.double, device=dev)

@@ -33,6 +33,7 @@ def setup():
     py3nvml.grab_gpus(1, gpu_fraction=0.5, env_set_ok=True)
 
 
+@pytest.mark.skip("These tests take a very long time to compute")
 @pytest.mark.parametrize("skip_hps", [False, True])
 def test_fwd_j1(skip_hps):
     with set_double_precision():
@@ -43,6 +44,7 @@ def test_fwd_j1(skip_hps):
     gradcheck(tf.FWD_J1.apply, input, eps=1e-3, atol=ATOL)
 
 
+@pytest.mark.skip("These tests take a very long time to compute")
 @pytest.mark.parametrize("skip_hps", [False, True])
 def test_fwd_j2(skip_hps):
     with set_double_precision():
@@ -52,6 +54,7 @@ def test_fwd_j2(skip_hps):
     gradcheck(tf.FWD_J2PLUS.apply, input, eps=1e-3, atol=ATOL)
 
 
+@pytest.mark.skip("These tests take a very long time to compute")
 def test_inv_j1():
     with set_double_precision():
         low = torch.randn(1,3,16,16, device=dev, requires_grad=True)
@@ -61,6 +64,7 @@ def test_inv_j1():
     gradcheck(tf.INV_J1.apply, input, eps=1e-3, atol=ATOL)
 
 
+@pytest.mark.skip("These tests take a very long time to compute")
 def test_inv_j2():
     with set_double_precision():
         low = torch.randn(1,3,16,16, device=dev, requires_grad=True)
