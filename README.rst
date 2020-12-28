@@ -33,6 +33,29 @@ If you use this repo, please cite my PhD thesis, chapter 3: https://doi.org/10.1
 
 __ https://github.com/kymatio/kymatio
 
+New in version 1.3.0
+~~~~~~~~~~~~~~~~~~~~
+
+- Added 1D DWT support
+
+.. code:: python
+
+    import torch
+    from pytorch_wavelets import DWT1DForward, DWT1DInverse  # or simply DWT1D, IDWT1D
+    dwt = DWT1DForward(wave='db6', J=3)
+    X = torch.randn(10, 5, 100)
+    yl, yh = dwt(X)
+    print(yl.shape)
+    >>> torch.Size([10, 5, 22])
+    print(yh[0].shape)
+    >>> torch.Size([10, 5, 55])
+    print(yh[1].shape)
+    >>> torch.Size([10, 5, 33])
+    print(yh[2].shape)
+    >>> torch.Size([10, 5, 22])
+    idwt = DWT1DInverse(wave='db6')
+    x = idwt((yl, yh))
+
 New in version 1.2.0
 ~~~~~~~~~~~~~~~~~~~~
 

@@ -1,7 +1,7 @@
 numpy
 torch
 dtcwt
-pytest>=3.6
+pytest>=4.6
 py3nvml
 coverage
 pytest-cov

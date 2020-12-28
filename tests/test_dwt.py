@@ -90,28 +90,19 @@ def test_equal_oddshape(size):
     x = torch.randn(5, 4, *size).to(dev)
     dwt1 = DWTForward(J=J, wave=wave, mode=mode).to(dev)
     iwt1 = DWTInverse(wave=wave, mode=mode).to(dev)
-    dwt2 = DWTForward(J=J, wave=wave, mode=mode).to(dev)
-    iwt2 = DWTInverse(wave=wave, mode=mode).to(dev)
 
     yl1, yh1 = dwt1(x)
     x1 = iwt1((yl1, yh1))
-    yl2, yh2 = dwt2(x)
-    x2 = iwt2((yl2, yh2))
 
     # Test it is the same as doing the PyWavelets wavedec
-    coeffs = pywt.wavedec2(x.cpu().numpy(), wave, level=J, axes=(-2,-1),
-                           mode=mode)
-    X2 = pywt.waverec2(coeffs, wave, mode=mode)
-    np.testing.assert_array_almost_equal(X2, x1.detach().cpu(), decimal=PREC_FLT)
-    np.testing.assert_array_almost_equal(X2, x2.detach().cpu(), decimal=PREC_FLT)
+    coeffs = pywt.wavedec2(x.cpu().numpy(), wave, level=J, axes=(-2,-1), mode=mode)
+    X = pywt.waverec2(coeffs, wave, mode=mode)
+    np.testing.assert_array_almost_equal(X, x1.detach().cpu(), decimal=PREC_FLT)
     np.testing.assert_array_almost_equal(yl1.cpu(), coeffs[0], decimal=PREC_FLT)
-    np.testing.assert_array_almost_equal(yl2.cpu(), coeffs[0], decimal=PREC_FLT)
     for j in range(J):
         for b in range(3):
             np.testing.assert_array_almost_equal(
                 coeffs[J-j][b], yh1[j][:,:,b].cpu(), decimal=PREC_FLT)
-            np.testing.assert_array_almost_equal(
-                coeffs[J-j][b], yh2[j][:,:,b].cpu(), decimal=PREC_FLT)
 
 
 @pytest.mark.parametrize("size", [
@@ -123,28 +114,19 @@ def test_equal_oddshape2(size):
     x = torch.randn(5, 4, *size).to(dev)
     dwt1 = DWTForward(J=J, wave=wave, mode=mode).to(dev)
     iwt1 = DWTInverse(wave=wave, mode=mode).to(dev)
-    dwt2 = DWTForward(J=J, wave=wave, mode=mode).to(dev)
-    iwt2 = DWTInverse(wave=wave, mode=mode).to(dev)
 
     yl1, yh1 = dwt1(x)
     x1 = iwt1((yl1, yh1))
-    yl2, yh2 = dwt2(x)
-    x2 = iwt2((yl2, yh2))
 
     # Test it is the same as doing the PyWavelets wavedec
-    coeffs = pywt.wavedec2(x.cpu().numpy(), wave, level=J, axes=(-2,-1),
-                           mode=mode)
-    X2 = pywt.waverec2(coeffs, wave, mode=mode)
-    np.testing.assert_array_almost_equal(X2, x1.detach().cpu(), decimal=PREC_FLT)
-    np.testing.assert_array_almost_equal(X2, x2.detach().cpu(), decimal=PREC_FLT)
+    coeffs = pywt.wavedec2(x.cpu().numpy(), wave, level=J, axes=(-2,-1), mode=mode)
+    X = pywt.waverec2(coeffs, wave, mode=mode)
+    np.testing.assert_array_almost_equal(X, x1.detach().cpu(), decimal=PREC_FLT)
     np.testing.assert_array_almost_equal(yl1.cpu(), coeffs[0], decimal=PREC_FLT)
-    np.testing.assert_array_almost_equal(yl2.cpu(), coeffs[0], decimal=PREC_FLT)
     for j in range(J):
         for b in range(3):
             np.testing.assert_array_almost_equal(
                 coeffs[J-j][b], yh1[j][:,:,b].cpu(), decimal=PREC_FLT)
-            np.testing.assert_array_almost_equal(
-                coeffs[J-j][b], yh2[j][:,:,b].cpu(), decimal=PREC_FLT)
 
 
 @pytest.mark.parametrize("wave, J, mode", [
@@ -170,8 +152,7 @@ def test_equal_double(wave, J, mode):
 
     # Test the forward and inverse worked
     np.testing.assert_array_almost_equal(x.cpu(), x2.detach().cpu(), decimal=PREC_DBL)
-    coeffs = pywt.wavedec2(x.cpu().numpy(), wave, level=J, axes=(-2,-1),
-                           mode=mode)
+    coeffs = pywt.wavedec2(x.cpu().numpy(), wave, level=J, axes=(-2,-1), mode=mode)
     np.testing.assert_array_almost_equal(yl.cpu(), coeffs[0], decimal=7)
     for j in range(J):
         for b in range(3):
@@ -224,15 +205,11 @@ def test_commutativity(wave, J, j):
     ('db3', 2, 'reflect'),
     ('db2', 3, 'periodization'),
     ('db4', 2, 'zero'),
-    #  ('db3', 3, 'symmetric', False, False),
     ('bior2.4', 2, 'periodization'),
     ('db1', 1, 'zero'),
     ('db1', 3, 'zero'),
-    #  ('db3', 1, 'symmetric', True, True),
-    #  ('db3', 2, 'reflect', False, True),
     ('db2', 3, 'periodization'),
     ('db4', 2, 'zero'),
-    #  ('db3', 3, 'symmetric', True, False),
     ('bior2.4', 2, 'periodization')
 ])
 def test_gradients_fwd(wave, J, mode):

@@ -19,7 +19,7 @@ def setup():
     global barbara, barbara_t
     global bshape, bshape_half
     global ref_rowdfilt, ch
-    py3nvml.grab_gpus(1, gpu_fraction=0.5)
+    py3nvml.grab_gpus(1, gpu_fraction=0.5, env_set_ok=True)
     barbara = datasets.barbara()
     barbara = (barbara/barbara.max()).astype('float32')
     barbara = barbara.transpose([2, 0, 1])
