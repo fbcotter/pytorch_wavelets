@@ -161,7 +161,7 @@ For the DTCWT:
     >>> torch.Size([10, 5, 6, 16, 16, 2])
     print(Yh[2].shape)
     >>> torch.Size([10, 5, 6, 8, 8, 2])
-    ifm = DTCWTInverse(J=3, biort='near_sym_b', qshift='qshift_b')
+    ifm = DTCWTInverse(biort='near_sym_b', qshift='qshift_b')
     Y = ifm((Yl, Yh))
 
 Some initial notes:
@@ -183,7 +183,7 @@ cuda calling:
     xfm = DTCWTForward(J=3, biort='near_sym_b', qshift='qshift_b').cuda()
     X = torch.randn(10,5,64,64).cuda()
     Yl, Yh = xfm(X) 
-    ifm = DTCWTInverse(J=3, biort='near_sym_b', qshift='qshift_b').cuda()
+    ifm = DTCWTInverse(biort='near_sym_b', qshift='qshift_b').cuda()
     Y = ifm((Yl, Yh))
 
 The automated tests cannot test the gpu functionality, but do check cpu running.
