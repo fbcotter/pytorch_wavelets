@@ -942,7 +942,7 @@ def prep_filt_afb2d(h0_col, h1_col, h0_row=None, h1_row=None, device=None):
     """
     h0_col, h1_col = prep_filt_afb1d(h0_col, h1_col, device)
     if h0_row is None:
-        h0_row, h1_col = h0_col, h1_col
+        h0_row, h1_row = h0_col, h1_col
     else:
         h0_row, h1_row = prep_filt_afb1d(h0_row, h1_row, device)
 
