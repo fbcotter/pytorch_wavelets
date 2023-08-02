@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 from torch.autograd import Function
+from torch.cuda.amp import custom_fwd, custom_bwd
 from pytorch_wavelets.utils import reflect
 import pywt
 
@@ -333,6 +334,7 @@ class AFB2D(Function):
         y: Tensor of shape (N, C*4, H, W)
     """
     @staticmethod
+    @custom_fwd
     def forward(ctx, x, h0_row, h1_row, h0_col, h1_col, mode):
         ctx.save_for_backward(h0_row, h1_row, h0_col, h1_col)
         ctx.shape = x.shape[-2:]
@@ -347,6 +349,7 @@ class AFB2D(Function):
         return low, highs
 
     @staticmethod
+    @custom_bwd
     def backward(ctx, low, highs):
         dx = None
         if ctx.needs_input_grad[0]:
@@ -386,6 +389,7 @@ class AFB1D(Function):
         x1: Tensor of shape (N, C, L') - highpass
     """
     @staticmethod
+    @custom_fwd
     def forward(ctx, x, h0, h1, mode):
         mode = int_to_mode(mode)
 
@@ -405,6 +409,7 @@ class AFB1D(Function):
         return x0, x1
 
     @staticmethod
+    @custom_bwd
     def backward(ctx, dx0, dx1):
         dx = None
         if ctx.needs_input_grad[0]:
@@ -668,6 +673,7 @@ class SFB2D(Function):
         y: Tensor of shape (N, C*4, H, W)
     """
     @staticmethod
+    @custom_fwd
     def forward(ctx, low, highs, g0_row, g1_row, g0_col, g1_col, mode):
         mode = int_to_mode(mode)
         ctx.mode = mode
@@ -680,6 +686,7 @@ class SFB2D(Function):
         return y
 
     @staticmethod
+    @custom_bwd
     def backward(ctx, dy):
         dlow, dhigh = None, None
         if ctx.needs_input_grad[0]:
@@ -715,6 +722,7 @@ class SFB1D(Function):
         y: Tensor of shape (N, C*2, L')
     """
     @staticmethod
+    @custom_fwd
     def forward(ctx, low, high, g0, g1, mode):
         mode = int_to_mode(mode)
         # Make into a 2d tensor with 1 row
@@ -729,6 +737,7 @@ class SFB1D(Function):
         return sfb1d(low, high, g0, g1, mode=mode, dim=3)[:, :, 0]
 
     @staticmethod
+    @custom_bwd
     def backward(ctx, dy):
         dlow, dhigh = None, None
         if ctx.needs_input_grad[0]:
