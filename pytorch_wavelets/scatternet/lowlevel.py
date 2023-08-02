@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 import torch
 import torch.nn.functional as F
+from torch.cuda.amp import custom_fwd, custom_bwd
 
 from pytorch_wavelets.dtcwt.transform_funcs import fwd_j1, inv_j1
 from pytorch_wavelets.dtcwt.transform_funcs import fwd_j1_rot, inv_j1_rot
@@ -49,6 +50,7 @@ def int_to_mode(mode):
 class SmoothMagFn(torch.autograd.Function):
     """ Class to do complex magnitude """
     @staticmethod
+    @custom_fwd
     def forward(ctx, x, y, b):
         r = torch.sqrt(x**2 + y**2 + b**2)
         if x.requires_grad:
@@ -59,6 +61,7 @@ class SmoothMagFn(torch.autograd.Function):
         return r - b
 
     @staticmethod
+    @custom_bwd
     def backward(ctx, dr):
         dx = None
         if ctx.needs_input_grad[0]:
@@ -73,6 +76,7 @@ class ScatLayerj1_f(torch.autograd.Function):
     layer with the DTCWT biorthogonal filters. """
 
     @staticmethod
+    @custom_fwd
     def forward(ctx, x, h0o, h1o, mode, bias, combine_colour):
         #  bias = 1e-2
         #  bias = 0
@@ -111,6 +115,7 @@ class ScatLayerj1_f(torch.autograd.Function):
         return Z
 
     @staticmethod
+    @custom_bwd
     def backward(ctx, dZ):
         dX = None
         mode = ctx.mode
@@ -143,6 +148,7 @@ class ScatLayerj1_rot_f(torch.autograd.Function):
     filters, i.e. a slightly more expensive operation."""
 
     @staticmethod
+    @custom_fwd
     def forward(ctx, x, h0o, h1o, h2o, mode, bias, combine_colour):
         mode = int_to_mode(mode)
         ctx.mode = mode
@@ -179,6 +185,7 @@ class ScatLayerj1_rot_f(torch.autograd.Function):
         return Z
 
     @staticmethod
+    @custom_bwd
     def backward(ctx, dZ):
         dX = None
         mode = ctx.mode
@@ -208,6 +215,7 @@ class ScatLayerj2_f(torch.autograd.Function):
     layer with the DTCWT biorthogonal filters. """
 
     @staticmethod
+    @custom_fwd
     def forward(ctx, x, h0o, h1o, h0a, h0b, h1a, h1b, mode, bias, combine_colour):
         #  bias = 1e-2
         #  bias = 0
@@ -309,6 +317,7 @@ class ScatLayerj2_f(torch.autograd.Function):
         return Z
 
     @staticmethod
+    @custom_bwd
     def backward(ctx, dZ):
         dX = None
         mode = ctx.mode
@@ -403,6 +412,7 @@ class ScatLayerj2_rot_f(torch.autograd.Function):
     layer with the DTCWT bandpass biorthogonal and qshift filters . """
 
     @staticmethod
+    @custom_fwd
     def forward(ctx, x, h0o, h1o, h2o, h0a, h0b, h1a, h1b, h2a, h2b, mode, bias, combine_colour):
         #  bias = 1e-2
         #  bias = 0
@@ -502,6 +512,7 @@ class ScatLayerj2_rot_f(torch.autograd.Function):
         return Z
 
     @staticmethod
+    @custom_bwd
     def backward(ctx, dZ):
         dX = None
         mode = ctx.mode

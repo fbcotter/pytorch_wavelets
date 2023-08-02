@@ -1,6 +1,7 @@
 import torch
 from torch import tensor
 from torch.autograd import Function
+from torch.cuda.amp import custom_fwd, custom_bwd
 from pytorch_wavelets.dtcwt.lowlevel import colfilter, rowfilter
 from pytorch_wavelets.dtcwt.lowlevel import coldfilt, rowdfilt
 from pytorch_wavelets.dtcwt.lowlevel import colifilt, rowifilt, q2c, c2q
@@ -343,6 +344,7 @@ def inv_j2plus_rot(ll, highr, highi, g0a, g1a, g0b, g1b, g2a, g2b,
 class FWD_J1(Function):
     """ Differentiable function doing 1 level forward DTCWT """
     @staticmethod
+    @custom_fwd
     def forward(ctx, x, h0, h1, skip_hps, o_dim, ri_dim, mode):
         mode = int_to_mode(mode)
         ctx.mode = mode
@@ -358,6 +360,7 @@ class FWD_J1(Function):
         return ll, highs
 
     @staticmethod
+    @custom_bwd
     def backward(ctx, dl, dh):
         h0, h1 = ctx.saved_tensors
         mode = ctx.mode
@@ -377,6 +380,7 @@ class FWD_J1(Function):
 class FWD_J2PLUS(Function):
     """ Differentiable function doing second level forward DTCWT """
     @staticmethod
+    @custom_fwd
     def forward(ctx, x, h0a, h1a, h0b, h1b, skip_hps, o_dim, ri_dim, mode):
         mode = 'symmetric'
         ctx.mode = mode
@@ -392,6 +396,7 @@ class FWD_J2PLUS(Function):
         return ll, highs
 
     @staticmethod
+    @custom_bwd
     def backward(ctx, dl, dh):
         h0a, h1a, h0b, h1b = ctx.saved_tensors
         mode = ctx.mode
@@ -416,6 +421,7 @@ class FWD_J2PLUS(Function):
 class INV_J1(Function):
     """ Differentiable function doing 1 level inverse DTCWT """
     @staticmethod
+    @custom_fwd
     def forward(ctx, lows, highs, g0, g1, o_dim, ri_dim, mode):
         mode = int_to_mode(mode)
         ctx.mode = mode
@@ -431,6 +437,7 @@ class INV_J1(Function):
         return y
 
     @staticmethod
+    @custom_bwd
     def backward(ctx, dy):
         g0, g1 = ctx.saved_tensors
         dl = None
@@ -452,6 +459,7 @@ class INV_J1(Function):
 class INV_J2PLUS(Function):
     """ Differentiable function doing level 2 onwards inverse DTCWT """
     @staticmethod
+    @custom_fwd
     def forward(ctx, lows, highs, g0a, g1a, g0b, g1b, o_dim, ri_dim, mode):
         mode = 'symmetric'
         ctx.mode = mode
@@ -468,6 +476,7 @@ class INV_J2PLUS(Function):
         return y
 
     @staticmethod
+    @custom_bwd
     def backward(ctx, dy):
         g0a, g1a, g0b, g1b = ctx.saved_tensors
         g0a, g0b = g0b, g0a
