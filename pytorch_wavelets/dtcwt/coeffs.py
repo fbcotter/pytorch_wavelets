@@ -4,7 +4,16 @@
 from __future__ import absolute_import
 
 from numpy import load
-from pkg_resources import resource_stream
+
+try:
+    import importlib_resources
+
+    def resource_stream(pkg_path, filename):
+        return importlib_resources.files(pkg_path).joinpath(filename).open("rb")
+
+except Exception:
+    from pkg_resources import resource_stream
+
 try:
     import pywt
     _HAVE_PYWT = True
