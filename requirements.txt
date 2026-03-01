@@ -1,3 +1,4 @@
 numpy
 torch>=1.0.0
 PyWavelets>=1.0.0
+importlib_resources >= 6.5 ; python_version >= "3.14"

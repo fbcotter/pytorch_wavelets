@@ -4,7 +4,9 @@
 from __future__ import absolute_import
 
 from numpy import load
-from pkg_resources import resource_stream
+from importlib.resources import files
+from numpy import load
+
 try:
     import pywt
     _HAVE_PYWT = True
@@ -19,9 +21,11 @@ def _load_from_file(basename, varnames):
     try:
         mat = COEFF_CACHE[basename]
     except KeyError:
-        with resource_stream('pytorch_wavelets.dtcwt.data', basename + '.npz') as f:
+        data_path = files('pytorch_wavelets.dtcwt.data').joinpath(f'{basename}.npz')
+        with data_path.open('rb') as f:
             mat = dict(load(f))
         COEFF_CACHE[basename] = mat
+
 
     try:
         return tuple(mat[k] for k in varnames)
