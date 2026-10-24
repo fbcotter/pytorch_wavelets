@@ -25,6 +25,19 @@ def roll(x, n, dim, make_even=False):
         return torch.cat((x[:,:,:,-n:], x[:,:,:,:-n+end]), dim=3)
 
 
+def _fold(x, n, d):
+    """ Sums the entries of x along dimension d (2 or 3) that are congruent
+    modulo n, giving a tensor of length n along d. Unlike a single wrap-around
+    add, this is also correct when x spans more than two periods, i.e. when
+    the signal is shorter than the filter.
+    """
+    k = -(-x.shape[d] // n)
+    padding = [0, 0, 0, 0]
+    padding[2 * (3 - d) + 1] = k * n - x.shape[d]
+    x = F.pad(x, padding)
+    return sum(x.narrow(d, i * n, n) for i in range(k))
+
+
 def mypad(x, pad, mode='constant', value=0):
     """ Function to do numpy like padding on tensors. Only works for 2-D
     padding.
@@ -141,13 +154,7 @@ def afb1d(x, h0, h1, mode='zero', dim=-1):
         x = roll(x, -L2, dim=d)
         pad = (L-1, 0) if d == 2 else (0, L-1)
         lohi = F.conv2d(x, h, padding=pad, stride=s, groups=C)
-        N2 = N//2
-        if d == 2:
-            lohi[:,:,:L2] = lohi[:,:,:L2] + lohi[:,:,N2:N2+L2]
-            lohi = lohi[:,:,:N2]
-        else:
-            lohi[:,:,:,:L2] = lohi[:,:,:,:L2] + lohi[:,:,:,N2:N2+L2]
-            lohi = lohi[:,:,:,:N2]
+        lohi = _fold(lohi, N//2, d)
     else:
         # Calculate the pad size
         outsize = pywt.dwt_coeff_len(N, L, mode=mode)
@@ -252,12 +259,7 @@ def sfb1d(lo, hi, g0, g1, mode='zero', dim=-1):
     if mode == 'per' or mode == 'periodization':
         y = F.conv_transpose2d(lo, g0, stride=s, groups=C) + \
             F.conv_transpose2d(hi, g1, stride=s, groups=C)
-        if d == 2:
-            y[:,:,:L-2] = y[:,:,:L-2] + y[:,:,N:N+L-2]
-            y = y[:,:,:N]
-        else:
-            y[:,:,:,:L-2] = y[:,:,:,:L-2] + y[:,:,:,N:N+L-2]
-            y = y[:,:,:,:N]
+        y = _fold(y, N, d)
         y = roll(y, 1-L//2, dim=dim)
     else:
         if mode == 'zero' or mode == 'symmetric' or mode == 'reflect' or \
