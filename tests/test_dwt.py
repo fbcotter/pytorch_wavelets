@@ -297,3 +297,21 @@ def test_gradients_inv(wave, J, mode):
         np.testing.assert_array_almost_equal(yh[j].grad.detach().cpu(),
                                              dyh[j].cpu(),
                                              decimal=PREC_FLT)
+
+
+@pytest.mark.parametrize("wave, size", [
+    ('db3', 4), ('db3', 2), ('db4', 6), ('db4', 4), ('bior3.5', 4)])
+def test_periodization_signal_shorter_than_filter(wave, size):
+    mode = 'periodization'
+    x = torch.randn(2, 3, size, size + 2).to(dev)
+    yl, yh = DWTForward(J=1, wave=wave, mode=mode).to(dev)(x)
+    x2 = DWTInverse(wave=wave, mode=mode).to(dev)((yl, yh))
+
+    coeffs = pywt.wavedec2(x.cpu().numpy(), wave, level=1, axes=(-2, -1),
+                           mode=mode)
+    np.testing.assert_array_almost_equal(yl.cpu(), coeffs[0], decimal=PREC_FLT)
+    for b in range(3):
+        np.testing.assert_array_almost_equal(
+            coeffs[1][b], yh[0][:, :, b].cpu(), decimal=PREC_FLT)
+    np.testing.assert_array_almost_equal(x.cpu(), x2.detach().cpu(),
+                                         decimal=PREC_FLT)
